@@ -1,0 +1,26 @@
+{
+  "name": "supacrawl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sitemap-based website monitoring tool with DDoS-safe crawling",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel --filter=./packages/* dev",
+    "dev:server": "pnpm --filter @supacrawl/server dev",
+    "dev:dashboard": "pnpm --filter @supacrawl/dashboard dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r exec Remove-Item -Recurse -Force dist, node_modules, .turbo -ErrorAction SilentlyContinue; pnpm install"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2"
+  }
+}

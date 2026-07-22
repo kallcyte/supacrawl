@@ -1,0 +1,60 @@
+{
+  "sitemaps": ["https://example.com/sitemap.xml"],
+  "crawl": {
+    "delayMs": 2000,
+    "maxConcurrency": 2,
+    "timeoutMs": 30000,
+    "userAgent": "supacrawl/0.1 (+https://github.com/yourname/supacrawl)",
+    "respectRobotsTxt": true,
+    "maxUrls": 10000,
+    "retryOnTransientError": true,
+    "maxRetries": 2
+  },
+  "checks": {
+    "ssl": {
+      "enabled": true,
+      "warnDays": 30
+    },
+    "contentDiff": true,
+    "responseTime": {
+      "warnMs": 3000
+    }
+  },
+  "notifications": {
+    "providers": {
+      "slack": {
+        "enabled": false,
+        "webhookUrl": ""
+      },
+      "telegram": {
+        "enabled": false,
+        "botToken": "",
+        "chatId": ""
+      },
+      "email": {
+        "enabled": false,
+        "smtp": {
+          "host": "",
+          "port": 587,
+          "secure": false,
+          "user": "",
+          "pass": ""
+        },
+        "from": "",
+        "to": []
+      },
+      "webhook": {
+        "enabled": false,
+        "url": "",
+        "secret": ""
+      }
+    },
+    "events": {
+      "onCrawlFailure": true,
+      "onContentChange": true,
+      "onSslExpiring": true,
+      "onCrawlComplete": false
+    }
+  },
+  "schedule": "0 */6 * * *"
+}

@@ -1,0 +1,60 @@
+{
+  "sitemaps": [
+    {
+      "url": "https://ycp.com/links.xml",
+      "enabled": false
+    },
+    {
+      "url": "https://ycp.com/links-isd-en.xml",
+      "enabled": false
+    },
+    {
+      "url": "https://ycp.com/links-sm-en.xml",
+      "enabled": true
+    }
+  ],
+  "crawl": {
+    "delayMs": 2000,
+    "maxConcurrency": 2,
+    "timeoutMs": 30000,
+    "userAgent": "supacrawl/0.1",
+    "respectRobotsTxt": true,
+    "maxUrls": 10000,
+    "retryOnTransientError": true,
+    "maxRetries": 2
+  },
+  "checks": {
+    "ssl": {
+      "enabled": true,
+      "warnDays": 30
+    },
+    "contentDiff": true,
+    "responseTime": {
+      "warnMs": 3000
+    }
+  },
+  "notifications": {
+    "providers": {
+      "slack": {
+        "enabled": false
+      },
+      "telegram": {
+        "enabled": false
+      },
+      "email": {
+        "enabled": false,
+        "smtp": {},
+        "to": []
+      },
+      "webhook": {
+        "enabled": false
+      }
+    },
+    "events": {
+      "onCrawlFailure": true,
+      "onContentChange": true,
+      "onSslExpiring": true,
+      "onCrawlComplete": false
+    }
+  }
+}
