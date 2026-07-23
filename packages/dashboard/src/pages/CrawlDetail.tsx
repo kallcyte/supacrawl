@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table"
 import StatusDistribution from "@/components/charts/StatusDistribution"
 import LiveProgress from "@/components/LiveProgress"
-import { ArrowLeft, AlertTriangle, RefreshCw } from "lucide-react"
+import { ArrowLeft, AlertTriangle, RefreshCw, Square, Loader2 } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 
 type Filter = "all" | "broken" | "changed"
@@ -28,6 +28,20 @@ export default function CrawlDetailPage() {
   const [filter, setFilter] = useState<Filter>("all")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [stopping, setStopping] = useState(false)
+
+  async function handleStop() {
+    if (!crawl?.jobId) return
+    setStopping(true)
+    try {
+      await api.stopCrawlJob(crawl.jobId)
+      await load()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setStopping(false)
+    }
+  }
 
   async function load() {
     if (!id) return
@@ -102,9 +116,21 @@ export default function CrawlDetailPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={load}>
-          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {crawl.status === "running" && crawl.jobId && (
+            <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping} className="text-destructive">
+              {stopping ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Square className="mr-1 h-3.5 w-3.5" />
+              )}
+              Stop
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={load}>
+            <RefreshCw className="mr-1 h-3.5 w-3.5" /> Refresh
+          </Button>
+        </div>
       </div>
 
       {error && (

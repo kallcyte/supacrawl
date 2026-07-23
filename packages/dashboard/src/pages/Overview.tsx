@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { api, type OverviewStats, type TimelinePoint, type DurationPoint } from "@/lib/api"
+import { api, type CrawlRecord, type OverviewStats, type TimelinePoint, type DurationPoint } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -39,19 +39,22 @@ export default function OverviewPage() {
   const [overview, setOverview] = useState<OverviewStats | null>(null)
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [duration, setDuration] = useState<DurationPoint[]>([])
+  const [activeCrawl, setActiveCrawl] = useState<CrawlRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
     try {
-      const [ov, tl, du] = await Promise.all([
+      const [ov, tl, du, ac] = await Promise.all([
         api.getOverview(),
         api.getTimeline(),
-        api.getDurationTrend()
+        api.getDurationTrend(),
+        api.getActiveCrawls()
       ])
       setOverview(ov)
       setTimeline(tl.timeline)
       setDuration(du.trend)
+      setActiveCrawl(ac.crawls[0] ?? null)
       setError(null)
     } catch (err) {
       setError((err as Error).message)
@@ -62,7 +65,7 @@ export default function OverviewPage() {
 
   useEffect(() => {
     load()
-    const i = setInterval(load, 15000)
+    const i = setInterval(load, 4000)
     return () => clearInterval(i)
   }, [])
 
@@ -133,7 +136,7 @@ export default function OverviewPage() {
         />
       </div>
 
-      <LiveProgress />
+      <LiveProgress crawl={activeCrawl ?? undefined} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

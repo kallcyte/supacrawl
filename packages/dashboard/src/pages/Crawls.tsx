@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { api, type CrawlRecord } from "@/lib/api"
+import { api, type CrawlJob, type CrawlRecord } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,23 +13,33 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { formatDate, formatDuration } from "@/lib/utils"
-import { Play, Trash2, Loader2 } from "lucide-react"
+import { formatDate } from "@/lib/utils"
+import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
+import AddCrawlJobDialog from "@/components/AddCrawlJobDialog"
 
 export default function CrawlsPage() {
   const navigate = useNavigate()
-  const [crawls, setCrawls] = useState<CrawlRecord[]>([])
+  const [jobs, setJobs] = useState<CrawlJob[]>([])
+  const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  useCrawlNotifications(crawls)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<CrawlJob | null>(null)
+  const [starting, setStarting] = useState<string | null>(null)
+  const [stopping, setStopping] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [expandedJob, setExpandedJob] = useState<string | null>(null)
+  const [jobHistory, setJobHistory] = useState<Record<string, CrawlRecord[]>>({})
+
+  const allCrawls = Object.values(jobHistory).flat()
+  useCrawlNotifications(allCrawls)
 
   async function load() {
     try {
-      const r = await api.listCrawls(100, 0)
-      setCrawls(r.crawls)
+      const r = await api.listCrawlJobs()
+      setJobs(r.jobs)
+      setRunningJobs(new Set(r.running))
       setError(null)
     } catch (err) {
       setError((err as Error).message)
@@ -38,22 +48,46 @@ export default function CrawlsPage() {
     }
   }
 
-  async function startCrawl() {
-    setStarting(true)
+  async function handleCreate(data: Partial<CrawlJob>) {
+    await api.createCrawlJob(data)
+    await load()
+  }
+
+  async function handleUpdate(data: Partial<CrawlJob>) {
+    if (!editing) return
+    await api.updateCrawlJob(editing.id, data)
+    setEditing(null)
+    await load()
+  }
+
+  async function handleStart(id: string) {
+    setStarting(id)
     try {
-      const { crawlId } = await api.startCrawl()
+      const { crawlId } = await api.startCrawlJob(id)
       navigate(`/crawls/${crawlId}`)
     } catch (err) {
       setError((err as Error).message)
-      setStarting(false)
+      setStarting(null)
+    }
+  }
+
+  async function handleStop(id: string) {
+    setStopping(id)
+    try {
+      await api.stopCrawlJob(id)
+      await load()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setStopping(null)
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this crawl and all its results?")) return
+    if (!confirm("Delete this crawl job?")) return
     setDeleting(id)
     try {
-      await api.deleteCrawl(id)
+      await api.deleteCrawlJob(id)
       await load()
     } catch (err) {
       setError((err as Error).message)
@@ -62,9 +96,36 @@ export default function CrawlsPage() {
     }
   }
 
+  async function navigateToLatestCrawl(jobId: string) {
+    try {
+      const r = await api.getCrawlJobHistory(jobId)
+      if (r.crawls.length > 0) {
+        navigate(`/crawls/${r.crawls[0].id}`)
+      }
+    } catch {
+      // silently fail
+    }
+  }
+
+  async function toggleHistory(jobId: string) {
+    if (expandedJob === jobId) {
+      setExpandedJob(null)
+      return
+    }
+    setExpandedJob(jobId)
+    if (!jobHistory[jobId]) {
+      try {
+        const r = await api.getCrawlJobHistory(jobId)
+        setJobHistory((prev) => ({ ...prev, [jobId]: r.crawls }))
+      } catch {
+        // silently fail
+      }
+    }
+  }
+
   useEffect(() => {
     load()
-    const i = setInterval(load, 5000)
+    const i = setInterval(load, 10000)
     return () => clearInterval(i)
   }, [])
 
@@ -72,12 +133,14 @@ export default function CrawlsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Crawls</h1>
-          <p className="text-sm text-muted-foreground">All crawl runs and their results</p>
+          <h1 className="text-2xl font-bold tracking-tight">Crawl Jobs</h1>
+          <p className="text-sm text-muted-foreground">
+            Scheduled crawl jobs that monitor your sitemaps
+          </p>
         </div>
-        <Button onClick={startCrawl} disabled={starting}>
-          <Play className="mr-1 h-3.5 w-3.5" />
-          {starting ? "Starting..." : "Start crawl"}
+        <Button onClick={() => { setEditing(null); setDialogOpen(true) }}>
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Add Crawl Job
         </Button>
       </div>
 
@@ -89,101 +152,192 @@ export default function CrawlsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent runs</CardTitle>
-          <CardDescription>{crawls.length} crawl(s) recorded</CardDescription>
+          <CardTitle>Jobs</CardTitle>
+          <CardDescription>{jobs.length} job(s) configured</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : crawls.length === 0 ? (
+          ) : jobs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No crawls yet. Click "Start crawl" to run one.
+              No crawl jobs yet. Click &ldquo;Add Crawl Job&rdquo; to create one.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Checked</TableHead>
-                  <TableHead className="text-right">Broken</TableHead>
-                  <TableHead className="text-right">Changed</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {crawls.map((c) => {
-                  const duration =
-                    c.finishedAt && c.startedAt
-                      ? Date.parse(c.finishedAt) - Date.parse(c.startedAt)
-                      : null
-                  return (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-mono text-xs">
-                        {formatDate(c.startedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            c.status === "completed"
-                              ? "success"
-                              : c.status === "failed"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                        >
-                          {c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{c.urlsTotal}</TableCell>
-                      <TableCell className="text-right">{c.urlsChecked}</TableCell>
-                      <TableCell className="text-right">
-                        {c.urlsBroken > 0 ? (
-                          <span className="font-semibold text-destructive">
-                            {c.urlsBroken}
-                          </span>
-                        ) : (
-                          c.urlsBroken
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">{c.urlsChanged}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatDuration(duration)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button asChild variant="ghost" size="sm">
-                            <Link to={`/crawls/${c.id}`}>Open</Link>
-                          </Button>
+            <div className="space-y-3">
+              {jobs.map((job) => {
+                const isRunning = runningJobs.has(job.id)
+                return (
+                  <div key={job.id} className="rounded-lg border p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{job.name}</span>
+                          <Badge variant={job.enabled ? "default" : "secondary"}>
+                            {job.enabled ? "Enabled" : "Disabled"}
+                          </Badge>
+                          {isRunning && (
+                            <Badge variant="secondary" className="animate-pulse">
+                              Running
+                            </Badge>
+                          )}
+                          {!isRunning && job.lastRunStatus && (
+                            <Badge
+                              variant={
+                                job.lastRunStatus === "completed"
+                                  ? "success"
+                                  : job.lastRunStatus === "failed"
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                            >
+                              {job.lastRunStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {job.sitemapUrl} &middot; Every {job.intervalValue} {job.intervalUnit}
+                          {job.lastRunAt && (
+                            <> &middot; Last run {formatDate(job.lastRunAt)}</>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {isRunning ? (
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(c.id)}
-                            disabled={deleting === c.id}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStop(job.id)}
+                            disabled={stopping === job.id}
+                            className="text-destructive"
                           >
-                            {deleting === c.id ? (
+                            {stopping === job.id ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Square className="h-3.5 w-3.5" />
                             )}
                           </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStart(job.id)}
+                            disabled={starting === job.id}
+                          >
+                            {starting === job.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Play className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigateToLatestCrawl(job.id)}
+                          title="Open latest crawl detail"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setEditing(job); setDialogOpen(true) }}
+                          disabled={isRunning}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(job.id)}
+                          disabled={deleting === job.id || isRunning}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          {deleting === job.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleHistory(job.id)}
+                        >
+                          <History className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {expandedJob === job.id && (
+                      <div className="mt-3 border-t pt-3">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">Run History</p>
+                        {jobHistory[job.id]?.length ? (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Started</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Checked</TableHead>
+                                <TableHead className="text-right">Broken</TableHead>
+                                <TableHead></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {jobHistory[job.id].map((c) => (
+                                <TableRow key={c.id}>
+                                  <TableCell className="font-mono text-xs">
+                                    {formatDate(c.startedAt)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        c.status === "completed"
+                                          ? "success"
+                                          : c.status === "failed"
+                                            ? "destructive"
+                                            : "secondary"
+                                      }
+                                    >
+                                      {c.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">{c.urlsChecked}</TableCell>
+                                  <TableCell className="text-right text-destructive">
+                                    {c.urlsBroken || "-"}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button asChild variant="ghost" size="sm">
+                                      <Link to={`/crawls/${c.id}`}>View</Link>
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No runs yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
+
+      <AddCrawlJobDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSubmit={editing ? handleUpdate : handleCreate}
+        initial={editing}
+      />
     </div>
   )
 }

@@ -17,6 +17,14 @@ export async function crawlsRoutes(app: FastifyInstance, deps: RouteDeps): Promi
     return { crawls, total: deps.storage.listCrawls(10000).length }
   })
 
+  app.get("/api/crawls/active", async (req, reply) => {
+    const session = await requireAuth(req, reply, deps.auth)
+    if (!session) return
+    const active = deps.crawlManager.listActive()
+    const crawls = active.map((id) => deps.storage.getCrawl(id)).filter(Boolean)
+    return { crawls }
+  })
+
   app.get("/api/crawls/:id", async (req, reply) => {
     const session = await requireAuth(req, reply, deps.auth)
     if (!session) return

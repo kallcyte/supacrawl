@@ -1,5 +1,6 @@
 export interface CrawlRecord {
   id: string
+  jobId: string | null
   startedAt: string
   finishedAt: string | null
   status: "pending" | "running" | "completed" | "failed"
@@ -56,6 +57,29 @@ export interface DurationPoint {
   id: string
   startedAt: string
   durationMs: number
+}
+
+export interface CrawlJob {
+  id: string
+  name: string
+  sitemapUrl: string
+  sitemapUrls: string[] | null
+  enabled: boolean
+  intervalValue: number
+  intervalUnit: "minutes" | "hours" | "days"
+  notifyOnComplete: boolean
+  notifyOnFailure: boolean
+  notifyOnChange: boolean
+  delayMs: number
+  maxConcurrency: number
+  timeoutMs: number
+  userAgent: string
+  respectRobotsTxt: boolean
+  maxUrls: number
+  createdAt: string
+  updatedAt: string
+  lastRunAt: string | null
+  lastRunStatus: string | null
 }
 
 export interface SitemapTreeNode {
@@ -177,29 +201,33 @@ export const api = {
       body: JSON.stringify({ allowRegistration })
     }),
 
-  addSitemap: (url: string) =>
-    request<{ sitemaps: { url: string; enabled: boolean }[] }>("/api/settings/sitemaps", {
-      method: "POST",
-      body: JSON.stringify({ url })
-    }),
+  listCrawlJobs: () => request<{ jobs: CrawlJob[]; running: string[] }>("/api/crawl-jobs"),
 
-  removeSitemap: (url: string) =>
-    request<{ sitemaps: { url: string; enabled: boolean }[] }>("/api/settings/sitemaps", {
-      method: "DELETE",
-      body: JSON.stringify({ url })
-    }),
+  getCrawlJob: (id: string) => request<CrawlJob>(`/api/crawl-jobs/${id}`),
 
-  toggleSitemap: (url: string) =>
-    request<{ sitemaps: { url: string; enabled: boolean }[] }>(
-      `/api/settings/sitemaps/${encodeURIComponent(url)}/toggle`,
-      { method: "PATCH" }
-    ),
+  createCrawlJob: (body: Partial<CrawlJob>) =>
+    request<CrawlJob>("/api/crawl-jobs", { method: "POST", body: JSON.stringify(body) }),
+
+  updateCrawlJob: (id: string, body: Partial<CrawlJob>) =>
+    request<CrawlJob>(`/api/crawl-jobs/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  deleteCrawlJob: (id: string) =>
+    request<{ ok: boolean }>(`/api/crawl-jobs/${id}`, { method: "DELETE" }),
+
+  startCrawlJob: (id: string) =>
+    request<{ crawlId: string; startedAt: string }>(`/api/crawl-jobs/${id}/start`, { method: "POST" }),
+
+  stopCrawlJob: (id: string) =>
+    request<{ ok: boolean }>(`/api/crawl-jobs/${id}/stop`, { method: "POST" }),
+
+  getCrawlJobHistory: (id: string) =>
+    request<{ crawls: CrawlRecord[] }>(`/api/crawl-jobs/${id}/history`),
+
+  getActiveCrawls: () =>
+    request<{ crawls: CrawlRecord[] }>("/api/crawls/active"),
 
   discoverSitemapTree: (url: string) =>
-    request<{ url: string; leafCount: number; children: SitemapTreeNode[] }>(
-      "/api/settings/sitemaps/discover",
-      { method: "POST", body: JSON.stringify({ url }) }
-    )
+    request<SitemapTreeNode>("/api/crawl-jobs/discover", { method: "POST", body: JSON.stringify({ url }) })
 }
 
 export { ApiError }

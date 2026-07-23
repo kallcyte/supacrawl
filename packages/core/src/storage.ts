@@ -3,6 +3,7 @@ import { dirname } from "node:path"
 import BetterSqlite3 from "better-sqlite3"
 type SqliteDb = InstanceType<typeof BetterSqlite3>
 import type {
+  CrawlJob,
   CrawlRecord,
   CrawlResultRecord,
   UrlStateRecord
@@ -21,6 +22,11 @@ export class Storage {
     this.migrate()
   }
 
+  private hasColumn(table: string, column: string): boolean {
+    const row = this.db.prepare(`SELECT COUNT(*) AS cnt FROM pragma_table_info(?) WHERE name = ?`).get(table, column) as { cnt: number }
+    return row.cnt > 0
+  }
+
   private migrate(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS crawls (
@@ -33,7 +39,8 @@ export class Storage {
         urls_changed INTEGER DEFAULT 0,
         urls_broken INTEGER DEFAULT 0,
         urls_skipped INTEGER DEFAULT 0,
-        error_message TEXT
+        error_message TEXT,
+        job_id TEXT REFERENCES crawl_jobs(id)
       );
 
       CREATE TABLE IF NOT EXISTS crawl_results (
@@ -56,6 +63,28 @@ export class Storage {
       CREATE INDEX IF NOT EXISTS idx_results_url ON crawl_results(url);
       CREATE INDEX IF NOT EXISTS idx_results_status ON crawl_results(status_code);
 
+      CREATE TABLE IF NOT EXISTS crawl_jobs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sitemap_url TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        interval_value INTEGER NOT NULL,
+        interval_unit TEXT NOT NULL DEFAULT 'minutes',
+        notify_on_complete INTEGER DEFAULT 0,
+        notify_on_failure INTEGER DEFAULT 1,
+        notify_on_change INTEGER DEFAULT 1,
+        delay_ms INTEGER NOT NULL,
+        max_concurrency INTEGER NOT NULL,
+        timeout_ms INTEGER NOT NULL,
+        user_agent TEXT NOT NULL,
+        respect_robots_txt INTEGER DEFAULT 1,
+        max_urls INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_run_at TEXT,
+        last_run_status TEXT
+      );
+
       CREATE TABLE IF NOT EXISTS url_state (
         url TEXT PRIMARY KEY,
         last_status_code INTEGER,
@@ -71,6 +100,13 @@ export class Storage {
         value TEXT NOT NULL
       );
     `)
+
+    if (!this.hasColumn("crawls", "job_id")) {
+      this.db.exec(`ALTER TABLE crawls ADD COLUMN job_id TEXT REFERENCES crawl_jobs(id)`)
+    }
+    if (!this.hasColumn("crawl_jobs", "sitemap_urls")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN sitemap_urls TEXT`)
+    }
   }
 
   close(): void {
@@ -78,13 +114,13 @@ export class Storage {
   }
 
   // Crawls
-  createCrawl(record: CrawlRecord): void {
+  createCrawl(record: CrawlRecord, jobId?: string): void {
     this.db
       .prepare(
-        `INSERT INTO crawls (id, started_at, status, urls_total)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO crawls (id, started_at, status, urls_total, job_id)
+         VALUES (?, ?, ?, ?, ?)`
       )
-      .run(record.id, record.startedAt, record.status, record.urlsTotal)
+      .run(record.id, record.startedAt, record.status, record.urlsTotal, jobId ?? null)
   }
 
   updateCrawl(
@@ -307,6 +343,69 @@ export class Storage {
       .run(key, value)
   }
 
+  // Crawl Jobs
+  listCrawlJobs(): CrawlJob[] {
+    const rows = this.db.prepare(`SELECT * FROM crawl_jobs ORDER BY created_at DESC`).all() as Record<string, unknown>[]
+    return rows.map(mapCrawlJob)
+  }
+
+  getCrawlJob(id: string): CrawlJob | null {
+    const row = this.db.prepare(`SELECT * FROM crawl_jobs WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+    return row ? mapCrawlJob(row) : null
+  }
+
+  createCrawlJob(job: CrawlJob): void {
+    this.db
+      .prepare(
+        `INSERT INTO crawl_jobs
+         (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
+          notify_on_complete, notify_on_failure, notify_on_change,
+          delay_ms, max_concurrency, timeout_ms, user_agent,
+          respect_robots_txt, max_urls, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        job.id, job.name, job.sitemapUrl,
+        job.sitemapUrls ? JSON.stringify(job.sitemapUrls) : null,
+        job.enabled ? 1 : 0,
+        job.intervalValue, job.intervalUnit,
+        job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
+        job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
+        job.respectRobotsTxt ? 1 : 0, job.maxUrls,
+        job.createdAt, job.updatedAt
+      )
+  }
+
+  updateCrawlJob(id: string, patch: Partial<CrawlJob>): void {
+    const fields: string[] = []
+    const values: unknown[] = []
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue
+      const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
+      fields.push(`${col} = ?`)
+      if (Array.isArray(value)) {
+        values.push(JSON.stringify(value))
+      } else if (typeof value === "boolean") {
+        values.push(value ? 1 : 0)
+      } else {
+        values.push(value)
+      }
+    }
+    values.push(id)
+    this.db.prepare(`UPDATE crawl_jobs SET ${fields.join(", ")} WHERE id = ?`).run(...values)
+  }
+
+  deleteCrawlJob(id: string): void {
+    this.db.prepare(`DELETE FROM crawl_jobs WHERE id = ?`).run(id)
+  }
+
+  getCrawlsForJob(jobId: string, limit = 50): CrawlRecord[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM crawls WHERE job_id = ? ORDER BY started_at DESC LIMIT ?`)
+      .all(jobId, limit) as Record<string, unknown>[]
+    return rows.map(mapCrawl)
+  }
+
   // Stats
   getOverviewStats(): {
     totalUrls: number
@@ -395,11 +494,53 @@ export class Storage {
       .all(crawlId) as { bucket: string; c: number }[]
     return rows.map((r) => ({ status: r.bucket, count: r.c }))
   }
+
+  cleanupStaleCrawls(): void {
+    const now = new Date().toISOString()
+    this.db
+      .prepare(
+        `UPDATE crawls SET status = 'failed', finished_at = ?, error_message = ? WHERE status = 'running'`
+      )
+      .run(now, "Server was restarted")
+  }
+}
+
+function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
+  let sitemapUrls: string[] | null = null
+  if (typeof row.sitemap_urls === "string") {
+    try {
+      const parsed = JSON.parse(row.sitemap_urls)
+      if (Array.isArray(parsed)) sitemapUrls = parsed
+    } catch { /* ignore */ }
+  }
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    sitemapUrl: row.sitemap_url as string,
+    sitemapUrls,
+    enabled: row.enabled === 1,
+    intervalValue: row.interval_value as number,
+    intervalUnit: row.interval_unit as CrawlJob["intervalUnit"],
+    notifyOnComplete: row.notify_on_complete === 1,
+    notifyOnFailure: row.notify_on_failure === 1,
+    notifyOnChange: row.notify_on_change === 1,
+    delayMs: row.delay_ms as number,
+    maxConcurrency: row.max_concurrency as number,
+    timeoutMs: row.timeout_ms as number,
+    userAgent: row.user_agent as string,
+    respectRobotsTxt: row.respect_robots_txt === 1,
+    maxUrls: row.max_urls as number,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    lastRunAt: (row.last_run_at as string | null) ?? null,
+    lastRunStatus: (row.last_run_status as CrawlJob["lastRunStatus"]) ?? null
+  }
 }
 
 function mapCrawl(row: Record<string, unknown>): CrawlRecord {
   return {
     id: row.id as string,
+    jobId: (row.job_id as string | null) ?? null,
     startedAt: row.started_at as string,
     finishedAt: (row.finished_at as string | null) ?? null,
     status: row.status as CrawlRecord["status"],

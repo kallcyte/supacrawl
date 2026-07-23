@@ -39,6 +39,8 @@ export interface AppContext {
 export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   const config = loadConfigFromFile(opts.configPath)
   const storage = new Storage({ path: opts.dbPath })
+  // Mark any stale running crawls from a previous session as failed
+  storage.cleanupStaleCrawls()
   const notifier = new Notifier(config.notifications)
   const trustedOrigins = process.env.BETTER_AUTH_TRUSTED_ORIGINS
     ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map(s => s.trim())

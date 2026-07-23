@@ -9,6 +9,8 @@ export interface OrchestratorOptions {
   storage: Storage
   notifier: Notifier
   crawlId?: string
+  sitemaps?: string[]
+  jobId?: string
   onProgress?: (progress: import("./types.js").CrawlProgress) => void
   onResult?: (result: CheckResult) => void
   fetchImpl?: typeof fetch
@@ -22,6 +24,7 @@ export async function runCrawlWithPersistence(
   const startedAt = new Date().toISOString()
   const initialRecord: CrawlRecord = {
     id: crawlId,
+    jobId: opts.jobId ?? null,
     startedAt,
     finishedAt: null,
     status: "running",
@@ -32,7 +35,7 @@ export async function runCrawlWithPersistence(
     urlsSkipped: 0,
     errorMessage: null
   }
-  opts.storage.createCrawl(initialRecord)
+  opts.storage.createCrawl(initialRecord, opts.jobId)
 
   const knownHashes = new Map<string, string>()
   for (const s of opts.storage.getAllUrlStates()) {
@@ -46,7 +49,7 @@ export async function runCrawlWithPersistence(
       if (s.lastContentHash) knownHashesByUrl.set(s.url, s.lastContentHash)
     }
 
-    const enabledSitemaps = opts.config.sitemaps
+    const enabledSitemaps = opts.sitemaps ?? opts.config.sitemaps
       .filter((s) => s.enabled)
       .map((s) => s.url)
 

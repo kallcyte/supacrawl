@@ -4,6 +4,7 @@ import { SetupService } from "../setup.js"
 import type { Storage, Notifier, Config } from "@supacrawl/core"
 import type { CrawlManager } from "../crawl-manager.js"
 import { crawlsRoutes } from "./crawls.js"
+import { crawlJobsRoutes } from "./crawl-jobs.js"
 import { resultsRoutes } from "./results.js"
 import { urlsRoutes } from "./urls.js"
 import { statsRoutes } from "./stats.js"
@@ -29,6 +30,7 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
 
   await deps.app.register(async (instance) => {
     await crawlsRoutes(instance, deps)
+    await crawlJobsRoutes(instance, deps)
     await resultsRoutes(instance, deps)
     await urlsRoutes(instance, deps)
     await statsRoutes(instance, deps)

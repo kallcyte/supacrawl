@@ -111,6 +111,7 @@ export interface SitemapResult {
 
 export interface CrawlRecord {
   id: string
+  jobId: string | null
   startedAt: string
   finishedAt: string | null
   status: CrawlStatus
@@ -174,6 +175,50 @@ export interface CrawlProgress {
   status: CrawlStatus
   startedAt: string
   finishedAt?: string
+}
+
+export const IntervalUnitSchema = z.enum(["minutes", "hours", "days"])
+export type IntervalUnit = z.infer<typeof IntervalUnitSchema>
+
+export const CrawlJobSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  sitemapUrl: z.string().url("Valid sitemap URL is required"),
+  sitemapUrls: z.array(z.string().url()).nullable().optional(),
+  enabled: z.boolean().default(true),
+  intervalValue: z.number().int().positive().default(60),
+  intervalUnit: IntervalUnitSchema.default("minutes"),
+  notifyOnComplete: z.boolean().default(false),
+  notifyOnFailure: z.boolean().default(true),
+  notifyOnChange: z.boolean().default(true),
+  delayMs: z.number().int().nonnegative().default(2000),
+  maxConcurrency: z.number().int().positive().default(2),
+  timeoutMs: z.number().int().positive().default(30000),
+  userAgent: z.string().min(1).default("supacrawl/0.1"),
+  respectRobotsTxt: z.boolean().default(true),
+  maxUrls: z.number().int().positive().default(10000)
+})
+
+export interface CrawlJob {
+  id: string
+  name: string
+  sitemapUrl: string
+  sitemapUrls: string[] | null
+  enabled: boolean
+  intervalValue: number
+  intervalUnit: IntervalUnit
+  notifyOnComplete: boolean
+  notifyOnFailure: boolean
+  notifyOnChange: boolean
+  delayMs: number
+  maxConcurrency: number
+  timeoutMs: number
+  userAgent: string
+  respectRobotsTxt: boolean
+  maxUrls: number
+  createdAt: string
+  updatedAt: string
+  lastRunAt: string | null
+  lastRunStatus: CrawlStatus | null
 }
 
 export interface CheckResult {
