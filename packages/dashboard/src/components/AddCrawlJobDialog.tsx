@@ -49,6 +49,24 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
     }
   }, [open, initial])
 
+  useEffect(() => {
+    if (!open || !initial?.sitemapUrl) return
+    ;(async () => {
+      setDiscovering(true)
+      try {
+        const t = await api.discoverSitemapTree(initial.sitemapUrl)
+        setTree(t)
+        if (t.children.length > 0 && initial.sitemapUrls) {
+          setSelectedUrls(new Set(initial.sitemapUrls))
+        }
+      } catch {
+        // silent — tree stays null, user can click Discover
+      } finally {
+        setDiscovering(false)
+      }
+    })()
+  }, [open, initial?.sitemapUrl])
+
   async function handleDiscover() {
     if (!sitemapUrl) return
     setDiscovering(true)
@@ -187,7 +205,9 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                 <p className="mb-2 text-xs font-medium text-muted-foreground">
                   Child sitemaps ({selectedUrls.size} / {tree.children.length} selected)
                 </p>
-                {renderTree(tree)}
+                <div className="max-h-48 space-y-1 overflow-y-auto">
+                  {renderTree(tree)}
+                </div>
               </div>
             )}
 
