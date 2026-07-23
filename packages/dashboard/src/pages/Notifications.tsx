@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
+import { Info } from "lucide-react"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import NotificationTutorial from "@/components/NotificationTutorial"
 
 interface NotifiersInfo {
   enabled: string[]
@@ -40,6 +42,7 @@ export default function NotificationsPage() {
   const [info, setInfo] = useState<NotifiersInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; error?: string } | null>>({})
+  const [tutorialProvider, setTutorialProvider] = useState<string | null>(null)
 
   async function load() {
     try {
@@ -113,7 +116,18 @@ export default function NotificationsPage() {
             <Card key={name}>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>{label}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle>{label}</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-muted-foreground hover:text-foreground"
+                      onClick={() => setTutorialProvider(name)}
+                      title={`How to set up ${label}`}
+                    >
+                      <Info className="size-4" />
+                    </Button>
+                  </div>
                   <Badge variant={provider.enabled ? "success" : "outline"}>
                     {provider.enabled ? "enabled" : "disabled"}
                   </Badge>
@@ -151,6 +165,14 @@ export default function NotificationsPage() {
         To change provider credentials, edit <code>supacrawl.config.json</code> and restart the
         server.
       </p>
+
+      {tutorialProvider && (
+        <NotificationTutorial
+          provider={tutorialProvider}
+          open={!!tutorialProvider}
+          onOpenChange={(open) => { if (!open) setTutorialProvider(null) }}
+        />
+      )}
     </div>
   )
 }

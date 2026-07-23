@@ -2,11 +2,11 @@ import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { signIn } from "@/lib/auth-client"
 import { api } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Activity, Loader2 } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import AuthLayout from "@/components/AuthLayout"
+import { Loader2, Mail, Lock } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -48,52 +48,38 @@ export default function LoginPage() {
     }
   }
 
-  if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    )
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>supacrawl</CardTitle>
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue monitoring your sites." checking={checking}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required autoComplete="email" className="pl-8" />
           </div>
-          <CardDescription>Sign in to access the dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              <Link to="/forgot-password" className="text-primary underline-offset-4 hover:underline">Forgot password?</Link>
-            </p>
-          </form>
-          {registrationOpen && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              No account?{" "}
-              <Link to="/register" className="text-primary underline-offset-4 hover:underline">
-                Create one
-              </Link>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link to="/forgot-password" className="text-[13px] text-primary no-underline hover:underline">Reset password</Link>
+          </div>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required autoComplete="current-password" className="pl-8" />
+          </div>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          Sign in to supacrawl
+        </Button>
+        {registrationOpen && (
+          <p className="mt-1 text-center text-[13px] text-muted-foreground">
+            No account?{" "}
+            <Link to="/register" className="font-semibold text-primary no-underline hover:underline">Create one</Link>
+          </p>
+        )}
+      </form>
+    </AuthLayout>
   )
 }

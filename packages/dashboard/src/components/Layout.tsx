@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom"
 import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
@@ -11,9 +11,11 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  Moon,
   PanelRightClose,
   PanelRightOpen,
   Settings,
+  Sun,
   Users,
   Bell
 } from "lucide-react"
@@ -39,6 +41,23 @@ export default function Layout({ onSignOut }: LayoutProps) {
   const role = (data?.user as { role?: string } | undefined)?.role
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [dark, setDark] = useState(() => {
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("theme")
+      if (stored) return stored === "dark"
+    }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (dark) {
+      root.classList.add("dark")
+    } else {
+      root.classList.remove("dark")
+    }
+    localStorage.setItem("theme", dark ? "dark" : "light")
+  }, [dark])
 
   return (
     <div className="flex min-h-screen bg-muted/30">
@@ -123,26 +142,48 @@ export default function Layout({ onSignOut }: LayoutProps) {
                 <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="truncate font-medium">{data?.user?.email}</span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-2"
-                onClick={onSignOut}
-              >
-                <LogOut className="h-4 w-4 shrink-0" />
-                Sign out
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setDark(!dark)}
+                  title={dark ? "Light mode" : "Dark mode"}
+                >
+                  {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 justify-start gap-2"
+                  onClick={onSignOut}
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Sign out
+                </Button>
+              </div>
             </>
           ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-full"
-              onClick={onSignOut}
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex flex-col items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setDark(!dark)}
+                title={dark ? "Light mode" : "Dark mode"}
+              >
+                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={onSignOut}
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
       </aside>

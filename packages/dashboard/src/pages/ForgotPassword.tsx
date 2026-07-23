@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { forgetPassword } from "@/lib/auth-client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Activity, Loader2, CheckCircle } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import AuthLayout from "@/components/AuthLayout"
+import { Loader2, Mail, CheckCircle, ArrowLeft } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -31,45 +31,41 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>supacrawl</CardTitle>
+  if (sent) {
+    return (
+      <AuthLayout title="Check your email" subtitle="We've sent a password reset link if the account exists.">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            Reset link sent. Check your email (or server logs if no SMTP is configured).
           </div>
-          <CardDescription>Reset your password</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-emerald-600">
-                <CheckCircle className="h-4 w-4" />
-                Reset link sent. Check your email (or server logs if no SMTP is configured).
-              </div>
-              <p className="text-center text-sm text-muted-foreground">
-                <Link to="/login" className="text-primary underline-offset-4 hover:underline">Back to login</Link>
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                Send reset link
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                <Link to="/login" className="text-primary underline-offset-4 hover:underline">Back to login</Link>
-              </p>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          <Button variant="outline" className="w-full" asChild>
+            <Link to="/login"><ArrowLeft className="mr-1 h-4 w-4" /> Back to login</Link>
+          </Button>
+        </div>
+      </AuthLayout>
+    )
+  }
+
+  return (
+    <AuthLayout title="Reset your password" subtitle="Enter your email and we'll send you a reset link.">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required autoComplete="email" className="pl-8" />
+          </div>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          Send reset link
+        </Button>
+        <p className="mt-1 text-center text-[13px] text-muted-foreground">
+          <Link to="/login" className="font-semibold text-primary no-underline hover:underline">Back to login</Link>
+        </p>
+      </form>
+    </AuthLayout>
   )
 }

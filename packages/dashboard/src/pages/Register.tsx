@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { api, ApiError } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Activity, Loader2 } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import AuthLayout from "@/components/AuthLayout"
+import { Loader2, Mail, Lock, User } from "lucide-react"
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("")
@@ -43,72 +43,50 @@ export default function RegisterPage() {
     }
   }
 
-  if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    )
-  }
-
   if (closed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <div className="mb-2 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              <CardTitle>Registration closed</CardTitle>
-            </div>
-            <CardDescription>Account registration is currently disabled. Contact your administrator.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" variant="outline" asChild>
-              <Link to="/login">Back to sign in</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout title="Registration closed" subtitle="Account registration is currently disabled." checking={false}>
+        <Button className="w-full" variant="outline" asChild>
+          <Link to="/login">Back to sign in</Link>
+        </Button>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <div className="mb-2 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-primary" />
-            <CardTitle>Create account</CardTitle>
+    <AuthLayout title="Create account" subtitle="Sign up to start monitoring your sites." checking={checking}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required autoComplete="email" className="pl-8" />
           </div>
-          <CardDescription>Sign up for a new account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Name (optional)</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary underline-offset-4 hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="name">Name</Label>
+          <div className="relative">
+            <User className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" className="pl-8" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8} autoComplete="new-password" className="pl-8" />
+          </div>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+          Create account
+        </Button>
+        <p className="mt-1 text-center text-[13px] text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/login" className="font-semibold text-primary no-underline hover:underline">Sign in</Link>
+        </p>
+      </form>
+    </AuthLayout>
   )
 }
