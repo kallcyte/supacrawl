@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom"
 import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import Toaster from "@/components/Toaster"
 import {
   Activity,
   Globe,
@@ -215,6 +216,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
           <Outlet />
         </div>
       </main>
+      <Toaster />
     </div>
   )
 }

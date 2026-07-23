@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table"
 import { Trash2, UserPlus } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
+import { toast } from "@/lib/use-toast"
 
 export default function UsersPage() {
   const { data: me } = useSession()
@@ -55,8 +56,10 @@ export default function UsersPage() {
       setRole("user")
       setCreating(false)
       await load()
+      toast({ title: "User created", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to create user", description: (err as Error).message, variant: "destructive" })
     }
   }
 
@@ -65,8 +68,10 @@ export default function UsersPage() {
     try {
       await api.deleteUser(id)
       await load()
+      toast({ title: "User deleted", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to delete user", description: (err as Error).message, variant: "destructive" })
     }
   }
 
@@ -74,8 +79,10 @@ export default function UsersPage() {
     try {
       await api.setUserRole(id, newRole)
       await load()
+      toast({ title: "User role updated", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to update role", description: (err as Error).message, variant: "destructive" })
     }
   }
 

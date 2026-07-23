@@ -17,6 +17,7 @@ import StatusDistribution from "@/components/charts/StatusDistribution"
 import LiveProgress from "@/components/LiveProgress"
 import { ArrowLeft, AlertTriangle, RefreshCw, Square, Loader2 } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
+import { toast } from "@/lib/use-toast"
 
 type Filter = "all" | "broken" | "changed"
 
@@ -36,8 +37,10 @@ export default function CrawlDetailPage() {
     try {
       await api.stopCrawlJob(crawl.jobId)
       await load()
+      toast({ title: "Crawl stopped", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to stop crawl", description: (err as Error).message, variant: "destructive" })
     } finally {
       setStopping(false)
     }

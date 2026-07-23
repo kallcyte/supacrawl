@@ -171,7 +171,7 @@ export async function runCrawlWithPersistence(
       await opts.notifier.notify("onCrawlComplete", {
         event: "onCrawlComplete",
         title: "Crawl complete",
-        message: `Checked ${finalState.urlsChecked} of ${finalState.urlsTotal} URLs in ${formatDuration(Date.parse(finalState.finishedAt!) - Date.parse(startedAt))}.`,
+        message: `Checked ${finalState.urlsChecked} of ${finalState.urlsTotal} URLs in ${formatDuration(Date.now() - Date.parse(startedAt))}.`,
         crawlId
       })
     }

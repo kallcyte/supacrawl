@@ -151,7 +151,7 @@ export default function OverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle>Crawl Duration</CardTitle>
-            <CardDescription>Last 30 runs (ms)</CardDescription>
+            <CardDescription>Last 30 runs</CardDescription>
           </CardHeader>
           <CardContent>
             <CrawlDurationBar data={duration} />

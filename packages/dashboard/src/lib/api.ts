@@ -167,6 +167,8 @@ export const api = {
   getDurationTrend: () => request<{ trend: DurationPoint[] }>("/api/stats/duration-trend"),
   getSettings: () => request<unknown>("/api/settings"),
   getNotifiers: () => request<{ enabled: string[]; config: unknown }>("/api/notifiers"),
+  updateNotifiers: (body: unknown) =>
+    request<{ ok: boolean; error?: string }>("/api/notifiers", { method: "PUT", body: JSON.stringify(body) }),
   testNotifier: (name: string) =>
     request<{ ok: boolean; error?: string }>(`/api/notifiers/${name}/test`, { method: "POST" }),
   listUsers: () => request<{ users: User[] } | User[]>("/api/admin/users"),

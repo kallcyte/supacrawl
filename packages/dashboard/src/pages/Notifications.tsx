@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react"
-import { Info } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { Info, Loader2, Save } from "lucide-react"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import NotificationTutorial from "@/components/NotificationTutorial"
+import { toast } from "@/lib/use-toast"
 
 interface NotifiersInfo {
   enabled: string[]
@@ -16,18 +18,13 @@ interface NotifiersInfo {
       telegram: { enabled: boolean; botToken?: string; chatId?: string }
       email: {
         enabled: boolean
-        smtp?: { host?: string; port?: number; user?: string; pass?: string }
+        smtp?: { host?: string; port?: number; user?: string; pass?: string; secure?: boolean }
         from?: string
         to?: string[]
       }
       webhook: { enabled: boolean; url?: string; secret?: string }
     }
-    events: {
-      onCrawlFailure: boolean
-      onContentChange: boolean
-      onSslExpiring: boolean
-      onCrawlComplete: boolean
-    }
+    events: Record<string, boolean>
   }
 }
 
@@ -38,25 +35,49 @@ const PROVIDER_LABELS: Record<string, string> = {
   webhook: "Generic Webhook"
 }
 
+type NotifiersConfig = NotifiersInfo["config"]
+
+function deepClone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v))
+}
+
 export default function NotificationsPage() {
   const [info, setInfo] = useState<NotifiersInfo | null>(null)
+  const [draft, setDraft] = useState<NotifiersConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; error?: string } | null>>({})
   const [tutorialProvider, setTutorialProvider] = useState<string | null>(null)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const r = await api.getNotifiers()
       setInfo(r as NotifiersInfo)
+      setDraft((r as NotifiersInfo).config)
       setError(null)
     } catch (err) {
       setError((err as Error).message)
     }
-  }
-
-  useEffect(() => {
-    load()
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function saveProvider(name: string) {
+    if (!draft) return
+    setSaving(name)
+    setError(null)
+    try {
+      const r = await api.updateNotifiers(draft)
+      if (!r.ok) throw new Error(r.error ?? "Save failed")
+      setInfo((prev) => prev ? { ...prev, config: deepClone(draft) } : prev)
+      toast({ title: "Saved", description: `${PROVIDER_LABELS[name] ?? "Events"} configuration updated`, variant: "success" })
+    } catch (err) {
+      setError((err as Error).message)
+      toast({ title: "Save failed", description: (err as Error).message, variant: "destructive" })
+    } finally {
+      setSaving(null)
+    }
+  }
 
   async function test(name: string) {
     setTestResult((p) => ({ ...p, [name]: null }))
@@ -68,11 +89,22 @@ export default function NotificationsPage() {
     }
   }
 
-  if (!info) {
-    return <p className="text-sm text-muted-foreground">{error ?? "Loading..."}</p>
+  function patch<K extends keyof NotifiersConfig["providers"]>(name: K, patch: Partial<NotifiersConfig["providers"][K]>) {
+    if (!draft) return
+    setDraft({
+      ...draft,
+      providers: { ...draft.providers, [name]: { ...draft.providers[name], ...patch } }
+    })
   }
 
-  const config = info.config
+  function patchEvents(diff: Record<string, boolean>) {
+    if (!draft) return
+    setDraft({ ...draft, events: { ...draft.events, ...diff } })
+  }
+
+  if (!info || !draft) {
+    return <p className="text-sm text-muted-foreground">{error ?? "Loading..."}</p>
+  }
 
   return (
     <div className="space-y-6">
@@ -91,26 +123,33 @@ export default function NotificationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Events</CardTitle>
-          <CardDescription>When to send a notification</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Events</CardTitle>
+              <CardDescription>When to send a notification</CardDescription>
+            </div>
+            <Button size="sm" onClick={() => saveProvider("events")} disabled={saving === "events"}>
+              {saving === "events" ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Save
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {Object.entries(config.events).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between rounded border p-2">
-              <span>{key}</span>
-              <Badge variant={value ? "success" : "outline"}>{value ? "on" : "off"}</Badge>
+        <CardContent className="space-y-3 text-sm">
+          {Object.entries(draft.events).map(([key, value]) => (
+            <div key={key} className="flex items-center justify-between rounded border p-3">
+              <span className="font-medium capitalize">{key.replace(/^on/, "").replace(/([A-Z])/g, " $1").trim()}</span>
+              <Switch
+                checked={value}
+                onCheckedChange={(v) => patchEvents({ [key]: v })}
+              />
             </div>
           ))}
-          <p className="mt-2 text-xs text-muted-foreground">
-            To change events, edit the <code>notifications.events</code> section in
-            <code> supacrawl.config.json</code> and restart the server.
-          </p>
         </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {Object.entries(PROVIDER_LABELS).map(([name, label]) => {
-          const provider = (config.providers as Record<string, { enabled: boolean }>)[name]
+          const provider = draft.providers[name as keyof typeof draft.providers] as Record<string, unknown>
           const result = testResult[name]
           return (
             <Card key={name}>
@@ -127,14 +166,19 @@ export default function NotificationsPage() {
                     >
                       <Info className="size-4" />
                     </Button>
+                    <Switch
+                      checked={provider.enabled as boolean}
+                      onCheckedChange={(v) => patch(name as keyof NotifiersConfig["providers"], { enabled: v } as Record<string, boolean>)}
+                    />
                   </div>
-                  <Badge variant={provider.enabled ? "success" : "outline"}>
-                    {provider.enabled ? "enabled" : "disabled"}
-                  </Badge>
+                  <Button size="sm" onClick={() => saveProvider(name)} disabled={saving === name}>
+                    {saving === name ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                    Save
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <ProviderDetails name={name} config={config} />
+                <ProviderEditor name={name} provider={provider} draft={draft} patch={patch} />
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
@@ -145,13 +189,7 @@ export default function NotificationsPage() {
                     Send test
                   </Button>
                   {result && (
-                    <span
-                      className={
-                        result.ok
-                          ? "text-xs text-emerald-600"
-                          : "text-xs text-destructive"
-                      }
-                    >
+                    <span className={result.ok ? "text-xs text-emerald-600" : "text-xs text-destructive"}>
                       {result.ok ? "OK" : `Failed: ${result.error}`}
                     </span>
                   )}
@@ -161,10 +199,6 @@ export default function NotificationsPage() {
           )
         })}
       </div>
-      <p className="text-xs text-muted-foreground">
-        To change provider credentials, edit <code>supacrawl.config.json</code> and restart the
-        server.
-      </p>
 
       {tutorialProvider && (
         <NotificationTutorial
@@ -177,60 +211,90 @@ export default function NotificationsPage() {
   )
 }
 
-function ProviderDetails({ name, config }: { name: string; config: NotifiersInfo["config"] }) {
+interface ProviderEditorProps {
+  name: string
+  provider: Record<string, unknown>
+  draft: NotifiersConfig
+  patch: (name: keyof NotifiersConfig["providers"], patch: Record<string, unknown>) => void
+}
+
+function ProviderEditor({ name, provider, draft, patch }: ProviderEditorProps) {
+  const p = (k: string) => provider[k] as string | undefined
+
   if (name === "slack") {
     return (
-      <div className="space-y-2 text-sm">
-        <Label>Webhook URL</Label>
-        <Input
-          readOnly
-          value={
-            (config.providers.slack as { webhookUrl?: string }).webhookUrl ?? "(not set)"
-          }
-        />
-      </div>
+      <FieldGroup>
+        <Field label="Webhook URL">
+          <Input value={p("webhookUrl") ?? ""} onChange={(e) => patch("slack", { webhookUrl: e.target.value })} />
+        </Field>
+      </FieldGroup>
     )
   }
+
   if (name === "telegram") {
-    const t = config.providers.telegram
     return (
-      <div className="space-y-2 text-sm">
-        <Label>Bot token</Label>
-        <Input readOnly value={mask(t.botToken)} />
-        <Label>Chat ID</Label>
-        <Input readOnly value={t.chatId ?? "(not set)"} />
-      </div>
+      <FieldGroup>
+        <Field label="Bot token">
+          <Input value={p("botToken") ?? ""} onChange={(e) => patch("telegram", { botToken: e.target.value })} />
+        </Field>
+        <Field label="Chat ID">
+          <Input value={p("chatId") ?? ""} onChange={(e) => patch("telegram", { chatId: e.target.value })} />
+        </Field>
+      </FieldGroup>
     )
   }
+
   if (name === "email") {
-    const e = config.providers.email
+    const e = draft.providers.email
     return (
-      <div className="space-y-2 text-sm">
-        <Label>SMTP host</Label>
-        <Input readOnly value={e.smtp?.host ?? "(not set)"} />
-        <Label>From</Label>
-        <Input readOnly value={e.from ?? "(not set)"} />
-        <Label>To (comma separated)</Label>
-        <Input readOnly value={e.to?.join(", ") ?? "(none)"} />
-      </div>
+      <FieldGroup>
+        <Field label="SMTP host">
+          <Input value={e.smtp?.host ?? ""} onChange={(ev) => patch("email", { smtp: { ...e.smtp, host: ev.target.value } })} />
+        </Field>
+        <Field label="SMTP port">
+          <Input type="number" value={e.smtp?.port ?? ""} onChange={(ev) => patch("email", { smtp: { ...e.smtp, port: ev.target.value ? Number(ev.target.value) : undefined } })} />
+        </Field>
+        <Field label="SMTP user">
+          <Input value={e.smtp?.user ?? ""} onChange={(ev) => patch("email", { smtp: { ...e.smtp, user: ev.target.value } })} />
+        </Field>
+        <Field label="SMTP pass">
+          <Input type="password" value={e.smtp?.pass ?? ""} onChange={(ev) => patch("email", { smtp: { ...e.smtp, pass: ev.target.value } })} />
+        </Field>
+        <Field label="From address">
+          <Input value={e.from ?? ""} onChange={(ev) => patch("email", { from: ev.target.value })} />
+        </Field>
+        <Field label="To (comma separated)">
+          <Input value={e.to?.join(", ") ?? ""} onChange={(ev) => patch("email", { to: ev.target.value.split(",").map(s => s.trim()).filter(Boolean) })} />
+        </Field>
+      </FieldGroup>
     )
   }
+
   if (name === "webhook") {
-    const w = config.providers.webhook
     return (
-      <div className="space-y-2 text-sm">
-        <Label>URL</Label>
-        <Input readOnly value={w.url ?? "(not set)"} />
-        <Label>HMAC secret</Label>
-        <Input readOnly value={mask(w.secret)} />
-      </div>
+      <FieldGroup>
+        <Field label="URL">
+          <Input value={p("url") ?? ""} onChange={(e) => patch("webhook", { url: e.target.value })} />
+        </Field>
+        <Field label="HMAC secret">
+          <Input value={p("secret") ?? ""} onChange={(e) => patch("webhook", { secret: e.target.value })} />
+        </Field>
+      </FieldGroup>
     )
   }
+
   return null
 }
 
-function mask(v: string | undefined): string {
-  if (!v) return "(not set)"
-  if (v.length <= 8) return "••••"
-  return v.slice(0, 4) + "••••" + v.slice(-4)
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  )
+}
+
+function FieldGroup({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-3">{children}</div>
 }

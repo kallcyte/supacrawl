@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
+import { NotificationsConfigSchema, Notifier, writeConfigToFile } from "@supacrawl/core"
 
 export async function notifiersRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
   app.get("/api/notifiers", async (req, reply) => {
@@ -15,8 +16,17 @@ export async function notifiersRoutes(app: FastifyInstance, deps: RouteDeps): Pr
   app.put("/api/notifiers", async (req, reply) => {
     const session = await requireAdmin(req, reply, deps.auth)
     if (!session) return
-    deps.storage.setSetting("notifier_config", JSON.stringify(req.body))
-    return { ok: true, message: "Saved. Restart server to apply." }
+    try {
+      const parsed = NotificationsConfigSchema.parse(req.body)
+      deps.config.notifications = parsed
+      const newNotifier = new Notifier(parsed)
+      deps.notifier = newNotifier
+      deps.crawlManager.setNotifier(newNotifier)
+      writeConfigToFile(deps.configPath, deps.config)
+      return { ok: true }
+    } catch (err) {
+      return reply.code(400).send({ ok: false, error: (err as Error).message })
+    }
   })
 
   app.post("/api/notifiers/:name/test", async (req, reply) => {

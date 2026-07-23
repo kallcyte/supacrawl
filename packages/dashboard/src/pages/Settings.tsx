@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Bell } from "lucide-react"
 import { isPushEnabled, setPushEnabled } from "@/lib/useCrawlNotifications"
+import { toast } from "@/lib/use-toast"
 
 interface Config {
   crawl: {
@@ -61,7 +62,10 @@ export default function SettingsPage() {
       const next = !allowRegistration
       await api.setRegistration(next)
       setAllowRegistration(next)
-    } catch {}
+      toast({ title: next ? "Registration opened" : "Registration closed", variant: "success" })
+    } catch {
+      toast({ title: "Failed to toggle registration", variant: "destructive" })
+    }
     setRegToggling(false)
   }
 

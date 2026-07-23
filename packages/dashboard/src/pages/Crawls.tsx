@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/utils"
 import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
 import AddCrawlJobDialog from "@/components/AddCrawlJobDialog"
+import { toast } from "@/lib/use-toast"
 
 export default function CrawlsPage() {
   const navigate = useNavigate()
@@ -49,24 +50,38 @@ export default function CrawlsPage() {
   }
 
   async function handleCreate(data: Partial<CrawlJob>) {
-    await api.createCrawlJob(data)
-    await load()
+    try {
+      await api.createCrawlJob(data)
+      await load()
+      toast({ title: "Crawl job created", variant: "success" })
+    } catch (err) {
+      toast({ title: "Failed to create crawl job", description: (err as Error).message, variant: "destructive" })
+      throw err
+    }
   }
 
   async function handleUpdate(data: Partial<CrawlJob>) {
     if (!editing) return
-    await api.updateCrawlJob(editing.id, data)
-    setEditing(null)
-    await load()
+    try {
+      await api.updateCrawlJob(editing.id, data)
+      setEditing(null)
+      await load()
+      toast({ title: "Crawl job updated", variant: "success" })
+    } catch (err) {
+      toast({ title: "Failed to update crawl job", description: (err as Error).message, variant: "destructive" })
+      throw err
+    }
   }
 
   async function handleStart(id: string) {
     setStarting(id)
     try {
       const { crawlId } = await api.startCrawlJob(id)
+      toast({ title: "Crawl started", variant: "success" })
       navigate(`/crawls/${crawlId}`)
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to start crawl", description: (err as Error).message, variant: "destructive" })
       setStarting(null)
     }
   }
@@ -76,8 +91,10 @@ export default function CrawlsPage() {
     try {
       await api.stopCrawlJob(id)
       await load()
+      toast({ title: "Crawl stopped", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to stop crawl", description: (err as Error).message, variant: "destructive" })
     } finally {
       setStopping(null)
     }
@@ -89,8 +106,10 @@ export default function CrawlsPage() {
     try {
       await api.deleteCrawlJob(id)
       await load()
+      toast({ title: "Crawl job deleted", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
+      toast({ title: "Failed to delete crawl job", description: (err as Error).message, variant: "destructive" })
     } finally {
       setDeleting(null)
     }

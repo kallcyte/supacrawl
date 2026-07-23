@@ -17,6 +17,10 @@ export class CrawlManager {
     private onProgress: (p: CrawlProgress) => void
   ) {}
 
+  setNotifier(notifier: Notifier): void {
+    this.notifier = notifier
+  }
+
   listActive(): string[] {
     return [...this.activeCrawls.keys()]
   }
