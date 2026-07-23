@@ -3,6 +3,8 @@ import { useSession, signOut } from "@/lib/auth-client"
 import LoginPage from "@/pages/Login"
 import SetupPage from "@/pages/Setup"
 import RegisterPage from "@/pages/Register"
+import ForgotPasswordPage from "@/pages/ForgotPassword"
+import ResetPasswordPage from "@/pages/ResetPassword"
 import OverviewPage from "@/pages/Overview"
 import CrawlsPage from "@/pages/Crawls"
 import CrawlDetailPage from "@/pages/CrawlDetail"
@@ -44,6 +46,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/" element={<RequireAuth><Layout onSignOut={() => signOut()} /></RequireAuth>}>
         <Route index element={<OverviewPage />} />
         <Route path="crawls" element={<CrawlsPage />} />

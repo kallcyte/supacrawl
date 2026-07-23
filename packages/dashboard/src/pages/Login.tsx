@@ -80,6 +80,9 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              <Link to="/forgot-password" className="text-primary underline-offset-4 hover:underline">Forgot password?</Link>
+            </p>
           </form>
           {registrationOpen && (
             <p className="mt-4 text-center text-sm text-muted-foreground">

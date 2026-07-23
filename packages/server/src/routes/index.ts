@@ -10,6 +10,7 @@ import { statsRoutes } from "./stats.js"
 import { settingsRoutes } from "./settings.js"
 import { usersRoutes } from "./users.js"
 import { notifiersRoutes } from "./notifiers.js"
+import { authRoutes } from "./auth.js"
 import { setupRoutes } from "./setup.js"
 
 export interface RouteDeps {
@@ -34,6 +35,7 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
     await settingsRoutes(instance, deps)
     await usersRoutes(instance, deps)
     await notifiersRoutes(instance, deps)
+    await authRoutes(instance, deps)
     await setupRoutes(instance, { ...deps, setup })
 
     instance.get("/api/ws/crawl/:id", { websocket: true }, (socket, req) => {

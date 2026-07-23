@@ -40,11 +40,15 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   const config = loadConfigFromFile(opts.configPath)
   const storage = new Storage({ path: opts.dbPath })
   const notifier = new Notifier(config.notifications)
+  const trustedOrigins = process.env.BETTER_AUTH_TRUSTED_ORIGINS
+    ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map(s => s.trim())
+    : undefined
   const auth = createAuth({
     databasePath: opts.dbPath,
     secret: opts.authSecret,
     github: opts.github,
-    baseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${opts.port}`
+    baseUrl: process.env.BETTER_AUTH_URL ?? `http://localhost:${opts.port}`,
+    trustedOrigins
   })
 
   const app = Fastify({
