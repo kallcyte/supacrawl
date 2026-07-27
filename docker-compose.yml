@@ -12,7 +12,14 @@ services:
       - HOST=0.0.0.0
     volumes:
       - supacrawl-data:/app/data
+    networks:
+      - default
+      - dokploy-network
     restart: unless-stopped
 
 volumes:
   supacrawl-data:
+
+networks:
+  dokploy-network:
+    external: true
