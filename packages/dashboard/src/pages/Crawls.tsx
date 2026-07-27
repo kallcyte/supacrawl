@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { api, type CrawlJob, type CrawlRecord } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { formatDate } from "@/lib/utils"
-import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink } from "lucide-react"
+import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink, Download, Upload } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
 import AddCrawlJobDialog from "@/components/AddCrawlJobDialog"
 import { toast } from "@/lib/use-toast"
@@ -126,6 +126,39 @@ export default function CrawlsPage() {
     }
   }
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleExport() {
+    try {
+      const data = await api.exportCrawlJobs()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `supacrawl-jobs-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: "Crawl jobs exported", variant: "success" })
+    } catch (err) {
+      toast({ title: "Export failed", description: (err as Error).message, variant: "destructive" })
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const result = await api.importCrawlJobs(data)
+      await load()
+      toast({ title: `${result.imported} crawl job(s) imported`, variant: "success" })
+    } catch (err) {
+      toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" })
+    }
+    e.target.value = ""
+  }
+
   async function toggleHistory(jobId: string) {
     if (expandedJob === jobId) {
       setExpandedJob(null)
@@ -157,10 +190,21 @@ export default function CrawlsPage() {
             Scheduled crawl jobs that monitor your sitemaps
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setDialogOpen(true) }}>
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Add Crawl Job
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="mr-1 h-3.5 w-3.5" />
+            Import
+          </Button>
+          <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+          <Button onClick={() => { setEditing(null); setDialogOpen(true) }}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add Crawl Job
+          </Button>
+        </div>
       </div>
 
       {error && (

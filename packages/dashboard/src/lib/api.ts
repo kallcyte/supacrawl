@@ -234,7 +234,13 @@ export const api = {
     request<{ crawls: CrawlRecord[] }>("/api/crawls/active"),
 
   discoverSitemapTree: (url: string) =>
-    request<SitemapTreeNode>("/api/crawl-jobs/discover", { method: "POST", body: JSON.stringify({ url }) })
+    request<SitemapTreeNode>("/api/crawl-jobs/discover", { method: "POST", body: JSON.stringify({ url }) }),
+
+  exportCrawlJobs: () =>
+    request<{ version: 1; exportedAt: string; jobs: CrawlJob[] }>("/api/crawl-jobs/export"),
+
+  importCrawlJobs: (data: { version: 1; exportedAt: string; jobs: CrawlJob[] }) =>
+    request<{ imported: number }>("/api/crawl-jobs/import", { method: "POST", body: JSON.stringify(data) })
 }
 
 export { ApiError }

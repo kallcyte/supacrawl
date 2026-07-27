@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 import BetterSqlite3 from "better-sqlite3"
@@ -428,6 +429,41 @@ export class Storage {
       .prepare(`SELECT * FROM crawls WHERE job_id = ? ORDER BY started_at DESC LIMIT ?`)
       .all(jobId, limit) as Record<string, unknown>[]
     return rows.map(mapCrawl)
+  }
+
+  exportCrawlJobs(): CrawlJob[] {
+    return this.listCrawlJobs()
+  }
+
+  importCrawlJobs(jobs: CrawlJob[]): number {
+    const insert = this.db.prepare(
+      `INSERT INTO crawl_jobs
+       (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
+        notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
+        detect_mojibake,
+        delay_ms, max_concurrency, timeout_ms, user_agent,
+        respect_robots_txt, max_urls, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    const now = new Date().toISOString()
+    const tx = this.db.transaction(() => {
+      for (const job of jobs) {
+        insert.run(
+          randomUUID(), job.name, job.sitemapUrl,
+          job.sitemapUrls ? JSON.stringify(job.sitemapUrls) : null,
+          job.enabled ? 1 : 0,
+          job.intervalValue, job.intervalUnit,
+          job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
+          job.notifyOnMojibake ? 1 : 0,
+          job.detectMojibake ? 1 : 0,
+          job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
+          job.respectRobotsTxt ? 1 : 0, job.maxUrls,
+          now, now
+        )
+      }
+    })
+    tx()
+    return jobs.length
   }
 
   // Stats

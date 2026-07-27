@@ -230,6 +230,19 @@ export interface CrawlJob {
   lastRunStatus: CrawlStatus | null
 }
 
+export const CrawlJobExportSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  jobs: z.array(CrawlJobSchema.extend({
+    id: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    lastRunAt: z.string().nullable().optional(),
+    lastRunStatus: z.string().nullable().optional()
+  }))
+})
+export type CrawlJobExport = z.infer<typeof CrawlJobExportSchema>
+
 export interface CheckResult {
   url: string
   statusCode: number | null

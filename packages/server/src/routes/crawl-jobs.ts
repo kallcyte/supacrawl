@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { FastifyInstance } from "fastify"
 import { z } from "zod"
-import { CrawlJobSchema, discoverSitemapTree } from "@supacrawl/core"
+import { CrawlJobSchema, CrawlJobExportSchema, discoverSitemapTree } from "@supacrawl/core"
 import type { CrawlJob } from "@supacrawl/core"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
@@ -90,6 +90,25 @@ export async function crawlJobsRoutes(app: FastifyInstance, deps: RouteDeps): Pr
     const ok = await deps.crawlManager.cancelJobCrawl(id)
     if (!ok) return reply.code(404).send({ error: "No active crawl for this job" })
     return { ok: true }
+  })
+
+  app.get("/api/crawl-jobs/export", async (req, reply) => {
+    const session = await requireAuth(req, reply, deps.auth)
+    if (!session) return
+    const jobs = deps.storage.exportCrawlJobs()
+    return {
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      jobs
+    }
+  })
+
+  app.post("/api/crawl-jobs/import", async (req, reply) => {
+    const session = await requireAdmin(req, reply, deps.auth)
+    if (!session) return
+    const body = CrawlJobExportSchema.parse(req.body)
+    const count = deps.storage.importCrawlJobs(body.jobs)
+    return { imported: count }
   })
 
   app.post("/api/crawl-jobs/discover", async (req, reply) => {
