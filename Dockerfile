@@ -23,8 +23,6 @@ COPY packages/core/src packages/core/src
 COPY packages/dashboard/tsconfig.json packages/dashboard/tsconfig.json
 COPY packages/dashboard/vite.config.ts packages/dashboard/vite.config.ts
 COPY packages/dashboard/index.html packages/dashboard/
-COPY packages/dashboard/postcss.config.js packages/dashboard/
-COPY packages/dashboard/tailwind.config.js packages/dashboard/
 COPY packages/dashboard/public packages/dashboard/public
 COPY packages/dashboard/src packages/dashboard/src
 
