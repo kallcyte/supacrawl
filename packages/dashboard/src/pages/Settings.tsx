@@ -21,12 +21,14 @@ interface Config {
     maxUrls: number
     retryOnTransientError: boolean
     maxRetries: number
+    detectMojibake?: boolean
   }
   checks: {
     ssl: { enabled: boolean; warnDays: number }
     contentDiff: boolean
     responseTime: { warnMs: number }
   }
+  notifications?: unknown
   schedule?: string
 }
 
@@ -35,6 +37,8 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [allowRegistration, setAllowRegistration] = useState(false)
   const [regToggling, setRegToggling] = useState(false)
+  const [crawlSaving, setCrawlSaving] = useState(false)
+  const [crawlMaxUrls, setCrawlMaxUrls] = useState("")
   const [pushNotif, setPushNotif] = useState(() => {
     if (!("Notification" in window)) return false
     if (Notification.permission === "denied") return false
@@ -45,6 +49,7 @@ export default function SettingsPage() {
     try {
       const c = await api.getSettings()
       setConfig(c as Config)
+      setCrawlMaxUrls(String((c as Config).crawl.maxUrls))
       setError(null)
     } catch (err) {
       setError((err as Error).message)
@@ -69,6 +74,30 @@ export default function SettingsPage() {
     setRegToggling(false)
   }
 
+  async function saveCrawlSettings() {
+    if (!config) return
+    setCrawlSaving(true)
+    try {
+      const maxUrlsNum = Number(crawlMaxUrls)
+      if (!maxUrlsNum || maxUrlsNum < 1) {
+        setError("Max URLs must be a positive number")
+        setCrawlSaving(false)
+        return
+      }
+      await api.updateSettings({
+        ...config,
+        crawl: { ...config.crawl, maxUrls: maxUrlsNum }
+      })
+      setConfig({ ...config, crawl: { ...config.crawl, maxUrls: maxUrlsNum } })
+      toast({ title: "Crawler settings saved", variant: "success" })
+    } catch (err) {
+      setError((err as Error).message)
+      toast({ title: "Failed to save settings", description: (err as Error).message, variant: "destructive" })
+    } finally {
+      setCrawlSaving(false)
+    }
+  }
+
   if (error) {
     return (
       <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
@@ -91,7 +120,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Active configuration (read-only here &mdash; edit supacrawl.config.json on disk)
+          Server-wide configuration. Max URLs per crawl is saved to supacrawl.config.json.
         </p>
       </div>
 
@@ -156,7 +185,21 @@ export default function SettingsPage() {
           <Field label="Delay (ms)" value={String(config.crawl.delayMs)} />
           <Field label="Max concurrency" value={String(config.crawl.maxConcurrency)} />
           <Field label="Timeout (ms)" value={String(config.crawl.timeoutMs)} />
-          <Field label="Max URLs per crawl" value={String(config.crawl.maxUrls)} />
+          <div>
+            <Label>Max URLs per crawl</Label>
+            <div className="mt-1 flex gap-2">
+              <Input
+                type="number"
+                min={1}
+                value={crawlMaxUrls}
+                onChange={(e) => setCrawlMaxUrls(e.target.value)}
+                className="flex-1"
+              />
+              <Button size="sm" onClick={saveCrawlSettings} disabled={crawlSaving}>
+                {crawlSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
           <Field label="User-Agent" value={config.crawl.userAgent} className="md:col-span-2" />
           <div className="flex items-center gap-2">
             <Label>Respect robots.txt</Label>

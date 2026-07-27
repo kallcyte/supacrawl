@@ -17,7 +17,7 @@ const STARTER_CONFIG = {
     timeoutMs: 30000,
     userAgent: "supacrawl/0.1 (+https://github.com/yourname/supacrawl)",
     respectRobotsTxt: true,
-    maxUrls: 10000,
+    maxUrls: 999999,
     retryOnTransientError: true,
     maxRetries: 2
   },

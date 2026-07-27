@@ -27,6 +27,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
   const [notifyOnChange, setNotifyOnChange] = useState(initial?.notifyOnChange ?? true)
   const [detectMojibake, setDetectMojibake] = useState(initial?.detectMojibake ?? true)
   const [notifyOnMojibake, setNotifyOnMojibake] = useState(initial?.notifyOnMojibake ?? false)
+  const [maxUrls, setMaxUrls] = useState(String(initial?.maxUrls ?? 999999))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [discovering, setDiscovering] = useState(false)
@@ -48,6 +49,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
       setError(null)
       setTree(null)
       setSelectedUrls(new Set(initial?.sitemapUrls ?? []))
+      setMaxUrls(String(initial?.maxUrls ?? 999999))
       setSaving(false)
       setDiscovering(false)
     }
@@ -152,7 +154,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
         timeoutMs: initial?.timeoutMs ?? 30000,
         userAgent: initial?.userAgent ?? "supacrawl/0.1",
         respectRobotsTxt: initial?.respectRobotsTxt ?? true,
-        maxUrls: initial?.maxUrls ?? 10000
+        maxUrls: Number(maxUrls) || 999999
       })
       onOpenChange(false)
     } catch (err) {
@@ -216,6 +218,20 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="maxUrls">Max URLs per crawl</Label>
+              <Input
+                id="maxUrls"
+                type="number"
+                min={1}
+                value={maxUrls}
+                onChange={(e) => setMaxUrls(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Total URLs from all selected sitemaps are deduplicated. Increase if your sitemaps contain more URLs.
+              </p>
+            </div>
 
             <div className="flex items-center gap-2">
               <Switch checked={enabled} onCheckedChange={setEnabled} />

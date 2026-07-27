@@ -171,6 +171,8 @@ export const api = {
   getTimeline: () => request<{ timeline: TimelinePoint[] }>("/api/stats/timeline"),
   getDurationTrend: () => request<{ trend: DurationPoint[] }>("/api/stats/duration-trend"),
   getSettings: () => request<unknown>("/api/settings"),
+  updateSettings: (body: unknown) =>
+    request<{ ok: boolean }>("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
   getNotifiers: () => request<{ enabled: string[]; config: unknown }>("/api/notifiers"),
   updateNotifiers: (body: unknown) =>
     request<{ ok: boolean; error?: string }>("/api/notifiers", { method: "PUT", body: JSON.stringify(body) }),
