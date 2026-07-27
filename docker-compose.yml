@@ -15,6 +15,12 @@ services:
     networks:
       - default
       - dokploy-network
+    labels:
+      - "traefik.http.routers.supacrawl.rule=Host(`supacrawl.kall.dev`)"
+      - "traefik.http.routers.supacrawl.entrypoints=websecure"
+      - "traefik.http.routers.supacrawl.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.supacrawl.service=supacrawl"
+      - "traefik.http.services.supacrawl.loadbalancer.server.port=3000"
     restart: unless-stopped
 
 volumes:
