@@ -2,7 +2,7 @@ services:
   supacrawl:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env or shell}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
