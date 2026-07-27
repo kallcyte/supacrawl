@@ -6,7 +6,7 @@ export const CrawlConfigSchema = z.object({
   timeoutMs: z.number().int().positive().default(30000),
   userAgent: z.string().min(1).default("supacrawl/0.1"),
   respectRobotsTxt: z.boolean().default(true),
-  maxUrls: z.number().int().positive().default(10000),
+  maxUrls: z.number().int().positive().default(999999),
   retryOnTransientError: z.boolean().default(true),
   maxRetries: z.number().int().nonnegative().default(2),
   detectMojibake: z.boolean().default(true)
@@ -202,7 +202,7 @@ export const CrawlJobSchema = z.object({
   timeoutMs: z.number().int().positive().default(30000),
   userAgent: z.string().min(1).default("supacrawl/0.1"),
   respectRobotsTxt: z.boolean().default(true),
-  maxUrls: z.number().int().positive().default(10000)
+  maxUrls: z.number().int().positive().default(999999)
 })
 
 export interface CrawlJob {

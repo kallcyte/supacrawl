@@ -23,7 +23,7 @@ export function defaultConfig(): Partial<Config> {
       timeoutMs: 30000,
       userAgent: "supacrawl/0.1",
       respectRobotsTxt: true,
-      maxUrls: 10000,
+      maxUrls: 999999,
       retryOnTransientError: true,
       maxRetries: 2,
       detectMojibake: true

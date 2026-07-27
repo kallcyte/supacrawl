@@ -19,7 +19,7 @@
     "timeoutMs": 30000,
     "userAgent": "supacrawl/0.1",
     "respectRobotsTxt": true,
-    "maxUrls": 10000,
+    "maxUrls": 999999,
     "retryOnTransientError": true,
     "maxRetries": 2
   },
@@ -39,11 +39,16 @@
         "enabled": false
       },
       "telegram": {
-        "enabled": false
+        "enabled": true,
+        "botToken": "8991162021:AAEGJf2YhpufXGzMyJG1p8CIWfT3VCvP4O4",
+        "chatId": "5729122342"
       },
       "email": {
         "enabled": false,
-        "smtp": {},
+        "smtp": {
+          "user": "tawakalisme@gmail.com",
+          "pass": "1n1p455w0rd"
+        },
         "to": []
       },
       "webhook": {
@@ -54,7 +59,7 @@
       "onCrawlFailure": true,
       "onContentChange": true,
       "onSslExpiring": true,
-      "onCrawlComplete": false
+      "onCrawlComplete": true
     }
   }
 }
