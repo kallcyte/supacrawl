@@ -15,8 +15,21 @@ export function printReport(
     const url = r.url.length > 80 ? r.url.slice(0, 77) + "..." : r.url
     const status = r.statusCode !== null ? colorStatus(r.statusCode) : chalk.red("ERR")
     const time = r.responseTimeMs !== null ? `${r.responseTimeMs}ms` : "-"
+    const flags: string[] = []
+    if (r.error) flags.push(chalk.red(`error: ${r.error}`))
+    if (r.mojibakeFlagged) flags.push(chalk.yellow(`mojibake (${((r.mojibakeScore ?? 0) * 100).toFixed(0)}%)`))
     console.log(`  ${url.padEnd(maxLen)}  ${status}  ${chalk.gray(time)}`)
-    if (r.error) console.log(chalk.red(`    error: ${r.error}`))
+    for (const f of flags) console.log(`    ${f}`)
+  }
+}
+
+export function printMojibakeReport(results: CrawlResultRecord[]): void {
+  const flagged = results.filter((r) => r.mojibakeFlagged)
+  if (flagged.length === 0) return
+  console.log(chalk.yellow.bold(`\nMojibake detected (${flagged.length})`))
+  for (const r of flagged) {
+    const score = r.mojibakeScore !== null ? `${(r.mojibakeScore * 100).toFixed(0)}%` : "?"
+    console.log(chalk.yellow(`  ${r.url} [score: ${score}]`))
   }
 }
 

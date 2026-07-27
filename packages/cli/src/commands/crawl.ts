@@ -8,7 +8,7 @@ import {
   runCrawlWithPersistence,
   type CrawlProgress
 } from "@supacrawl/core"
-import { printReport } from "../reporter.js"
+import { printReport, printMojibakeReport } from "../reporter.js"
 
 interface CrawlOpts {
   config: string
@@ -74,6 +74,7 @@ export async function crawlCommand(opts: CrawlOpts): Promise<void> {
         title: "Changed URLs",
         empty: "No content changes"
       })
+      printMojibakeReport(storage.listResults(crawlId))
     }
   } catch (err) {
     console.error(chalk.red(`[supacrawl] crawl failed: ${(err as Error).message}`))

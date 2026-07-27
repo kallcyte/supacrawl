@@ -55,6 +55,7 @@ export async function runCrawlWithPersistence(
 
     let lastmodMap = new Map<string, string | undefined>()
     const sslResults: CheckResult[] = []
+    const mojibakeResults: CheckResult[] = []
 
     const { errors: crawlErrors } = await runCrawl({
       crawlId,
@@ -77,6 +78,7 @@ export async function runCrawlWithPersistence(
       onResult: (r) => {
         opts.onResult?.(r)
         sslResults.push(r)
+        mojibakeResults.push(r)
         const id = randomUUID()
         opts.storage.insertResult({
           id,
@@ -91,7 +93,9 @@ export async function runCrawlWithPersistence(
           sslValidUntil: r.sslValidUntil,
           sitemapLastmod: lastmodMap.get(r.url) ?? null,
           checkedAt: new Date().toISOString(),
-          checkMethod: r.checkMethod
+          checkMethod: r.checkMethod,
+          mojibakeScore: r.mojibakeScore,
+          mojibakeFlagged: r.mojibakeFlagged
         })
 
         const allStates = opts.storage.getAllUrlStates()
@@ -174,6 +178,25 @@ export async function runCrawlWithPersistence(
         message: `Checked ${finalState.urlsChecked} of ${finalState.urlsTotal} URLs in ${formatDuration(Date.now() - Date.parse(startedAt))}.`,
         crawlId
       })
+    }
+
+    if (opts.config.crawl.detectMojibake !== false) {
+      const mojibakeFlagged = mojibakeResults
+        .filter((r) => r.mojibakeFlagged)
+        .map((r) => r.url)
+
+      if (
+        mojibakeFlagged.length > 0 &&
+        opts.notifier.isEventEnabled("onMojibakeDetected")
+      ) {
+        await opts.notifier.notify("onMojibakeDetected", {
+          event: "onMojibakeDetected",
+          title: `${mojibakeFlagged.length} URL(s) with mojibake detected`,
+          message: `Crawl ${crawlId} found ${mojibakeFlagged.length} URLs with garbled text: ${mojibakeFlagged.slice(0, 5).join(", ")}${mojibakeFlagged.length > 5 ? "..." : ""}`,
+          crawlId,
+          meta: { mojibakeCount: mojibakeFlagged.length }
+        })
+      }
     }
 
     return {

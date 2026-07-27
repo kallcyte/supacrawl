@@ -25,6 +25,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
   const [notifyOnComplete, setNotifyOnComplete] = useState(initial?.notifyOnComplete ?? false)
   const [notifyOnFailure, setNotifyOnFailure] = useState(initial?.notifyOnFailure ?? true)
   const [notifyOnChange, setNotifyOnChange] = useState(initial?.notifyOnChange ?? true)
+  const [detectMojibake, setDetectMojibake] = useState(initial?.detectMojibake ?? true)
+  const [notifyOnMojibake, setNotifyOnMojibake] = useState(initial?.notifyOnMojibake ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [discovering, setDiscovering] = useState(false)
@@ -41,6 +43,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
       setNotifyOnComplete(initial?.notifyOnComplete ?? false)
       setNotifyOnFailure(initial?.notifyOnFailure ?? true)
       setNotifyOnChange(initial?.notifyOnChange ?? true)
+      setDetectMojibake(initial?.detectMojibake ?? true)
+      setNotifyOnMojibake(initial?.notifyOnMojibake ?? false)
       setError(null)
       setTree(null)
       setSelectedUrls(new Set(initial?.sitemapUrls ?? []))
@@ -141,6 +145,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
         notifyOnComplete,
         notifyOnFailure,
         notifyOnChange,
+        detectMojibake,
+        notifyOnMojibake,
         delayMs: initial?.delayMs ?? 2000,
         maxConcurrency: initial?.maxConcurrency ?? 2,
         timeoutMs: initial?.timeoutMs ?? 30000,
@@ -251,6 +257,18 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
               <div className="flex items-center gap-2">
                 <Switch checked={notifyOnComplete} onCheckedChange={setNotifyOnComplete} />
                 <span className="text-sm">On complete</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="block">Mojibake Detection</Label>
+              <div className="flex items-center gap-2">
+                <Switch checked={detectMojibake} onCheckedChange={setDetectMojibake} />
+                <span className="text-sm">Detect garbled text (mojibake)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={notifyOnMojibake} onCheckedChange={setNotifyOnMojibake} disabled={!detectMojibake} />
+                <span className="text-sm">Notify on mojibake detected</span>
               </div>
             </div>
 

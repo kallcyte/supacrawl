@@ -53,7 +53,8 @@ export class CrawlManager {
           respectRobotsTxt: opts.job.respectRobotsTxt,
           maxUrls: opts.job.maxUrls,
           retryOnTransientError: this.config.crawl.retryOnTransientError,
-          maxRetries: this.config.crawl.maxRetries
+          maxRetries: this.config.crawl.maxRetries,
+          detectMojibake: opts.job.detectMojibake
         }
       : this.config.crawl
     runCrawlWithPersistence({

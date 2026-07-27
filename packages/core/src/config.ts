@@ -25,7 +25,8 @@ export function defaultConfig(): Partial<Config> {
       respectRobotsTxt: true,
       maxUrls: 10000,
       retryOnTransientError: true,
-      maxRetries: 2
+      maxRetries: 2,
+      detectMojibake: true
     }
   }
 }

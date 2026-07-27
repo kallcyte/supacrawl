@@ -56,7 +56,9 @@ export class Storage {
         ssl_valid_until TEXT,
         sitemap_lastmod TEXT,
         checked_at TEXT NOT NULL,
-        check_method TEXT NOT NULL
+        check_method TEXT NOT NULL,
+        mojibake_score REAL,
+        mojibake_flagged INTEGER DEFAULT 0
       );
 
       CREATE INDEX IF NOT EXISTS idx_results_crawl ON crawl_results(crawl_id);
@@ -73,6 +75,8 @@ export class Storage {
         notify_on_complete INTEGER DEFAULT 0,
         notify_on_failure INTEGER DEFAULT 1,
         notify_on_change INTEGER DEFAULT 1,
+        notify_on_mojibake INTEGER DEFAULT 0,
+        detect_mojibake INTEGER DEFAULT 1,
         delay_ms INTEGER NOT NULL,
         max_concurrency INTEGER NOT NULL,
         timeout_ms INTEGER NOT NULL,
@@ -106,6 +110,18 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_jobs", "sitemap_urls")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN sitemap_urls TEXT`)
+    }
+    if (!this.hasColumn("crawl_results", "mojibake_score")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_score REAL`)
+    }
+    if (!this.hasColumn("crawl_results", "mojibake_flagged")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_flagged INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("crawl_jobs", "detect_mojibake")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN detect_mojibake INTEGER DEFAULT 1`)
+    }
+    if (!this.hasColumn("crawl_jobs", "notify_on_mojibake")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_mojibake INTEGER DEFAULT 0`)
     }
   }
 
@@ -212,8 +228,8 @@ export class Storage {
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
           content_changed, error, redirect_chain, ssl_valid_until,
-          sitemap_lastmod, checked_at, check_method)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -228,17 +244,19 @@ export class Storage {
         r.sslValidUntil,
         r.sitemapLastmod,
         r.checkedAt,
-        r.checkMethod
+        r.checkMethod,
+        r.mojibakeScore,
+        r.mojibakeFlagged ? 1 : 0
       )
   }
 
   listResults(
     crawlId: string,
-    filter?: { brokenOnly?: boolean; changedOnly?: boolean }
+    filter?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean }
   ): CrawlResultRecord[] {
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -246,6 +264,9 @@ export class Storage {
     }
     if (filter?.changedOnly) {
       sql += ` AND content_changed = 1`
+    }
+    if (filter?.mojibakeOnly) {
+      sql += ` AND mojibake_flagged = 1`
     }
     sql += ` ORDER BY checked_at ASC`
     const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[]
@@ -257,7 +278,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
          FROM crawl_results WHERE id = ?`
       )
       .get(id) as Record<string, unknown> | undefined
@@ -307,7 +328,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
          FROM crawl_results WHERE url = ?
          ORDER BY checked_at DESC LIMIT ?`
       )
@@ -359,10 +380,11 @@ export class Storage {
       .prepare(
         `INSERT INTO crawl_jobs
          (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
-          notify_on_complete, notify_on_failure, notify_on_change,
+          notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
+          detect_mojibake,
           delay_ms, max_concurrency, timeout_ms, user_agent,
           respect_robots_txt, max_urls, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         job.id, job.name, job.sitemapUrl,
@@ -370,6 +392,8 @@ export class Storage {
         job.enabled ? 1 : 0,
         job.intervalValue, job.intervalUnit,
         job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
+        job.notifyOnMojibake ? 1 : 0,
+        job.detectMojibake ? 1 : 0,
         job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
         job.respectRobotsTxt ? 1 : 0, job.maxUrls,
         job.createdAt, job.updatedAt
@@ -524,6 +548,8 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     notifyOnComplete: row.notify_on_complete === 1,
     notifyOnFailure: row.notify_on_failure === 1,
     notifyOnChange: row.notify_on_change === 1,
+    notifyOnMojibake: row.notify_on_mojibake === 1,
+    detectMojibake: row.detect_mojibake !== 0,
     delayMs: row.delay_ms as number,
     maxConcurrency: row.max_concurrency as number,
     timeoutMs: row.timeout_ms as number,
@@ -567,7 +593,9 @@ function mapResult(row: Record<string, unknown>): CrawlResultRecord {
     sslValidUntil: (row.ssl_valid_until as string | null) ?? null,
     sitemapLastmod: (row.sitemap_lastmod as string | null) ?? null,
     checkedAt: row.checked_at as string,
-    checkMethod: row.check_method as CrawlResultRecord["checkMethod"]
+    checkMethod: row.check_method as CrawlResultRecord["checkMethod"],
+    mojibakeScore: (row.mojibake_score as number | null) ?? null,
+    mojibakeFlagged: row.mojibake_flagged === 1
   }
 }
 

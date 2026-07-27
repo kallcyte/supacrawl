@@ -1,6 +1,7 @@
 import { URL } from "node:url"
 import { sha256 } from "./diff.js"
 import { checkSsl } from "./ssl.js"
+import { detectMojibake } from "./mojibake.js"
 import type { CheckMethod, CheckResult, CrawlConfig, SitemapEntry } from "./types.js"
 
 export interface CheckerContext {
@@ -44,7 +45,9 @@ export async function checkUrl(
     error: null,
     redirectChain: [],
     sslValidUntil: null,
-    checkMethod: method
+    checkMethod: method,
+    mojibakeScore: null,
+    mojibakeFlagged: false
   }
   let attempt = 0
   const maxAttempts = ctx.config.retryOnTransientError ? ctx.config.maxRetries + 1 : 1
@@ -87,6 +90,11 @@ export async function checkUrl(
         const previous = ctx.knownHashes.get(url)
         result.contentHash = hash
         result.contentChanged = previous !== undefined && previous !== hash
+        if (ctx.config.detectMojibake !== false) {
+          const mojibake = detectMojibake(buf)
+          result.mojibakeScore = mojibake.score
+          result.mojibakeFlagged = mojibake.flagged
+        }
       }
       try {
         const u = new URL(url)

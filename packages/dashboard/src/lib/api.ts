@@ -26,6 +26,8 @@ export interface CrawlResult {
   sitemapLastmod: string | null
   checkedAt: string
   checkMethod: "GET" | "HEAD" | "skipped"
+  mojibakeScore: number | null
+  mojibakeFlagged: boolean
 }
 
 export interface UrlState {
@@ -70,6 +72,8 @@ export interface CrawlJob {
   notifyOnComplete: boolean
   notifyOnFailure: boolean
   notifyOnChange: boolean
+  notifyOnMojibake: boolean
+  detectMojibake: boolean
   delayMs: number
   maxConcurrency: number
   timeoutMs: number
@@ -145,10 +149,11 @@ export const api = {
     request<{ ok: boolean }>(`/api/crawls/${id}/cancel`, { method: "POST" }),
   deleteCrawl: (id: string) =>
     request<{ ok: boolean }>(`/api/crawls/${id}`, { method: "DELETE" }),
-  listResults: (id: string, opts?: { brokenOnly?: boolean; changedOnly?: boolean }) => {
+  listResults: (id: string, opts?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean }) => {
     const q = new URLSearchParams()
     if (opts?.brokenOnly) q.set("brokenOnly", "true")
     if (opts?.changedOnly) q.set("changedOnly", "true")
+    if (opts?.mojibakeOnly) q.set("mojibakeOnly", "true")
     const qs = q.toString()
     return request<{ crawlId: string; results: CrawlResult[] }>(
       `/api/crawls/${id}/results${qs ? "?" + qs : ""}`

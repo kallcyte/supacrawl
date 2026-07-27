@@ -14,7 +14,8 @@ const configSchema = z.object({
     respectRobotsTxt: z.boolean(),
     maxUrls: z.number().int().positive(),
     retryOnTransientError: z.boolean(),
-    maxRetries: z.number().int().nonnegative()
+    maxRetries: z.number().int().nonnegative(),
+    detectMojibake: z.boolean()
   }),
   checks: z.object({
     ssl: z.object({ enabled: z.boolean(), warnDays: z.number().int().positive() }),

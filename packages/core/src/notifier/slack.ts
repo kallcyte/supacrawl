@@ -20,7 +20,9 @@ export class SlackProvider implements NotificationProvider {
           ? "warning"
           : payload.event === "onSslExpiring"
             ? "warning"
-            : "good"
+            : payload.event === "onMojibakeDetected"
+              ? "warning"
+              : "good"
     const body = {
       attachments: [
         {

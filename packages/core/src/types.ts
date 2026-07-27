@@ -8,7 +8,8 @@ export const CrawlConfigSchema = z.object({
   respectRobotsTxt: z.boolean().default(true),
   maxUrls: z.number().int().positive().default(10000),
   retryOnTransientError: z.boolean().default(true),
-  maxRetries: z.number().int().nonnegative().default(2)
+  maxRetries: z.number().int().nonnegative().default(2),
+  detectMojibake: z.boolean().default(true)
 })
 export type CrawlConfig = z.infer<typeof CrawlConfigSchema>
 
@@ -69,7 +70,8 @@ export const NotificationsConfigSchema = z.object({
     onCrawlFailure: z.boolean().default(true),
     onContentChange: z.boolean().default(true),
     onSslExpiring: z.boolean().default(true),
-    onCrawlComplete: z.boolean().default(false)
+    onCrawlComplete: z.boolean().default(false),
+    onMojibakeDetected: z.boolean().default(false)
   })
 })
 export type NotificationsConfig = z.infer<typeof NotificationsConfigSchema>
@@ -137,6 +139,8 @@ export interface CrawlResultRecord {
   sitemapLastmod: string | null
   checkedAt: string
   checkMethod: CheckMethod
+  mojibakeScore: number | null
+  mojibakeFlagged: boolean
 }
 
 export interface UrlStateRecord {
@@ -154,6 +158,7 @@ export type NotificationEvent =
   | "onContentChange"
   | "onSslExpiring"
   | "onCrawlComplete"
+  | "onMojibakeDetected"
 
 export interface NotificationPayload {
   event: NotificationEvent
@@ -190,6 +195,8 @@ export const CrawlJobSchema = z.object({
   notifyOnComplete: z.boolean().default(false),
   notifyOnFailure: z.boolean().default(true),
   notifyOnChange: z.boolean().default(true),
+  notifyOnMojibake: z.boolean().default(false),
+  detectMojibake: z.boolean().optional().default(true),
   delayMs: z.number().int().nonnegative().default(2000),
   maxConcurrency: z.number().int().positive().default(2),
   timeoutMs: z.number().int().positive().default(30000),
@@ -209,6 +216,8 @@ export interface CrawlJob {
   notifyOnComplete: boolean
   notifyOnFailure: boolean
   notifyOnChange: boolean
+  notifyOnMojibake: boolean
+  detectMojibake: boolean
   delayMs: number
   maxConcurrency: number
   timeoutMs: number
@@ -231,4 +240,6 @@ export interface CheckResult {
   redirectChain: string[]
   sslValidUntil: string | null
   checkMethod: CheckMethod
+  mojibakeScore: number | null
+  mojibakeFlagged: boolean
 }

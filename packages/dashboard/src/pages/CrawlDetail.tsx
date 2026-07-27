@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/table"
 import StatusDistribution from "@/components/charts/StatusDistribution"
 import LiveProgress from "@/components/LiveProgress"
-import { ArrowLeft, AlertTriangle, RefreshCw, Square, Loader2 } from "lucide-react"
+import { ArrowLeft, AlertTriangle, RefreshCw, Square, Loader2, Bug } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import { toast } from "@/lib/use-toast"
 
-type Filter = "all" | "broken" | "changed"
+type Filter = "all" | "broken" | "changed" | "mojibake"
 
 export default function CrawlDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -93,6 +93,7 @@ export default function CrawlDetailPage() {
   const filtered = results.filter((r) => {
     if (filter === "broken") return (r.statusCode ?? 0) >= 400
     if (filter === "changed") return r.contentChanged
+    if (filter === "mojibake") return r.mojibakeFlagged
     return true
   })
 
@@ -144,7 +145,7 @@ export default function CrawlDetailPage() {
 
       {crawl.status === "running" && <LiveProgress crawl={crawl} />}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Status</CardDescription>
@@ -184,6 +185,14 @@ export default function CrawlDetailPage() {
           <CardHeader className="pb-2">
             <CardDescription>Content changes</CardDescription>
             <CardTitle className="text-2xl">{crawl.urlsChanged}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Mojibake</CardDescription>
+            <CardTitle className="text-2xl text-amber-500">
+              {results.filter((r) => r.mojibakeFlagged).length}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -226,6 +235,13 @@ export default function CrawlDetailPage() {
                 >
                   Changed
                 </Button>
+                <Button
+                  size="sm"
+                  variant={filter === "mojibake" ? "default" : "outline"}
+                  onClick={() => setFilter("mojibake")}
+                >
+                  Mojibake
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -259,6 +275,13 @@ export default function CrawlDetailPage() {
                           {r.error && (
                             <div className="mt-1 flex items-center gap-1 text-xs text-destructive">
                               <AlertTriangle className="h-3 w-3" /> {r.error}
+                            </div>
+                          )}
+                          {r.mojibakeFlagged && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+                              <Bug className="h-3 w-3" />
+                              Mojibake detected
+                              {r.mojibakeScore !== null && ` (${Math.round(r.mojibakeScore * 100)}%)`}
                             </div>
                           )}
                         </TableCell>

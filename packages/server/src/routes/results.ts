@@ -5,7 +5,8 @@ import { requireAuth } from "../auth-helpers.js"
 
 const listQuerySchema = z.object({
   brokenOnly: z.coerce.boolean().optional(),
-  changedOnly: z.coerce.boolean().optional()
+  changedOnly: z.coerce.boolean().optional(),
+  mojibakeOnly: z.coerce.boolean().optional()
 })
 
 export async function resultsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
