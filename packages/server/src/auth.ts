@@ -41,7 +41,7 @@ export function createAuth(opts: AuthOptions): ReturnType<typeof betterAuth> {
   return betterAuth({
     database: sqliteDb,
     secret: opts.secret ?? process.env.BETTER_AUTH_SECRET ?? "dev-secret-change-me",
-    baseURL: opts.baseUrl ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+    baseURL: opts.baseUrl ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3456",
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

@@ -179,7 +179,7 @@ function parseArgs() {
 
 if (fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const args = parseArgs()
-  const port = Number(args.port ?? process.env.PORT ?? "3000")
+  const port = Number(args.port ?? process.env.PORT ?? "3456")
   const host = args.host ?? process.env.HOST ?? "0.0.0.0"
   await startServer({
     configPath: resolve(args.config ?? "./supacrawl.config.json"),

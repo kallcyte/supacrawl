@@ -2,13 +2,13 @@ services:
   supacrawl:
     build: .
     ports:
-      - "3456:3000"
+      - "3456:3456"
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env or shell}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - BETTER_AUTH_URL=https://supacrawl.kall.dev
-      - PORT=3000
+      - PORT=3456
       - HOST=0.0.0.0
     volumes:
       - supacrawl-data:/app/data
@@ -20,7 +20,7 @@ services:
       - "traefik.http.routers.supacrawl.entrypoints=websecure"
       - "traefik.http.routers.supacrawl.tls.certresolver=letsencrypt"
       - "traefik.http.routers.supacrawl.service=supacrawl"
-      - "traefik.http.services.supacrawl.loadbalancer.server.port=3000"
+      - "traefik.http.services.supacrawl.loadbalancer.server.port=3456"
     restart: unless-stopped
 
 volumes:

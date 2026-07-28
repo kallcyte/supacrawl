@@ -60,13 +60,13 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 
 RUN mkdir -p /app/data
 
-EXPOSE 3000
+EXPOSE 3456
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3456
 ENV HOST=0.0.0.0
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(e => process.exit(1))"
+    CMD node -e "fetch('http://localhost:3456/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(e => process.exit(1))"
 
 CMD ["node", "packages/server/dist/index.js", "--config", "packages/server/supacrawl.config.json", "--db", "/app/data/supacrawl.db"]
