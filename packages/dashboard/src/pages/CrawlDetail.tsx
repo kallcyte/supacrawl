@@ -19,7 +19,7 @@ import { ArrowLeft, AlertTriangle, RefreshCw, Square, Loader2, Bug } from "lucid
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import { toast } from "@/lib/use-toast"
 
-type Filter = "all" | "broken" | "changed" | "mojibake"
+type Filter = "all" | "broken" | "4xx" | "5xx" | "changed" | "mojibake" | "redirect"
 
 export default function CrawlDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -90,12 +90,17 @@ export default function CrawlDetailPage() {
     )
   }
 
-  const filtered = results.filter((r) => {
-    if (filter === "broken") return (r.statusCode ?? 0) >= 400
-    if (filter === "changed") return r.contentChanged
-    if (filter === "mojibake") return r.mojibakeFlagged
-    return true
-  })
+  const filtered = results
+    .filter((r) => {
+      if (filter === "broken") return (r.statusCode ?? 0) >= 400
+      if (filter === "4xx") return (r.statusCode ?? 0) >= 400 && (r.statusCode ?? 0) < 500
+      if (filter === "5xx") return (r.statusCode ?? 0) >= 500
+      if (filter === "changed") return r.contentChanged
+      if (filter === "mojibake") return r.mojibakeFlagged
+      if (filter === "redirect") return (r.statusCode ?? 0) >= 300 && (r.statusCode ?? 0) < 400
+      return true
+    })
+    .sort((a, b) => new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime())
 
   const duration =
     crawl.finishedAt && crawl.startedAt
@@ -106,7 +111,7 @@ export default function CrawlDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
             <Link to="/crawls">
@@ -145,7 +150,7 @@ export default function CrawlDetailPage() {
 
       {crawl.status === "running" && <LiveProgress crawl={crawl} />}
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Status</CardDescription>
@@ -175,9 +180,25 @@ export default function CrawlDetailPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Broken</CardDescription>
+            <CardDescription>4xx Errors</CardDescription>
             <CardTitle className="text-2xl text-destructive">
-              {crawl.urlsBroken}
+              {results.filter((r) => (r.statusCode ?? 0) >= 400 && (r.statusCode ?? 0) < 500).length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>5xx Errors</CardDescription>
+            <CardTitle className="text-2xl text-destructive">
+              {results.filter((r) => (r.statusCode ?? 0) >= 500).length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Redirects</CardDescription>
+            <CardTitle className="text-2xl text-yellow-500">
+              {results.filter((r) => (r.statusCode ?? 0) >= 300 && (r.statusCode ?? 0) < 400).length}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -208,12 +229,12 @@ export default function CrawlDetailPage() {
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>URLs</CardTitle>
                 <CardDescription>{filtered.length} of {results.length} shown</CardDescription>
               </div>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 <Button
                   size="sm"
                   variant={filter === "all" ? "default" : "outline"}
@@ -223,10 +244,24 @@ export default function CrawlDetailPage() {
                 </Button>
                 <Button
                   size="sm"
-                  variant={filter === "broken" ? "default" : "outline"}
-                  onClick={() => setFilter("broken")}
+                  variant={filter === "4xx" ? "default" : "outline"}
+                  onClick={() => setFilter("4xx")}
                 >
-                  Broken
+                  4xx
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filter === "5xx" ? "default" : "outline"}
+                  onClick={() => setFilter("5xx")}
+                >
+                  5xx
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filter === "redirect" ? "default" : "outline"}
+                  onClick={() => setFilter("redirect")}
+                >
+                  Redirects
                 </Button>
                 <Button
                   size="sm"
@@ -250,7 +285,8 @@ export default function CrawlDetailPage() {
               <p className="text-sm text-muted-foreground">No URLs match the current filter.</p>
             ) : (
               <div className="max-h-[480px] overflow-auto">
-                <Table>
+                <div className="min-w-[600px]">
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>URL</TableHead>
@@ -300,6 +336,7 @@ export default function CrawlDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </div>
             )}
           </CardContent>

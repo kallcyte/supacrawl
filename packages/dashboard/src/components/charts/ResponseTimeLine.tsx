@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis
 } from "recharts"
+import ChartTooltip from "./ChartTooltip"
 
 interface Point {
   time: string
@@ -33,13 +34,14 @@ export default function ResponseTimeLine({ data }: { data: Point[] }) {
           tickFormatter={(v) => `${v}ms`}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: 6
-          }}
-          labelFormatter={(v) => new Date(v).toLocaleString()}
-          formatter={(v) => [`${v}ms`, "Response time"]}
+          content={
+            <ChartTooltip
+              formatter={(item) => ({
+                label: item.name,
+                value: `${item.value}ms`,
+              })}
+            />
+          }
         />
         <Line
           type="monotone"

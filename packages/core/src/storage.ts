@@ -421,7 +421,10 @@ export class Storage {
   }
 
   deleteCrawlJob(id: string): void {
-    this.db.prepare(`DELETE FROM crawl_jobs WHERE id = ?`).run(id)
+    this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM crawls WHERE job_id = ?`).run(id)
+      this.db.prepare(`DELETE FROM crawl_jobs WHERE id = ?`).run(id)
+    })()
   }
 
   getCrawlsForJob(jobId: string, limit = 50): CrawlRecord[] {

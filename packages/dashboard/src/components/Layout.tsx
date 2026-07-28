@@ -40,7 +40,10 @@ export default function Layout({ onSignOut }: LayoutProps) {
   const { data } = useSession()
   const role = (data?.user as { role?: string } | undefined)?.role
   const location = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true
+    return window.innerWidth >= 768
+  })
   const [dark, setDark] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const stored = localStorage.getItem("theme")
@@ -59,12 +62,21 @@ export default function Layout({ onSignOut }: LayoutProps) {
     localStorage.setItem("theme", dark ? "dark" : "light")
   }, [dark])
 
+  // Close sidebar on mobile when navigating
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
+  }, [location.pathname])
+
   return (
     <div className="flex min-h-screen bg-muted/30">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-card transition-all duration-300 md:static",
-          sidebarOpen ? "w-60" : "w-0 -translate-x-full md:w-16 md:translate-x-0"
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:static md:w-16 md:transition-[width]",
+          sidebarOpen
+            ? "translate-x-0 md:w-60"
+            : "-translate-x-full md:w-16 md:translate-x-0"
         )}
       >
         <div className={cn("flex h-14 items-center border-b", sidebarOpen ? "gap-2 px-4" : "justify-center px-2")}>
@@ -211,7 +223,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
           </Link>
           <span className="ml-auto text-xs text-muted-foreground">{data?.user?.email}</span>
         </header>
-        <div className="flex-1 p-6" key={location.pathname}>
+        <div className="flex-1 p-4 md:p-6" key={location.pathname}>
           <Outlet />
         </div>
       </main>

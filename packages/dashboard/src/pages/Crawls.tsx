@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/utils"
 import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink, Download, Upload } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
 import AddCrawlJobDialog from "@/components/AddCrawlJobDialog"
+import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
 
 export default function CrawlsPage() {
@@ -32,6 +33,7 @@ export default function CrawlsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedJob, setExpandedJob] = useState<string | null>(null)
   const [jobHistory, setJobHistory] = useState<Record<string, CrawlRecord[]>>({})
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
 
   const allCrawls = Object.values(jobHistory).flat()
   useCrawlNotifications(allCrawls)
@@ -101,10 +103,16 @@ export default function CrawlsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this crawl job?")) return
+    setConfirmingDelete(id)
+  }
+
+  async function confirmDelete() {
+    const id = confirmingDelete
+    if (!id) return
     setDeleting(id)
     try {
       await api.deleteCrawlJob(id)
+      setConfirmingDelete(null)
       await load()
       toast({ title: "Crawl job deleted", variant: "success" })
     } catch (err) {
@@ -183,26 +191,26 @@ export default function CrawlsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Crawl Jobs</h1>
           <p className="text-sm text-muted-foreground">
             Scheduled crawl jobs that monitor your sitemaps
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExport}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="mr-1 h-3.5 w-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-1 h-3.5 w-3.5" />
-            Import
+            <span className="hidden sm:inline">Import</span>
           </Button>
           <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
-          <Button onClick={() => { setEditing(null); setDialogOpen(true) }}>
+          <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Add Crawl Job
+            <span className="hidden sm:inline">Add Crawl Job</span>
           </Button>
         </div>
       </div>
@@ -235,7 +243,7 @@ export default function CrawlsPage() {
                 const isRunning = runningJobs.has(job.id)
                 return (
                   <div key={job.id} className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{job.name}</span>
@@ -268,7 +276,7 @@ export default function CrawlsPage() {
                           )}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 flex-wrap items-center gap-1">
                         {isRunning ? (
                           <Button
                             variant="outline"
@@ -340,6 +348,8 @@ export default function CrawlsPage() {
                       <div className="mt-3 border-t pt-3">
                         <p className="mb-2 text-xs font-medium text-muted-foreground">Run History</p>
                         {jobHistory[job.id]?.length ? (
+                          <div className="overflow-auto">
+                          <div className="min-w-[500px]">
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -382,6 +392,8 @@ export default function CrawlsPage() {
                               ))}
                             </TableBody>
                           </Table>
+                          </div>
+                          </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">No runs yet.</p>
                         )}
@@ -400,6 +412,16 @@ export default function CrawlsPage() {
         onOpenChange={setDialogOpen}
         onSubmit={editing ? handleUpdate : handleCreate}
         initial={editing}
+      />
+
+      <ConfirmDialog
+        open={!!confirmingDelete}
+        onOpenChange={(open) => { if (!open) setConfirmingDelete(null) }}
+        title="Delete crawl job?"
+        description="This will permanently remove the job and all its crawl history. This action cannot be undone."
+        confirmLabel="Delete"
+        loading={!!deleting}
+        onConfirm={confirmDelete}
       />
     </div>
   )

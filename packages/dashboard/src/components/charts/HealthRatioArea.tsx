@@ -1,5 +1,6 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import type { TimelinePoint } from "@/lib/api"
+import ChartTooltip from "./ChartTooltip"
 
 export default function HealthRatioArea({ data }: { data: TimelinePoint[] }) {
   if (data.length === 0) {
@@ -12,11 +13,14 @@ export default function HealthRatioArea({ data }: { data: TimelinePoint[] }) {
         <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
         <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: 6
-          }}
+          content={
+            <ChartTooltip
+              formatter={(item) => ({
+                label: item.name,
+                value: String(item.value),
+              })}
+            />
+          }
         />
         <Area
           type="monotone"

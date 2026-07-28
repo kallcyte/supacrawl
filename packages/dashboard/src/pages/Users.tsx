@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table"
 import { Trash2, UserPlus } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
+import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
 
 export default function UsersPage() {
@@ -28,6 +29,8 @@ export default function UsersPage() {
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function load() {
     try {
@@ -64,14 +67,23 @@ export default function UsersPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this user?")) return
+    setConfirmingDelete(id)
+  }
+
+  async function confirmDelete() {
+    const id = confirmingDelete
+    if (!id) return
+    setDeletingId(id)
     try {
       await api.deleteUser(id)
+      setConfirmingDelete(null)
       await load()
       toast({ title: "User deleted", variant: "success" })
     } catch (err) {
       setError((err as Error).message)
       toast({ title: "Failed to delete user", description: (err as Error).message, variant: "destructive" })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -167,6 +179,8 @@ export default function UsersPage() {
           {loading ? (
             <Skeleton className="h-24 w-full" />
           ) : (
+            <div className="overflow-auto">
+            <div className="min-w-[400px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -204,7 +218,7 @@ export default function UsersPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => onDelete(u.id)}
-                        disabled={u.id === myId}
+                        disabled={u.id === myId || deletingId === u.id}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -213,9 +227,21 @@ export default function UsersPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!confirmingDelete}
+        onOpenChange={(open) => { if (!open) setConfirmingDelete(null) }}
+        title="Delete user?"
+        description="This user will no longer be able to access the dashboard. This action cannot be undone."
+        confirmLabel="Delete"
+        loading={!!deletingId}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

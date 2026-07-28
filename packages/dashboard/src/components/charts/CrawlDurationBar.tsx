@@ -1,5 +1,6 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import type { DurationPoint } from "@/lib/api"
+import ChartTooltip from "./ChartTooltip"
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
@@ -35,13 +36,17 @@ export default function CrawlDurationBar({ data }: { data: DurationPoint[] }) {
           ticks={ticks}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: 6
-          }}
-          labelFormatter={(v: string) => v.slice(0, 10)}
-          formatter={((_value: number, _name: string, item: { payload?: DurationPoint }) => [formatDuration(item.payload?.durationMs ?? 0), "Duration"]) as unknown as (value: number, name: string) => React.ReactNode}
+          content={
+            <ChartTooltip
+              formatter={(item) => {
+                const raw = item.payload as DurationPoint | undefined
+                return {
+                  label: item.name,
+                  value: formatDuration(raw?.durationMs ?? 0),
+                }
+              }}
+            />
+          }
         />
         <Bar dataKey="durationSec" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
       </BarChart>
