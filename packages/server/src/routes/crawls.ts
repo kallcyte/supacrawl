@@ -50,6 +50,21 @@ export async function crawlsRoutes(app: FastifyInstance, deps: RouteDeps): Promi
     return { ok: true }
   })
 
+  app.get("/api/crawls/:id/summary", async (req, reply) => {
+    const session = await requireAuth(req, reply, deps.auth)
+    if (!session) return
+    const { id } = req.params as { id: string }
+    const summary = deps.storage.getCrawlSummary(id)
+    if (!summary) return reply.code(404).send({ error: "Not found" })
+    // Attach job name if available
+    const crawl = deps.storage.getCrawl(id)
+    if (crawl?.jobId) {
+      const job = deps.storage.getCrawlJob(crawl.jobId)
+      if (job) summary.jobName = job.name
+    }
+    return summary
+  })
+
   app.delete("/api/crawls/:id", async (req, reply) => {
     const session = await requireAuth(req, reply, deps.auth)
     if (!session) return
