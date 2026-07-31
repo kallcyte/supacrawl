@@ -26,20 +26,6 @@ const STARTER_CONFIG = {
     contentDiff: true,
     responseTime: { warnMs: 3000 }
   },
-  notifications: {
-    providers: {
-      slack: { enabled: false, webhookUrl: "" },
-      telegram: { enabled: false, botToken: "", chatId: "" },
-      email: { enabled: false, smtp: {}, from: "", to: [] },
-      webhook: { enabled: false, url: "", secret: "" }
-    },
-    events: {
-      onCrawlFailure: true,
-      onContentChange: true,
-      onSslExpiring: true,
-      onCrawlComplete: false
-    }
-  },
   schedule: "0 */6 * * *"
 }
 
