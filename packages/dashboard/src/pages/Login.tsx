@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
-import { signIn } from "@/lib/auth-client"
+import { authClient, signIn } from "@/lib/auth-client"
 import { api } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? "/"
+  const redirectReason = (location.state as { reason?: string } | null)?.reason
 
   useEffect(() => {
     api.setupStatus().then((s) => {
@@ -38,8 +39,16 @@ export default function LoginPage() {
       const result = await signIn.email({ email, password })
       if ((result as { error?: { message?: string } }).error) {
         setError((result as { error: { message?: string } }).error.message ?? "Login failed")
-      } else {
+        return
+      }
+      // Wait for the session cookie to propagate before navigating.
+      // If we navigate immediately, the target page's session check may fail
+      // because the browser hasn't attached the cookie to the next request yet.
+      const { data } = await authClient.getSession()
+      if (data) {
         navigate(from, { replace: true })
+      } else {
+        setError("Session could not be established. Please try again.")
       }
     } catch (err) {
       setError((err as Error).message)
@@ -68,6 +77,11 @@ export default function LoginPage() {
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required autoComplete="current-password" className="pl-8" />
           </div>
         </div>
+        {redirectReason === "session_expired" && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Your session could not be established. Please try signing in again.
+          </div>
+        )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}

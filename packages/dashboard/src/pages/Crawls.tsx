@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { api, type CrawlJob, type CrawlRecord } from "@/lib/api"
+import { useSession } from "@/lib/auth-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +23,9 @@ import { toast } from "@/lib/use-toast"
 
 export default function CrawlsPage() {
   const navigate = useNavigate()
+  const { data: sessionData } = useSession()
+  const role = (sessionData?.user as { role?: string } | undefined)?.role
+  const isAdmin = role === "admin"
   const [jobs, setJobs] = useState<CrawlJob[]>([])
   const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -203,15 +207,19 @@ export default function CrawlsPage() {
             <Download className="mr-1 h-3.5 w-3.5" />
             <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="mr-1 h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Import</span>
-          </Button>
-          <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
-          <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Add Crawl Job</span>
-          </Button>
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+              <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Add Crawl Job</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -313,27 +321,31 @@ export default function CrawlsPage() {
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => { setEditing(job); setDialogOpen(true) }}
-                          disabled={isRunning}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(job.id)}
-                          disabled={deleting === job.id || isRunning}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          {deleting === job.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
+                        {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setEditing(job); setDialogOpen(true) }}
+                              disabled={isRunning}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
                           )}
-                        </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(job.id)}
+                              disabled={deleting === job.id || isRunning}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              {deleting === job.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          )}
                         <Button
                           variant="ghost"
                           size="sm"

@@ -92,6 +92,33 @@ export interface SitemapTreeNode {
   children: SitemapTreeNode[]
 }
 
+export interface CrawlSummaryIssue {
+  url: string
+  detail: string
+  severity: "high" | "medium" | "low"
+}
+
+export interface CrawlSummary {
+  crawlId: string
+  jobName?: string
+  status: CrawlRecord["status"]
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  totalUrls: number
+  checkedUrls: number
+  healthScore: number
+  avgResponseTimeMs: number | null
+  slowestResponseTimeMs: number | null
+  fastestResponseTimeMs: number | null
+  issues: {
+    broken: CrawlSummaryIssue[]
+    changed: CrawlSummaryIssue[]
+    sslExpiring: CrawlSummaryIssue[]
+    mojibake: CrawlSummaryIssue[]
+  }
+}
+
 export interface StatusBucket {
   status: string
   count: number
@@ -235,6 +262,9 @@ export const api = {
   getActiveCrawls: () =>
     request<{ crawls: CrawlRecord[] }>("/api/crawls/active"),
 
+  getCrawlSummary: (id: string) =>
+    request<CrawlSummary>(`/api/crawls/${id}/summary`),
+
   discoverSitemapTree: (url: string) =>
     request<SitemapTreeNode>("/api/crawl-jobs/discover", { method: "POST", body: JSON.stringify({ url }) }),
 
@@ -242,7 +272,27 @@ export const api = {
     request<{ version: 1; exportedAt: string; jobs: CrawlJob[] }>("/api/crawl-jobs/export"),
 
   importCrawlJobs: (data: { version: 1; exportedAt: string; jobs: CrawlJob[] }) =>
-    request<{ imported: number }>("/api/crawl-jobs/import", { method: "POST", body: JSON.stringify(data) })
+    request<{ imported: number }>("/api/crawl-jobs/import", { method: "POST", body: JSON.stringify(data) }),
+
+  getUserNotifications: () =>
+    request<UserNotificationSettings>("/api/user/notifications"),
+
+  updateUserNotifications: (body: Partial<UserNotificationSettings>) =>
+    request<{ ok: boolean }>("/api/user/notifications", { method: "PUT", body: JSON.stringify(body) })
+}
+
+export interface UserNotificationSettings {
+  slack: { enabled: boolean; webhookUrl?: string }
+  telegram: { enabled: boolean; botToken?: string; chatId?: string }
+  email: { enabled: boolean; smtp?: { host?: string; port?: number; secure?: boolean; user?: string; pass?: string }; from?: string; to?: string[] }
+  webhook: { enabled: boolean; url?: string; secret?: string }
+  enabledEvents: {
+    onCrawlFailure: boolean
+    onContentChange: boolean
+    onSslExpiring: boolean
+    onCrawlComplete: boolean
+    onMojibakeDetected: boolean
+  }
 }
 
 export { ApiError }

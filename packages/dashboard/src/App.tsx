@@ -26,7 +26,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     )
   }
   if (!data) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location, reason: "session_expired" }} replace />
   }
   return <>{children}</>
 }
@@ -55,7 +55,7 @@ export default function App() {
         <Route path="urls/history" element={<UrlHistoryPage />} />
         <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="notifications" element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />
-        <Route path="settings" element={<RequireAdmin><SettingsPage /></RequireAdmin>} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

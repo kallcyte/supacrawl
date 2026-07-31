@@ -27,13 +27,13 @@ interface LayoutProps {
 const nav = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/crawls", label: "Crawls", icon: ListChecks },
-  { to: "/urls/history", label: "URL History", icon: History }
+  { to: "/urls/history", label: "URL History", icon: History },
+  { to: "/settings", label: "Settings", icon: Settings }
 ]
 
 const adminNav = [
   { to: "/users", label: "Users", icon: Users },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/settings", label: "Settings", icon: Settings }
+  { to: "/notifications", label: "Notifications", icon: Bell }
 ]
 
 export default function Layout({ onSignOut }: LayoutProps) {
