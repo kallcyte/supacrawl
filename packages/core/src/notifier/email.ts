@@ -21,6 +21,47 @@ export class EmailProvider implements NotificationProvider {
     })
   }
 
+  private buildHtml(payload: NotificationPayload): string {
+    if (payload.htmlBody) return payload.htmlBody
+
+    const meta = payload.meta as Record<string, unknown> | undefined
+    const items = meta
+      ? Object.entries(meta)
+          .filter(([, v]) => typeof v === "number" || typeof v === "string" || Array.isArray(v))
+          .map(
+            ([k, v]) =>
+              `<tr>
+                <td style="padding:4px 8px;border-bottom:1px solid #eee;color:#666;font-size:13px;">${k}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid #eee;font-size:13px;">${Array.isArray(v) ? v.join(", ") : String(v)}</td>
+              </tr>`
+          )
+          .join("")
+      : ""
+
+    return `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+      <div style="background:#6366f1;color:#fff;border-radius:8px 8px 0 0;padding:20px 24px;">
+        <h1 style="margin:0;font-size:18px;">supacrawl</h1>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;padding:24px;color:#1e293b;">
+        <h2 style="margin:0 0 12px;font-size:16px;">${payload.title}</h2>
+        <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${payload.message}</p>
+        ${
+          items
+            ? `<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">${items}</table>`
+            : ""
+        }
+        ${
+          payload.crawlId
+            ? `<p style="margin:0;font-size:12px;color:#94a3b8;">Crawl ID: ${payload.crawlId.slice(0, 8)}</p>`
+            : ""
+        }
+      </div>
+      <p style="text-align:center;font-size:11px;color:#94a3b8;margin-top:12px;">
+        supacrawl · Automated crawl report
+      </p>
+    </div>`
+  }
+
   async send(payload: NotificationPayload): Promise<void> {
     if (!this.config.from) throw new NotificationError("email", "Missing from address")
     if (!this.config.to.length) throw new NotificationError("email", "No recipients")
@@ -31,7 +72,8 @@ export class EmailProvider implements NotificationProvider {
       subject: `[supacrawl] ${payload.title}`,
       text: `${payload.message}\n\n${
         payload.meta ? JSON.stringify(payload.meta, null, 2) : ""
-      }`
+      }`,
+      html: this.buildHtml(payload)
     })
   }
 

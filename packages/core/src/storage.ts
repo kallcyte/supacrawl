@@ -7,7 +7,10 @@ import type {
   CrawlJob,
   CrawlRecord,
   CrawlResultRecord,
-  UrlStateRecord
+  CrawlSummary,
+  CrawlSummaryIssue,
+  UrlStateRecord,
+  UserNotificationSettings
 } from "./types.js"
 
 export interface StorageOptions {
@@ -124,6 +127,25 @@ export class Storage {
     if (!this.hasColumn("crawl_jobs", "notify_on_mojibake")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_mojibake INTEGER DEFAULT 0`)
     }
+    if (!this.hasColumn("crawl_jobs", "notify_ssl_expiring")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_ssl_expiring INTEGER DEFAULT 1`)
+    }
+    if (!this.hasColumn("crawl_jobs", "notification_providers")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notification_providers TEXT`)
+    }
+    if (!this.hasColumn("crawl_jobs", "notify_on_progress")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_progress INTEGER DEFAULT 0`)
+    }
+
+    this.db.exec(`CREATE TABLE IF NOT EXISTS user_notification_settings (
+      user_id TEXT PRIMARY KEY,
+      slack TEXT NOT NULL DEFAULT '{}',
+      telegram TEXT NOT NULL DEFAULT '{}',
+      email TEXT NOT NULL DEFAULT '{}',
+      webhook TEXT NOT NULL DEFAULT '{}',
+      enabled_events TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL
+    )`)
   }
 
   close(): void {
@@ -382,10 +404,10 @@ export class Storage {
         `INSERT INTO crawl_jobs
          (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
           notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
-          detect_mojibake,
+          notify_ssl_expiring, notify_on_progress, detect_mojibake,
           delay_ms, max_concurrency, timeout_ms, user_agent,
-          respect_robots_txt, max_urls, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         job.id, job.name, job.sitemapUrl,
@@ -394,9 +416,10 @@ export class Storage {
         job.intervalValue, job.intervalUnit,
         job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
         job.notifyOnMojibake ? 1 : 0,
-        job.detectMojibake ? 1 : 0,
+        job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
         job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
         job.respectRobotsTxt ? 1 : 0, job.maxUrls,
+        job.notificationProviders ? JSON.stringify(job.notificationProviders) : null,
         job.createdAt, job.updatedAt
       )
   }
@@ -443,10 +466,10 @@ export class Storage {
       `INSERT INTO crawl_jobs
        (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
         notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
-        detect_mojibake,
+        notify_ssl_expiring, notify_on_progress, detect_mojibake,
         delay_ms, max_concurrency, timeout_ms, user_agent,
-        respect_robots_txt, max_urls, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const now = new Date().toISOString()
     const tx = this.db.transaction(() => {
@@ -458,9 +481,10 @@ export class Storage {
           job.intervalValue, job.intervalUnit,
           job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
           job.notifyOnMojibake ? 1 : 0,
-          job.detectMojibake ? 1 : 0,
+          job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
           job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
           job.respectRobotsTxt ? 1 : 0, job.maxUrls,
+          job.notificationProviders ? JSON.stringify(job.notificationProviders) : null,
           now, now
         )
       }
@@ -558,6 +582,89 @@ export class Storage {
     return rows.map((r) => ({ status: r.bucket, count: r.c }))
   }
 
+  getCrawlSummary(crawlId: string): CrawlSummary | null {
+    const crawl = this.getCrawl(crawlId)
+    if (!crawl) return null
+    const results = this.listResults(crawlId)
+
+    const broken: CrawlSummaryIssue[] = results
+      .filter((r) => r.statusCode !== null && r.statusCode >= 400)
+      .map((r) => ({
+        url: r.url,
+        detail: r.error ?? `HTTP ${r.statusCode}`,
+        severity: "high" as const
+      }))
+
+    const changed: CrawlSummaryIssue[] = results
+      .filter((r) => r.contentChanged)
+      .map((r) => ({
+        url: r.url,
+        detail: "Content changed since last crawl",
+        severity: "medium" as const
+      }))
+
+    const sslExpiring: CrawlSummaryIssue[] = results
+      .filter((r) => {
+        if (!r.sslValidUntil) return false
+        const days = Math.floor(
+          (Date.parse(r.sslValidUntil) - Date.now()) / 86400000
+        )
+        return days >= 0 && days < 30
+      })
+      .map((r) => ({
+        url: r.url,
+        detail: `SSL expires ${r.sslValidUntil!.slice(0, 10)}`,
+        severity: "medium" as const
+      }))
+
+    const mojibake: CrawlSummaryIssue[] = results
+      .filter((r) => r.mojibakeFlagged)
+      .map((r) => ({
+        url: r.url,
+        detail: r.mojibakeScore !== null
+          ? `Text garbled (confidence: ${Math.round(r.mojibakeScore * 100)}%)`
+          : "Text may be garbled",
+        severity: "low" as const
+      }))
+
+    const responseTimes = results
+      .map((r) => r.responseTimeMs)
+      .filter((t): t is number => t !== null)
+
+    const durationMs =
+      crawl.finishedAt && crawl.startedAt
+        ? Math.round(Date.parse(crawl.finishedAt) - Date.parse(crawl.startedAt))
+        : null
+
+    const checkedCount = results.length
+    const totalBroken = broken.length
+    const healthScore =
+      checkedCount > 0
+        ? Math.round(((checkedCount - totalBroken) / checkedCount) * 100)
+        : 100
+
+    return {
+      crawlId: crawl.id,
+      jobName: undefined, // filled in route if needed
+      status: crawl.status,
+      startedAt: crawl.startedAt,
+      finishedAt: crawl.finishedAt,
+      durationMs,
+      totalUrls: crawl.urlsTotal,
+      checkedUrls: checkedCount,
+      healthScore,
+      avgResponseTimeMs:
+        responseTimes.length > 0
+          ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+          : null,
+      slowestResponseTimeMs:
+        responseTimes.length > 0 ? Math.max(...responseTimes) : null,
+      fastestResponseTimeMs:
+        responseTimes.length > 0 ? Math.min(...responseTimes) : null,
+      issues: { broken, changed, sslExpiring, mojibake }
+    }
+  }
+
   cleanupStaleCrawls(): void {
     const now = new Date().toISOString()
     this.db
@@ -565,6 +672,56 @@ export class Storage {
         `UPDATE crawls SET status = 'failed', finished_at = ?, error_message = ? WHERE status = 'running'`
       )
       .run(now, "Server was restarted")
+  }
+
+  getUserNotificationSettings(userId: string): UserNotificationSettings | null {
+    const row = this.db
+      .prepare(`SELECT * FROM user_notification_settings WHERE user_id = ?`)
+      .get(userId) as Record<string, unknown> | undefined
+    if (!row) return null
+    return mapUserNotificationSettings(row)
+  }
+
+  upsertUserNotificationSettings(
+    userId: string,
+    settings: Omit<UserNotificationSettings, "userId" | "updatedAt">
+  ): void {
+    const now = new Date().toISOString()
+    this.db
+      .prepare(
+        `INSERT INTO user_notification_settings
+         (user_id, slack, telegram, email, webhook, enabled_events, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           slack = excluded.slack,
+           telegram = excluded.telegram,
+           email = excluded.email,
+           webhook = excluded.webhook,
+           enabled_events = excluded.enabled_events,
+           updated_at = excluded.updated_at`
+      )
+      .run(
+        userId,
+        JSON.stringify(settings.slack),
+        JSON.stringify(settings.telegram),
+        JSON.stringify(settings.email),
+        JSON.stringify(settings.webhook),
+        JSON.stringify(settings.enabledEvents),
+        now
+      )
+  }
+
+  listUserNotificationSettings(): UserNotificationSettings[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM user_notification_settings`)
+      .all() as Record<string, unknown>[]
+    return rows.map(mapUserNotificationSettings)
+  }
+
+  deleteUserNotificationSettings(userId: string): void {
+    this.db
+      .prepare(`DELETE FROM user_notification_settings WHERE user_id = ?`)
+      .run(userId)
   }
 }
 
@@ -574,6 +731,13 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     try {
       const parsed = JSON.parse(row.sitemap_urls)
       if (Array.isArray(parsed)) sitemapUrls = parsed
+    } catch { /* ignore */ }
+  }
+  let notificationProviders: CrawlJob["notificationProviders"] = null
+  if (typeof row.notification_providers === "string") {
+    try {
+      const parsed = JSON.parse(row.notification_providers)
+      if (parsed && typeof parsed === "object") notificationProviders = parsed
     } catch { /* ignore */ }
   }
   return {
@@ -588,6 +752,8 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     notifyOnFailure: row.notify_on_failure === 1,
     notifyOnChange: row.notify_on_change === 1,
     notifyOnMojibake: row.notify_on_mojibake === 1,
+    notifySslExpiring: row.notify_ssl_expiring !== 0,
+    notifyOnProgress: row.notify_on_progress === 1,
     detectMojibake: row.detect_mojibake !== 0,
     delayMs: row.delay_ms as number,
     maxConcurrency: row.max_concurrency as number,
@@ -595,6 +761,7 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     userAgent: row.user_agent as string,
     respectRobotsTxt: row.respect_robots_txt === 1,
     maxUrls: row.max_urls as number,
+    notificationProviders,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     lastRunAt: (row.last_run_at as string | null) ?? null,
@@ -647,5 +814,30 @@ function mapUrlState(row: Record<string, unknown>): UrlStateRecord {
     sitemapLastmod: (row.sitemap_lastmod as string | null) ?? null,
     lastCheckedAt: row.last_checked_at as string,
     consecutiveFailures: (row.consecutive_failures as number) ?? 0
+  }
+}
+
+function mapUserNotificationSettings(row: Record<string, unknown>): UserNotificationSettings {
+  const parseJson = (val: unknown, fallback: unknown): unknown => {
+    if (typeof val === "string") {
+      try { return JSON.parse(val) } catch { /* ignore */ }
+    }
+    return fallback
+  }
+  return {
+    userId: row.user_id as string,
+    slack: parseJson(row.slack, { enabled: false }) as UserNotificationSettings["slack"],
+    telegram: parseJson(row.telegram, { enabled: false }) as UserNotificationSettings["telegram"],
+    email: parseJson(row.email, { enabled: false }) as UserNotificationSettings["email"],
+    webhook: parseJson(row.webhook, { enabled: false }) as UserNotificationSettings["webhook"],
+    enabledEvents: parseJson(row.enabled_events, {
+      onCrawlFailure: false,
+      onContentChange: false,
+      onSslExpiring: false,
+      onCrawlComplete: false,
+      onMojibakeDetected: false,
+      onCrawlProgress: false
+    }) as UserNotificationSettings["enabledEvents"],
+    updatedAt: row.updated_at as string
   }
 }

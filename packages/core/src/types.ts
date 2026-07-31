@@ -71,7 +71,8 @@ export const NotificationsConfigSchema = z.object({
     onContentChange: z.boolean().default(true),
     onSslExpiring: z.boolean().default(true),
     onCrawlComplete: z.boolean().default(false),
-    onMojibakeDetected: z.boolean().default(false)
+    onMojibakeDetected: z.boolean().default(false),
+    onCrawlProgress: z.boolean().default(false)
   })
 })
 export type NotificationsConfig = z.infer<typeof NotificationsConfigSchema>
@@ -91,7 +92,27 @@ export const ConfigSchema = z.object({
   ).min(1),
   crawl: CrawlConfigSchema,
   checks: ChecksConfigSchema,
-  notifications: NotificationsConfigSchema,
+  notifications: NotificationsConfigSchema.default({
+    providers: {
+      slack: { enabled: false, webhookUrl: undefined },
+      telegram: { enabled: false, botToken: undefined, chatId: undefined },
+      email: {
+        enabled: false,
+        smtp: { host: undefined, port: 587, secure: undefined, user: undefined, pass: undefined },
+        from: undefined,
+        to: []
+      },
+      webhook: { enabled: false, url: undefined, secret: undefined }
+    },
+    events: {
+      onCrawlFailure: true,
+      onContentChange: true,
+      onSslExpiring: true,
+      onCrawlComplete: false,
+      onMojibakeDetected: false,
+      onCrawlProgress: false
+    }
+  }),
   schedule: z.string().optional()
 })
 export type Config = z.infer<typeof ConfigSchema>
@@ -159,14 +180,65 @@ export type NotificationEvent =
   | "onSslExpiring"
   | "onCrawlComplete"
   | "onMojibakeDetected"
+  | "onCrawlProgress"
+
+export interface CrawlSummaryIssue {
+  url: string
+  detail: string
+  severity: "high" | "medium" | "low"
+}
+
+export interface CrawlSummary {
+  crawlId: string
+  jobName?: string
+  status: CrawlStatus
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  totalUrls: number
+  checkedUrls: number
+  healthScore: number // 0-100
+  avgResponseTimeMs: number | null
+  slowestResponseTimeMs: number | null
+  fastestResponseTimeMs: number | null
+  issues: {
+    broken: CrawlSummaryIssue[]
+    changed: CrawlSummaryIssue[]
+    sslExpiring: CrawlSummaryIssue[]
+    mojibake: CrawlSummaryIssue[]
+  }
+}
+
+export interface CrawlReportUrls {
+  broken: { url: string; detail?: string }[]
+  changed: { url: string; detail?: string }[]
+  sslExpiring: { url: string; detail?: string }[]
+  mojibake: { url: string; detail?: string }[]
+}
+
+export interface CrawlReportStats {
+  healthScore: number
+  totalChecked: number
+  totalFound: number
+  brokenCount: number
+  changedCount: number
+  sslCount: number
+  mojibakeCount: number
+  avgResponseTimeMs: number | null
+  fastestResponseTimeMs: number | null
+  slowestResponseTimeMs: number | null
+}
 
 export interface NotificationPayload {
   event: NotificationEvent
   title: string
   message: string
+  htmlBody?: string
   crawlId?: string
   url?: string
   meta?: Record<string, unknown>
+  reportStats?: CrawlReportStats
+  reportUrls?: CrawlReportUrls
 }
 
 export interface CrawlProgress {
@@ -185,6 +257,37 @@ export interface CrawlProgress {
 export const IntervalUnitSchema = z.enum(["minutes", "hours", "days"])
 export type IntervalUnit = z.infer<typeof IntervalUnitSchema>
 
+export const JobNotificationProvidersSchema = z.object({
+  slack: z.object({
+    enabled: z.boolean(),
+    webhookUrl: z.string().optional()
+  }).optional(),
+  telegram: z.object({
+    enabled: z.boolean(),
+    botToken: z.string().optional(),
+    chatId: z.string().optional()
+  }).optional(),
+  email: z.object({
+    enabled: z.boolean(),
+    smtp: z.object({
+      host: z.string().optional(),
+      port: z.number().int().positive().optional(),
+      secure: z.boolean().optional(),
+      user: z.string().optional(),
+      pass: z.string().optional()
+    }).optional(),
+    from: z.string().optional(),
+    to: z.array(z.string()).optional()
+  }).optional(),
+  webhook: z.object({
+    enabled: z.boolean(),
+    url: z.string().optional(),
+    secret: z.string().optional()
+  }).optional()
+})
+
+export type JobNotificationProviders = z.infer<typeof JobNotificationProvidersSchema>
+
 export const CrawlJobSchema = z.object({
   name: z.string().min(1, "Name is required"),
   sitemapUrl: z.string().url("Valid sitemap URL is required"),
@@ -196,13 +299,16 @@ export const CrawlJobSchema = z.object({
   notifyOnFailure: z.boolean().default(true),
   notifyOnChange: z.boolean().default(true),
   notifyOnMojibake: z.boolean().default(false),
+  notifySslExpiring: z.boolean().default(true),
+  notifyOnProgress: z.boolean().default(false),
   detectMojibake: z.boolean().optional().default(true),
   delayMs: z.number().int().nonnegative().default(2000),
   maxConcurrency: z.number().int().positive().default(2),
   timeoutMs: z.number().int().positive().default(30000),
   userAgent: z.string().min(1).default("supacrawl/0.1"),
   respectRobotsTxt: z.boolean().default(true),
-  maxUrls: z.number().int().positive().default(999999)
+  maxUrls: z.number().int().positive().default(999999),
+  notificationProviders: JobNotificationProvidersSchema.nullable().optional()
 })
 
 export interface CrawlJob {
@@ -217,6 +323,8 @@ export interface CrawlJob {
   notifyOnFailure: boolean
   notifyOnChange: boolean
   notifyOnMojibake: boolean
+  notifySslExpiring: boolean
+  notifyOnProgress: boolean
   detectMojibake: boolean
   delayMs: number
   maxConcurrency: number
@@ -224,6 +332,7 @@ export interface CrawlJob {
   userAgent: string
   respectRobotsTxt: boolean
   maxUrls: number
+  notificationProviders: JobNotificationProviders | null
   createdAt: string
   updatedAt: string
   lastRunAt: string | null
@@ -255,4 +364,21 @@ export interface CheckResult {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+}
+
+export interface UserNotificationSettings {
+  userId: string
+  slack: { enabled: boolean; webhookUrl?: string }
+  telegram: { enabled: boolean; botToken?: string; chatId?: string }
+  email: { enabled: boolean; smtp?: { host?: string; port?: number; secure?: boolean; user?: string; pass?: string }; from?: string; to?: string[] }
+  webhook: { enabled: boolean; url?: string; secret?: string }
+  enabledEvents: {
+    onCrawlFailure: boolean
+    onContentChange: boolean
+    onSslExpiring: boolean
+    onCrawlComplete: boolean
+    onMojibakeDetected: boolean
+    onCrawlProgress: boolean
+  }
+  updatedAt: string
 }

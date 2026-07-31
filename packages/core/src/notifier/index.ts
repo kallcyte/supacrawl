@@ -6,7 +6,9 @@ import type { NotificationProvider } from "./types.js"
 import type {
   NotificationEvent,
   NotificationPayload,
-  NotificationsConfig
+  NotificationsConfig,
+  CrawlJob,
+  UserNotificationSettings
 } from "../types.js"
 
 export class Notifier {
@@ -44,6 +46,91 @@ export class Notifier {
 
   isEventEnabled(event: NotificationEvent): boolean {
     return this.config.events[event] ?? false
+  }
+
+  /** Build a NotificationsConfig from a UserNotificationSettings object. */
+  static configFromUserSettings(settings: UserNotificationSettings): NotificationsConfig {
+    return {
+      providers: {
+        slack: {
+          enabled: settings.slack.enabled,
+          webhookUrl: settings.slack.webhookUrl
+        },
+        telegram: {
+          enabled: settings.telegram.enabled,
+          botToken: settings.telegram.botToken,
+          chatId: settings.telegram.chatId
+        },
+        email: {
+          enabled: settings.email.enabled,
+          smtp: {
+            host: settings.email.smtp?.host,
+            port: settings.email.smtp?.port,
+            secure: settings.email.smtp?.secure,
+            user: settings.email.smtp?.user,
+            pass: settings.email.smtp?.pass
+          },
+          from: settings.email.from,
+          to: settings.email.to ?? []
+        },
+        webhook: {
+          enabled: settings.webhook.enabled,
+          url: settings.webhook.url,
+          secret: settings.webhook.secret
+        }
+      },
+      events: {
+        onCrawlFailure: settings.enabledEvents.onCrawlFailure,
+        onContentChange: settings.enabledEvents.onContentChange,
+        onSslExpiring: settings.enabledEvents.onSslExpiring,
+        onCrawlComplete: settings.enabledEvents.onCrawlComplete,
+        onMojibakeDetected: settings.enabledEvents.onMojibakeDetected,
+        onCrawlProgress: settings.enabledEvents.onCrawlProgress
+      }
+    }
+  }
+
+  /** Build a NotificationsConfig from a CrawlJob's DB fields. */
+  static configFromJob(job: Pick<CrawlJob, "notifyOnComplete" | "notifyOnFailure" | "notifyOnChange" | "notifyOnMojibake" | "notifySslExpiring" | "notifyOnProgress" | "notificationProviders">): NotificationsConfig {
+    const providers = job.notificationProviders ?? {}
+    return {
+      providers: {
+        slack: {
+          enabled: providers.slack?.enabled ?? false,
+          webhookUrl: providers.slack?.webhookUrl
+        },
+        telegram: {
+          enabled: providers.telegram?.enabled ?? false,
+          botToken: providers.telegram?.botToken,
+          chatId: providers.telegram?.chatId
+        },
+        email: {
+          enabled: providers.email?.enabled ?? false,
+          smtp: {
+            host: providers.email?.smtp?.host,
+            port: providers.email?.smtp?.port,
+            secure: providers.email?.smtp?.secure,
+            user: providers.email?.smtp?.user,
+            pass: providers.email?.smtp?.pass
+          },
+          from: providers.email?.from,
+          to: providers.email?.to ?? []
+        },
+        webhook: {
+          enabled: providers.webhook?.enabled ?? false,
+          url: providers.webhook?.url,
+          secret: providers.webhook?.secret
+        }
+      },
+      events: {
+        onCrawlFailure: job.notifyOnFailure,
+        onContentChange: job.notifyOnChange,
+        onSslExpiring: job.notifySslExpiring,
+        onCrawlComplete: job.notifyOnComplete,
+        onMojibakeDetected: job.notifyOnMojibake,
+        onCrawlProgress: job.notifyOnProgress
+      }
+    }
   }
 }
 

@@ -57,6 +57,10 @@ export async function runCrawlWithPersistence(
     const sslResults: CheckResult[] = []
     const mojibakeResults: CheckResult[] = []
 
+    // Progress milestones: fire onCrawlProgress at 25%, 50%, 75%
+    const progressMilestones = new Set([25, 50, 75])
+    const progressFired = new Set<number>()
+
     const { errors: crawlErrors } = await runCrawl({
       crawlId,
       config: opts.config.crawl,
@@ -71,6 +75,28 @@ export async function runCrawlWithPersistence(
           urlsSkipped: p.skipped
         })
         opts.onProgress?.(p)
+
+        // Check milestones
+        if (p.total > 0 && opts.notifier.isEventEnabled("onCrawlProgress")) {
+          const pct = Math.floor((p.checked / p.total) * 100)
+          for (const m of progressMilestones) {
+            if (pct >= m && !progressFired.has(m)) {
+              progressFired.add(m)
+              const barLen = 20
+              const filled = Math.round((pct / 100) * barLen)
+              const bar = "█".repeat(filled) + "░".repeat(barLen - filled)
+              const elapsed = Date.now() - Date.parse(startedAt)
+              const eta = pct > 0 ? Math.round((elapsed / pct) * (100 - pct)) : 0
+              opts.notifier.notify("onCrawlProgress", {
+                event: "onCrawlProgress",
+                title: `Crawl ${pct}% complete`,
+                message: `\`\`\`\n${bar}\n\`\`\`\n${p.checked}/${p.total} URLs checked · ${p.broken} broken · ${p.changed} changed\nRemaining: ~${formatDuration(eta)}`,
+                crawlId,
+                meta: { percent: m, checked: p.checked, total: p.total, broken: p.broken, changed: p.changed }
+              })
+            }
+          }
+        }
       },
       onEntries: (entries) => {
         lastmodMap = new Map(entries.map((e) => [e.loc, e.lastmod]))

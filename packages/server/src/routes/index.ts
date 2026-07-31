@@ -13,6 +13,7 @@ import { usersRoutes } from "./users.js"
 import { notifiersRoutes } from "./notifiers.js"
 import { authRoutes } from "./auth.js"
 import { setupRoutes } from "./setup.js"
+import { userNotificationsRoutes } from "./user-notifications.js"
 
 export interface RouteDeps {
   app: FastifyInstance
@@ -38,6 +39,7 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
     await usersRoutes(instance, deps)
     await notifiersRoutes(instance, deps)
     await authRoutes(instance, deps)
+    await userNotificationsRoutes(instance, deps)
     await setupRoutes(instance, { ...deps, setup })
 
     instance.get("/api/ws/crawl/:id", { websocket: true }, (socket, req) => {
