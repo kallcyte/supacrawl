@@ -71,28 +71,45 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
 
   // Mount better-auth handler
   app.all("/api/auth/*", async (req: FastifyRequest, reply: FastifyReply) => {
-    const url = new URL(req.url, `http://${req.headers.host}`)
-    const headers = new Headers()
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (v !== undefined) {
-        if (Array.isArray(v)) headers.set(k, v.join(", "))
-        else headers.set(k, String(v))
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`)
+      const headers = new Headers()
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (v !== undefined) {
+          if (Array.isArray(v)) headers.set(k, v.join(", "))
+          else headers.set(k, String(v))
+        }
       }
+      const body =
+        req.method && !["GET", "HEAD"].includes(req.method)
+          ? JSON.stringify(req.body)
+          : undefined
+      const webRequest = new Request(url.toString(), {
+        method: req.method,
+        headers,
+        body
+      })
+      const webResponse = await auth.handler(webRequest)
+      reply.code(webResponse.status)
+      // Forward all headers. Multiple Set-Cookie headers must be collected as an array
+      // since reply.header() overwrites on each call.
+      const setCookieHeaders: string[] = []
+      webResponse.headers.forEach((value, key) => {
+        if (key.toLowerCase() === "set-cookie") {
+          setCookieHeaders.push(value)
+        } else {
+          reply.header(key, value)
+        }
+      })
+      if (setCookieHeaders.length > 0) {
+        reply.raw.setHeader("Set-Cookie", setCookieHeaders)
+      }
+      const text = await webResponse.text()
+      return reply.send(text)
+    } catch (err) {
+      req.log.error({ err }, "Auth handler error")
+      return reply.code(500).send({ error: "Authentication service error" })
     }
-    const body =
-      req.method && !["GET", "HEAD"].includes(req.method)
-        ? JSON.stringify(req.body)
-        : undefined
-    const webRequest = new Request(url.toString(), {
-      method: req.method,
-      headers,
-      body
-    })
-    const webResponse = await auth.handler(webRequest)
-    reply.code(webResponse.status)
-    webResponse.headers.forEach((value, key) => reply.header(key, value))
-    const text = await webResponse.text()
-    return reply.send(text)
   })
 
   const crawlManager = new CrawlManager(config, storage, notifier, (progress: CrawlProgress) => {
