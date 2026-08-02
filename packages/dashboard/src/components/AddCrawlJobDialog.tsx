@@ -194,12 +194,13 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sitemapUrl">Sitemap URL</Label>
+                <Label htmlFor="sitemapUrl">URL (site or sitemap)</Label>
                 <div className="flex gap-2">
                   <Input
                     id="sitemapUrl"
                     type="url"
                     value={sitemapUrl}
+                    placeholder="https://example.com or https://example.com/sitemap.xml"
                     onChange={(e) => { setSitemapUrl(e.target.value); setTree(null) }}
                     required
                     className="flex-1"
@@ -209,12 +210,15 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                     Discover
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter your site URL and Supacrawl will auto-detect sitemaps from robots.txt and common locations.
+                </p>
               </div>
 
               {tree && tree.children.length > 0 && (
                 <div className="space-y-1 rounded-md border p-3">
                   <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Child sitemaps ({selectedUrls.size} / {tree.children.length} selected)
+                    Discovered sitemaps ({selectedUrls.size} / {tree.children.length} selected)
                   </p>
                   <div className="max-h-48 space-y-1 overflow-auto">
                     {renderTree(tree)}

@@ -290,7 +290,7 @@ export type JobNotificationProviders = z.infer<typeof JobNotificationProvidersSc
 
 export const CrawlJobSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  sitemapUrl: z.string().url("Valid sitemap URL is required"),
+  sitemapUrl: z.string().url("Valid URL (site or sitemap) is required"),
   sitemapUrls: z.array(z.string().url()).nullable().optional(),
   enabled: z.boolean().default(true),
   intervalValue: z.number().int().positive().default(60),

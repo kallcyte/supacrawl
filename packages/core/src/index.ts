@@ -1,6 +1,6 @@
 export * from "./types.js"
 export { Storage } from "./storage.js"
-export { fetchAndParseSitemap, discoverSitemapTree } from "./sitemap.js"
+export { fetchAndParseSitemap, discoverSitemapTree, resolveSitemapUrls, isLikelySitemapUrl } from "./sitemap.js"
 export type { SitemapTreeNode } from "./sitemap.js"
 export { fetchAndParseRobots } from "./robots.js"
 export { checkSsl } from "./ssl.js"

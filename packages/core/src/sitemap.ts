@@ -1,6 +1,22 @@
 import { XMLParser } from "fast-xml-parser"
 import { gunzipSync } from "node:zlib"
+import { fetchAndParseRobots } from "./robots.js"
 import type { SitemapEntry, SitemapResult } from "./types.js"
+
+const COMMON_SITEMAP_PATHS = [
+  "/sitemap.xml",
+  "/sitemap_index.xml",
+  "/sitemap-index.xml",
+  "/sitemapindex.xml",
+  "/sitemap.xml.gz",
+  "/sitemap_index.xml.gz",
+  "/sitemap-index.xml.gz",
+  "/sitemap/sitemap.xml",
+  "/sitemap/sitemap_index.xml",
+  "/sitemaps/sitemap.xml",
+  "/sitemaps/sitemap_index.xml",
+  "/wp-sitemap.xml"
+]
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -30,6 +46,72 @@ export async function fetchSitemapBytes(
     return { body: new Uint8Array(decompressed), isGzipped: true }
   }
   return { body: buf, isGzipped: false }
+}
+
+export function isLikelySitemapUrl(url: string): boolean {
+  try {
+    const { pathname } = new URL(url)
+    return /\.xml(\.gz)?$/i.test(pathname) || /sitemap/i.test(pathname)
+  } catch {
+    return false
+  }
+}
+
+export interface SitemapResolution {
+  urls: string[]
+  errors: string[]
+}
+
+export async function resolveSitemapUrls(
+  url: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<SitemapResolution> {
+  const errors: string[] = []
+  const normalized = new URL(url).toString()
+  if (isLikelySitemapUrl(normalized)) return { urls: [normalized], errors }
+
+  const origin = new URL(normalized).origin
+  const urls: string[] = []
+  const seen = new Set<string>()
+
+  try {
+    const robots = await fetchAndParseRobots(origin, fetchImpl)
+    for (const s of robots.sitemaps) {
+      if (!seen.has(s)) {
+        seen.add(s)
+        urls.push(s)
+      }
+    }
+  } catch (err) {
+    errors.push(`Failed to parse robots.txt: ${(err as Error).message}`)
+  }
+
+  const probes = await Promise.all(
+    COMMON_SITEMAP_PATHS.map(async (path): Promise<string | null> => {
+      const candidate = new URL(path, origin).toString()
+      if (seen.has(candidate)) return null
+      try {
+        const res = await fetchImpl(candidate, {
+          headers: { Accept: "application/xml, text/xml, */*" }
+        })
+        if (!res.ok) return null
+        const ct = res.headers.get("content-type") ?? ""
+        if (ct && !/xml/i.test(ct)) return null
+        return candidate
+      } catch {
+        return null
+      }
+    })
+  )
+
+  for (const found of probes) {
+    if (found && !seen.has(found)) {
+      seen.add(found)
+      urls.push(found)
+    }
+  }
+
+  return { urls, errors }
 }
 
 function decodeXml(body: Uint8Array): string {
@@ -146,7 +228,13 @@ export async function discoverSitemapTree(
     }
   }
 
-  return build(rootUrl, 0)
+  if (isLikelySitemapUrl(rootUrl)) return build(rootUrl, 0)
+
+  const { urls } = await resolveSitemapUrls(rootUrl, fetchImpl)
+  if (urls.length === 0) return { url: rootUrl, leafCount: 0, children: [] }
+  const children = await Promise.all(urls.map((u) => build(u, 1)))
+  const sum = children.reduce((acc, c) => acc + c.leafCount, 0)
+  return { url: rootUrl, leafCount: sum, children }
 }
 
 export async function fetchAndParseSitemap(
@@ -157,8 +245,21 @@ export async function fetchAndParseSitemap(
   const errors: string[] = []
   const seen = new Set<string>()
   const entries: SitemapEntry[] = []
-  const queue: { url: string; depth: number }[] = [{ url: rootUrl, depth: 0 }]
+  const queue: { url: string; depth: number }[] = []
   let visited = 0
+
+  if (isLikelySitemapUrl(rootUrl)) {
+    queue.push({ url: rootUrl, depth: 0 })
+  } else {
+    const resolved = await resolveSitemapUrls(rootUrl, fetchImpl)
+    errors.push(...resolved.errors)
+    for (const u of resolved.urls) queue.push({ url: u, depth: 0 })
+    if (resolved.urls.length === 0) {
+      errors.push(
+        `No sitemaps found for ${rootUrl}. Try the sitemap URL directly or add one to robots.txt.`
+      )
+    }
+  }
 
   while (queue.length > 0) {
     const item = queue.shift()
