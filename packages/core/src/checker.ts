@@ -2,6 +2,7 @@ import { URL } from "node:url"
 import { sha256 } from "./diff.js"
 import { checkSsl } from "./ssl.js"
 import { detectMojibake } from "./mojibake.js"
+import { extractSeoInfo } from "./seo.js"
 import type { CheckMethod, CheckResult, CrawlConfig, SitemapEntry } from "./types.js"
 
 export interface CheckerContext {
@@ -21,6 +22,7 @@ function effectiveMethod(
   const known = ctx.knownHashes.get(url)
   if (!known) return { method: "GET", reason: "no prior data" }
   if (!lastmod) return { method: "GET", reason: "no lastmod" }
+  if (!ctx.knownHashes.get(`${url}#seo`)) return { method: "GET", reason: "seo data missing" }
   const ts = Date.parse(lastmod)
   if (!Number.isFinite(ts)) return { method: "GET", reason: "invalid lastmod" }
   const lastChecked = ctx.knownHashes.get(`${url}#checked`)
@@ -47,7 +49,8 @@ export async function checkUrl(
     sslValidUntil: null,
     checkMethod: method,
     mojibakeScore: null,
-    mojibakeFlagged: false
+    mojibakeFlagged: false,
+    seo: null
   }
   let attempt = 0
   const maxAttempts = ctx.config.retryOnTransientError ? ctx.config.maxRetries + 1 : 1
@@ -90,6 +93,7 @@ export async function checkUrl(
         const previous = ctx.knownHashes.get(url)
         result.contentHash = hash
         result.contentChanged = previous !== undefined && previous !== hash
+        result.seo = extractSeoInfo(buf, currentUrl)
         if (ctx.config.detectMojibake !== false) {
           const mojibake = detectMojibake(buf)
           result.mojibakeScore = mojibake.score

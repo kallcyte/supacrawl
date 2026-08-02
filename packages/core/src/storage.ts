@@ -9,6 +9,7 @@ import type {
   CrawlResultRecord,
   CrawlSummary,
   CrawlSummaryIssue,
+  SeoInfo,
   UrlStateRecord,
   UserNotificationSettings
 } from "./types.js"
@@ -62,7 +63,8 @@ export class Storage {
         checked_at TEXT NOT NULL,
         check_method TEXT NOT NULL,
         mojibake_score REAL,
-        mojibake_flagged INTEGER DEFAULT 0
+        mojibake_flagged INTEGER DEFAULT 0,
+        seo TEXT
       );
 
       CREATE INDEX IF NOT EXISTS idx_results_crawl ON crawl_results(crawl_id);
@@ -100,7 +102,8 @@ export class Storage {
         last_response_time_ms INTEGER,
         sitemap_lastmod TEXT,
         last_checked_at TEXT NOT NULL,
-        consecutive_failures INTEGER DEFAULT 0
+        consecutive_failures INTEGER DEFAULT 0,
+        has_seo INTEGER DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS settings (
@@ -120,6 +123,12 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_results", "mojibake_flagged")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_flagged INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("crawl_results", "seo")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo TEXT`)
+    }
+    if (!this.hasColumn("url_state", "has_seo")) {
+      this.db.exec(`ALTER TABLE url_state ADD COLUMN has_seo INTEGER DEFAULT 0`)
     }
     if (!this.hasColumn("crawl_jobs", "detect_mojibake")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN detect_mojibake INTEGER DEFAULT 1`)
@@ -251,8 +260,8 @@ export class Storage {
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
           content_changed, error, redirect_chain, ssl_valid_until,
-          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -269,7 +278,8 @@ export class Storage {
         r.checkedAt,
         r.checkMethod,
         r.mojibakeScore,
-        r.mojibakeFlagged ? 1 : 0
+        r.mojibakeFlagged ? 1 : 0,
+        r.seo ? JSON.stringify(r.seo) : null
       )
   }
 
@@ -279,7 +289,7 @@ export class Storage {
   ): CrawlResultRecord[] {
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -301,7 +311,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
          FROM crawl_results WHERE id = ?`
       )
       .get(id) as Record<string, unknown> | undefined
@@ -314,15 +324,16 @@ export class Storage {
       .prepare(
         `INSERT INTO url_state
          (url, last_status_code, last_content_hash, last_response_time_ms,
-          sitemap_lastmod, last_checked_at, consecutive_failures)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+          sitemap_lastmod, last_checked_at, consecutive_failures, has_seo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(url) DO UPDATE SET
            last_status_code = excluded.last_status_code,
            last_content_hash = excluded.last_content_hash,
            last_response_time_ms = excluded.last_response_time_ms,
            sitemap_lastmod = excluded.sitemap_lastmod,
            last_checked_at = excluded.last_checked_at,
-           consecutive_failures = excluded.consecutive_failures`
+           consecutive_failures = excluded.consecutive_failures,
+           has_seo = excluded.has_seo`
       )
       .run(
         s.url,
@@ -331,7 +342,8 @@ export class Storage {
         s.lastResponseTimeMs,
         s.sitemapLastmod,
         s.lastCheckedAt,
-        s.consecutiveFailures
+        s.consecutiveFailures,
+        s.hasSeo ? 1 : 0
       )
   }
 
@@ -339,7 +351,7 @@ export class Storage {
     const rows = this.db
       .prepare(
         `SELECT url, last_status_code, last_content_hash, last_response_time_ms,
-                sitemap_lastmod, last_checked_at, consecutive_failures
+                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo
          FROM url_state`
       )
       .all() as Record<string, unknown>[]
@@ -351,7 +363,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
          FROM crawl_results WHERE url = ?
          ORDER BY checked_at DESC LIMIT ?`
       )
@@ -363,7 +375,7 @@ export class Storage {
     const rows = this.db
       .prepare(
         `SELECT url, last_status_code, last_content_hash, last_response_time_ms,
-                sitemap_lastmod, last_checked_at, consecutive_failures
+                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo
          FROM url_state ORDER BY last_checked_at DESC LIMIT ? OFFSET ?`
       )
       .all(limit, offset) as Record<string, unknown>[]
@@ -801,7 +813,19 @@ function mapResult(row: Record<string, unknown>): CrawlResultRecord {
     checkedAt: row.checked_at as string,
     checkMethod: row.check_method as CrawlResultRecord["checkMethod"],
     mojibakeScore: (row.mojibake_score as number | null) ?? null,
-    mojibakeFlagged: row.mojibake_flagged === 1
+    mojibakeFlagged: row.mojibake_flagged === 1,
+    seo: parseSeo(row.seo)
+  }
+}
+
+function parseSeo(val: unknown): SeoInfo | null {
+  if (typeof val !== "string" || val.length === 0) return null
+  try {
+    const parsed = JSON.parse(val) as unknown
+    if (!parsed || typeof parsed !== "object") return null
+    return parsed as SeoInfo
+  } catch {
+    return null
   }
 }
 
@@ -813,7 +837,8 @@ function mapUrlState(row: Record<string, unknown>): UrlStateRecord {
     lastResponseTimeMs: (row.last_response_time_ms as number | null) ?? null,
     sitemapLastmod: (row.sitemap_lastmod as string | null) ?? null,
     lastCheckedAt: row.last_checked_at as string,
-    consecutiveFailures: (row.consecutive_failures as number) ?? 0
+    consecutiveFailures: (row.consecutive_failures as number) ?? 0,
+    hasSeo: row.has_seo === 1
   }
 }
 

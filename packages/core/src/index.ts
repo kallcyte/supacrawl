@@ -10,6 +10,8 @@ export { sha256 } from "./diff.js"
 export { detectMojibake } from "./mojibake.js"
 export { runCrawl } from "./crawler.js"
 export { checkUrl, buildLastmodMap } from "./checker.js"
+export { extractSeoInfo } from "./seo.js"
+export { buildCrawlReportHtml, buildCrawlSummaryText } from "./report.js"
 export { runCrawlWithPersistence } from "./orchestrator.js"
 export { loadConfigFromFile, parseConfig, writeConfigToFile, defaultConfig } from "./config.js"
 export {
@@ -21,5 +23,3 @@ export {
   WebhookProvider
 } from "./notifier/index.js"
 export type { NotificationProvider } from "./notifier/index.js"
-
-export { buildCrawlReportHtml, buildCrawlSummaryText } from "./report.js"

@@ -146,6 +146,25 @@ export interface CrawlRecord {
   errorMessage: string | null
 }
 
+export interface SeoInfo {
+  title: string | null
+  titleLength: number
+  description: string | null
+  descriptionLength: number
+  canonical: string | null
+  canonicalSelfReference: boolean | null
+  noindex: boolean
+  nofollow: boolean
+  h1Count: number
+  wordCount: number
+  pageWeightBytes: number
+  jsonLdTypes: string[]
+  ogTitle: string | null
+  ogDescription: string | null
+  ogImage: string | null
+  publishedAt: string | null
+}
+
 export interface CrawlResultRecord {
   id: string
   crawlId: string
@@ -162,6 +181,7 @@ export interface CrawlResultRecord {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  seo: SeoInfo | null
 }
 
 export interface UrlStateRecord {
@@ -172,6 +192,7 @@ export interface UrlStateRecord {
   sitemapLastmod: string | null
   lastCheckedAt: string
   consecutiveFailures: number
+  hasSeo: boolean
 }
 
 export type NotificationEvent =
@@ -364,6 +385,7 @@ export interface CheckResult {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  seo: SeoInfo | null
 }
 
 export interface UserNotificationSettings {

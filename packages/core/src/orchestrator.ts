@@ -48,6 +48,7 @@ export async function runCrawlWithPersistence(
     const knownHashesByUrl = new Map<string, string>()
     for (const s of opts.storage.getAllUrlStates()) {
       if (s.lastContentHash) knownHashesByUrl.set(s.url, s.lastContentHash)
+      if (s.hasSeo) knownHashesByUrl.set(`${s.url}#seo`, "1")
     }
 
     const enabledSitemaps = opts.sitemaps ?? opts.config.sitemaps
@@ -124,7 +125,8 @@ export async function runCrawlWithPersistence(
           checkedAt: new Date().toISOString(),
           checkMethod: r.checkMethod,
           mojibakeScore: r.mojibakeScore,
-          mojibakeFlagged: r.mojibakeFlagged
+          mojibakeFlagged: r.mojibakeFlagged,
+          seo: r.seo
         })
 
         const allStates = opts.storage.getAllUrlStates()
@@ -141,7 +143,8 @@ export async function runCrawlWithPersistence(
           lastResponseTimeMs: r.responseTimeMs,
           sitemapLastmod: lastmodMap.get(r.url) ?? null,
           lastCheckedAt: new Date().toISOString(),
-          consecutiveFailures
+          consecutiveFailures,
+          hasSeo: r.seo !== null
         })
       },
       abortSignal: opts.abortSignal,

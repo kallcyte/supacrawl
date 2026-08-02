@@ -15,6 +15,7 @@ import {
   TableRow
 } from "@/components/ui/table"
 import ResponseTimeLine from "@/components/charts/ResponseTimeLine"
+import SeoSnapshot from "@/components/SeoSnapshot"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import {
   Tooltip,
@@ -23,6 +24,23 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { Activity, ArrowRightLeft, Bug, Clock, Gauge, Info, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react"
+
+function seoChanges(curr: CrawlResult["seo"], prev: CrawlResult["seo"]): string[] {
+  if (!curr) return []
+  if (!prev) return ["captured"]
+  const changed: string[] = []
+  if (curr.title !== prev.title) changed.push("title")
+  if (curr.description !== prev.description) changed.push("description")
+  if (curr.canonical !== prev.canonical) changed.push("canonical")
+  if (curr.noindex !== prev.noindex) changed.push("noindex")
+  if (curr.nofollow !== prev.nofollow) changed.push("nofollow")
+  if (curr.h1Count !== prev.h1Count) changed.push("h1")
+  if (curr.wordCount !== prev.wordCount) changed.push("words")
+  if (curr.jsonLdTypes.join(",") !== prev.jsonLdTypes.join(",")) changed.push("json-ld")
+  if (curr.ogTitle !== prev.ogTitle || curr.ogDescription !== prev.ogDescription || curr.ogImage !== prev.ogImage) changed.push("og tags")
+  if (curr.publishedAt !== prev.publishedAt) changed.push("published date")
+  return changed
+}
 
 export default function UrlHistoryPage() {
   const [params, setParams] = useSearchParams()
@@ -329,6 +347,10 @@ export default function UrlHistoryPage() {
         </TooltipProvider>
       )}
 
+      {initial && summary && summary.last.seo && (
+        <SeoSnapshot seo={summary.last.seo} checkedAt={summary.last.checkedAt} />
+      )}
+
       {initial && (
         <>
           <Card>
@@ -362,7 +384,7 @@ export default function UrlHistoryPage() {
                 <Skeleton className="h-32 w-full" />
               ) : (
                 <div className="overflow-auto">
-                <div className="min-w-[700px]">
+                <div className="min-w-[800px]">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -372,10 +394,11 @@ export default function UrlHistoryPage() {
                       <TableHead className="text-right">Time</TableHead>
                       <TableHead>Details</TableHead>
                       <TableHead>Changed</TableHead>
+                      <TableHead>SEO</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((h) => (
+                    {history.map((h, index) => (
                       <TableRow key={h.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">
                           {formatDate(h.checkedAt)}
@@ -439,6 +462,39 @@ export default function UrlHistoryPage() {
                         <TableCell>
                           {h.contentChanged ? (
                             <Badge variant="warning">changed</Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {h.seo ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {h.seo.noindex && (
+                                <Badge variant="destructive" className="text-[10px]">noindex</Badge>
+                              )}
+                              {h.seo.canonical && h.seo.canonicalSelfReference === false && (
+                                <Badge variant="warning" className="text-[10px]" title={`Canonical: ${h.seo.canonical}`}>
+                                  canon
+                                </Badge>
+                              )}
+                              {!h.seo.title && (
+                                <Badge variant="warning" className="text-[10px]" title="Missing title tag">no title</Badge>
+                              )}
+                              {!h.seo.description && (
+                                <Badge variant="warning" className="text-[10px]" title="Missing meta description">no desc</Badge>
+                              )}
+                              {h.seo.h1Count === 0 && (
+                                <Badge variant="warning" className="text-[10px]" title="Missing H1">no h1</Badge>
+                              )}
+                              {h.seo.h1Count > 1 && (
+                                <Badge variant="warning" className="text-[10px]" title={`${h.seo.h1Count} H1 tags`}>h1 x{h.seo.h1Count}</Badge>
+                              )}
+                              {seoChanges(h.seo, history[index + 1]?.seo ?? null).map((c) => (
+                                <Badge key={c} variant="secondary" className="text-[10px]">
+                                  {c} changed
+                                </Badge>
+                              ))}
+                            </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
