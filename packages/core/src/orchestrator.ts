@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { Storage } from "./storage.js"
 import { runCrawl } from "./crawler.js"
 import { Notifier } from "./notifier/index.js"
+import { buildCrawlReportHtml, buildCrawlSummaryText } from "./report.js"
 import type { CheckResult, Config, CrawlRecord } from "./types.js"
 
 export interface OrchestratorOptions {
@@ -54,6 +55,7 @@ export async function runCrawlWithPersistence(
       .map((s) => s.url)
 
     let lastmodMap = new Map<string, string | undefined>()
+    const results: CheckResult[] = []
     const sslResults: CheckResult[] = []
     const mojibakeResults: CheckResult[] = []
 
@@ -103,6 +105,7 @@ export async function runCrawlWithPersistence(
       },
       onResult: (r) => {
         opts.onResult?.(r)
+        results.push(r)
         sslResults.push(r)
         mojibakeResults.push(r)
         const id = randomUUID()
@@ -197,20 +200,50 @@ export async function runCrawlWithPersistence(
       })
     }
 
+    const mojibakeFlagged = mojibakeResults
+      .filter((r) => r.mojibakeFlagged)
+      .map((r) => r.url)
+
     if (opts.notifier.isEventEnabled("onCrawlComplete")) {
+      const healthScore =
+        finalState.urlsChecked > 0
+          ? Math.round(((finalState.urlsChecked - finalState.urlsBroken) / finalState.urlsChecked) * 100)
+          : 100
+      const brokenUrls = results
+        .filter((r) => r.statusCode !== null && r.statusCode >= 400)
+        .slice(0, 30)
+      const changedUrls = results.filter((r) => r.contentChanged).slice(0, 30)
       await opts.notifier.notify("onCrawlComplete", {
         event: "onCrawlComplete",
-        title: "Crawl complete",
-        message: `Checked ${finalState.urlsChecked} of ${finalState.urlsTotal} URLs in ${formatDuration(Date.now() - Date.parse(startedAt))}.`,
-        crawlId
+        title: `Crawl complete — ${healthScore}% health score`,
+        message: buildCrawlSummaryText({
+          totalChecked: finalState.urlsChecked,
+          totalFound: finalState.urlsTotal,
+          broken: finalState.urlsBroken,
+          changed: finalState.urlsChanged,
+          skipped: finalState.urlsSkipped,
+          healthScore,
+          durationMs: Date.now() - Date.parse(startedAt)
+        }),
+        htmlBody: buildCrawlReportHtml({
+          crawlId,
+          healthScore,
+          totalChecked: finalState.urlsChecked,
+          totalFound: finalState.urlsTotal,
+          brokenCount: finalState.urlsBroken,
+          changedCount: finalState.urlsChanged,
+          sslCount: expiringSoon.length,
+          mojibakeCount: mojibakeFlagged.length,
+          brokenUrls: brokenUrls.map((r) => ({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` })),
+          changedUrls: changedUrls.map((r) => ({ url: r.url })),
+          sslUrls: expiringSoon.slice(0, 30)
+        }),
+        crawlId,
+        meta: { healthScore, broken: finalState.urlsBroken, changed: finalState.urlsChanged, skipped: finalState.urlsSkipped }
       })
     }
 
     if (opts.config.crawl.detectMojibake !== false) {
-      const mojibakeFlagged = mojibakeResults
-        .filter((r) => r.mojibakeFlagged)
-        .map((r) => r.url)
-
       if (
         mojibakeFlagged.length > 0 &&
         opts.notifier.isEventEnabled("onMojibakeDetected")

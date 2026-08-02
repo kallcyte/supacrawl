@@ -21,3 +21,5 @@ export {
   WebhookProvider
 } from "./notifier/index.js"
 export type { NotificationProvider } from "./notifier/index.js"
+
+export { buildCrawlReportHtml, buildCrawlSummaryText } from "./report.js"
