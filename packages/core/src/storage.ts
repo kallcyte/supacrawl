@@ -9,7 +9,16 @@ import type {
   CrawlResultRecord,
   CrawlSummary,
   CrawlSummaryIssue,
+  Heartbeat,
+  HeartbeatStatus,
+  MaintenanceWindowRecord,
+  Monitor,
+  MonitorRecord,
+  MonitorStats,
+  MonitorWithStatus,
   SeoInfo,
+  StatusPageMonitor,
+  StatusPageRecord,
   UrlStateRecord,
   UserNotificationSettings
 } from "./types.js"
@@ -78,6 +87,7 @@ export class Storage {
         enabled INTEGER DEFAULT 1,
         interval_value INTEGER NOT NULL,
         interval_unit TEXT NOT NULL DEFAULT 'minutes',
+        run_at TEXT,
         notify_on_complete INTEGER DEFAULT 0,
         notify_on_failure INTEGER DEFAULT 1,
         notify_on_change INTEGER DEFAULT 1,
@@ -109,6 +119,63 @@ export class Storage {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS monitors (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'http',
+        url TEXT NOT NULL,
+        method TEXT DEFAULT 'GET',
+        expected_status INTEGER DEFAULT 200,
+        expected_body TEXT,
+        interval_seconds INTEGER NOT NULL DEFAULT 60,
+        retry_count INTEGER NOT NULL DEFAULT 3,
+        timeout_ms INTEGER NOT NULL DEFAULT 10000,
+        accepted_response_time_ms INTEGER DEFAULT 5000,
+        enabled INTEGER DEFAULT 1,
+        source TEXT NOT NULL DEFAULT 'manual',
+        job_id TEXT REFERENCES crawl_jobs(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS heartbeats (
+        id TEXT PRIMARY KEY,
+        monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+        status TEXT NOT NULL,
+        response_time_ms INTEGER,
+        message TEXT,
+        checked_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_heartbeats_monitor ON heartbeats(monitor_id, checked_at DESC);
+
+      CREATE TABLE IF NOT EXISTS status_pages (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        show_response_times INTEGER DEFAULT 1,
+        public INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS status_page_monitors (
+        status_page_id TEXT NOT NULL REFERENCES status_pages(id) ON DELETE CASCADE,
+        monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+        sort_order INTEGER DEFAULT 0,
+        PRIMARY KEY (status_page_id, monitor_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS maintenance_windows (
+        id TEXT PRIMARY KEY,
+        monitor_id TEXT NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
       );
     `)
 
@@ -144,6 +211,9 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_jobs", "notify_on_progress")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_progress INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("crawl_jobs", "run_at")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN run_at TEXT`)
     }
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS user_notification_settings (
@@ -415,17 +485,19 @@ export class Storage {
       .prepare(
         `INSERT INTO crawl_jobs
          (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
+          run_at,
           notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
           notify_ssl_expiring, notify_on_progress, detect_mojibake,
           delay_ms, max_concurrency, timeout_ms, user_agent,
           respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         job.id, job.name, job.sitemapUrl,
         job.sitemapUrls ? JSON.stringify(job.sitemapUrls) : null,
         job.enabled ? 1 : 0,
         job.intervalValue, job.intervalUnit,
+        job.runAt,
         job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
         job.notifyOnMojibake ? 1 : 0,
         job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
@@ -477,11 +549,12 @@ export class Storage {
     const insert = this.db.prepare(
       `INSERT INTO crawl_jobs
        (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
+        run_at,
         notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
         notify_ssl_expiring, notify_on_progress, detect_mojibake,
         delay_ms, max_concurrency, timeout_ms, user_agent,
         respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const now = new Date().toISOString()
     const tx = this.db.transaction(() => {
@@ -491,6 +564,7 @@ export class Storage {
           job.sitemapUrls ? JSON.stringify(job.sitemapUrls) : null,
           job.enabled ? 1 : 0,
           job.intervalValue, job.intervalUnit,
+          job.runAt,
           job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
           job.notifyOnMojibake ? 1 : 0,
           job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
@@ -503,6 +577,406 @@ export class Storage {
     })
     tx()
     return jobs.length
+  }
+
+  // Monitors
+  createMonitor(monitor: MonitorRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO monitors
+         (id, name, type, url, method, expected_status, expected_body,
+          interval_seconds, retry_count, timeout_ms, accepted_response_time_ms,
+          enabled, source, job_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        monitor.id, monitor.name, monitor.type, monitor.url, monitor.method,
+        monitor.expectedStatus, monitor.expectedBody,
+        monitor.intervalSeconds, monitor.retryCount, monitor.timeoutMs,
+        monitor.acceptedResponseTimeMs,
+        monitor.enabled ? 1 : 0, monitor.source, monitor.jobId,
+        monitor.createdAt, monitor.updatedAt
+      )
+  }
+
+  updateMonitor(id: string, patch: Partial<Omit<MonitorRecord, "id" | "createdAt">>): void {
+    const { clauses, values } = this.buildMonitorUpdate(patch)
+    if (clauses.length === 0) return
+    values.push(id)
+    this.db.prepare(`UPDATE monitors SET ${clauses.join(", ")} WHERE id = ?`).run(...values)
+  }
+
+  updateMonitors(ids: string[], patch: Partial<Omit<MonitorRecord, "id" | "createdAt">>): number {
+    if (ids.length === 0) return 0
+    const { clauses, values } = this.buildMonitorUpdate(patch)
+    if (clauses.length === 0) return 0
+    const placeholders = ids.map(() => "?").join(", ")
+    values.push(...ids)
+    const info = this.db
+      .prepare(`UPDATE monitors SET ${clauses.join(", ")} WHERE id IN (${placeholders})`)
+      .run(...values)
+    return info.changes
+  }
+
+  deleteMonitors(ids: string[]): number {
+    if (ids.length === 0) return 0
+    const placeholders = ids.map(() => "?").join(", ")
+    const info = this.db.prepare(`DELETE FROM monitors WHERE id IN (${placeholders})`).run(...ids)
+    return info.changes
+  }
+
+  private buildMonitorUpdate(
+    patch: Partial<Omit<MonitorRecord, "id" | "createdAt">>
+  ): { clauses: string[]; values: unknown[] } {
+    const clauses: string[] = []
+    const values: unknown[] = []
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue
+      const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
+      clauses.push(`${col} = ?`)
+      if (Array.isArray(value) || (value !== null && typeof value === "object")) {
+        values.push(JSON.stringify(value))
+      } else if (typeof value === "boolean") {
+        values.push(value ? 1 : 0)
+      } else {
+        values.push(value)
+      }
+    }
+    return { clauses, values }
+  }
+
+  getMonitor(id: string): MonitorRecord | null {
+    const row = this.db.prepare(`SELECT * FROM monitors WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+    return row ? mapMonitor(row) : null
+  }
+
+  listMonitors(): MonitorWithStatus[] {
+    const rows = this.db.prepare(`SELECT * FROM monitors ORDER BY created_at DESC`).all() as Record<string, unknown>[]
+    return this.toMonitorWithStatus(rows)
+  }
+
+  listMonitorDomains(): { domain: string; count: number }[] {
+    const rows = this.db.prepare(`SELECT url FROM monitors`).all() as { url: string }[]
+    const counts = new Map<string, number>()
+    for (const row of rows) {
+      const domain = deriveDomain(row.url)
+      counts.set(domain, (counts.get(domain) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([domain, count]) => ({ domain, count }))
+      .sort((a, b) => a.domain.localeCompare(b.domain))
+  }
+
+  listMonitorsInDomains(domains: string[]): MonitorWithStatus[] {
+    if (domains.length === 0) return []
+    const allowed = new Set(domains)
+    const rows = this.db.prepare(`SELECT * FROM monitors ORDER BY created_at DESC`).all() as Record<string, unknown>[]
+    const filtered = rows.filter((row) => allowed.has(deriveDomain(row.url as string)))
+    return this.toMonitorWithStatus(filtered)
+  }
+
+  private toMonitorWithStatus(rows: Record<string, unknown>[]): MonitorWithStatus[] {
+    const latest = this.getLatestHeartbeatByMonitor()
+    const recent = this.getRecentHeartbeatsByMonitor(90)
+    const uptime24h = this.getUptimeByMonitor(new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+    const uptime7d = this.getUptimeByMonitor(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
+    const uptime30d = this.getUptimeByMonitor(new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
+    return rows.map((row) => {
+      const monitor = mapMonitor(row)
+      const hb = latest.get(monitor.id) ?? null
+      return {
+        ...monitor,
+        latestHeartbeat: hb,
+        currentStatus: hb?.status ?? null,
+        recentHeartbeats: recent.get(monitor.id) ?? [],
+        uptime24h: uptime24h.get(monitor.id) ?? null,
+        uptime7d: uptime7d.get(monitor.id) ?? null,
+        uptime30d: uptime30d.get(monitor.id) ?? null
+      }
+    })
+  }
+
+  listEnabledMonitors(): MonitorRecord[] {
+    const rows = this.db.prepare(`SELECT * FROM monitors WHERE enabled = 1`).all() as Record<string, unknown>[]
+    return rows.map(mapMonitor)
+  }
+
+  listMonitorsForJob(jobId: string): MonitorRecord[] {
+    const rows = this.db.prepare(`SELECT * FROM monitors WHERE job_id = ?`).all(jobId) as Record<string, unknown>[]
+    return rows.map(mapMonitor)
+  }
+
+  deleteMonitor(id: string): void {
+    this.db.prepare(`DELETE FROM monitors WHERE id = ?`).run(id)
+  }
+
+  upsertMonitorByUrl(
+    url: string,
+    patch: Partial<Omit<MonitorRecord, "id" | "createdAt">>
+  ): MonitorRecord | null {
+    const existing = this.db
+      .prepare(`SELECT * FROM monitors WHERE url = ? LIMIT 1`)
+      .get(url) as Record<string, unknown> | undefined
+    const now = new Date().toISOString()
+    if (existing) {
+      const monitor = mapMonitor(existing)
+      this.updateMonitor(monitor.id, { ...patch, updatedAt: now })
+      return this.getMonitor(monitor.id)
+    }
+    const monitor: MonitorRecord = {
+      name: deriveMonitorName(url),
+      type: "http",
+      url,
+      method: "GET",
+      expectedStatus: 200,
+      expectedBody: null,
+      intervalSeconds: 60,
+      retryCount: 3,
+      timeoutMs: 10000,
+      acceptedResponseTimeMs: 5000,
+      enabled: true,
+      source: "manual",
+      jobId: null,
+      ...patch,
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now
+    }
+    this.createMonitor(monitor)
+    return monitor
+  }
+
+  // Heartbeats
+  insertHeartbeat(h: Heartbeat): void {
+    this.db
+      .prepare(
+        `INSERT INTO heartbeats (id, monitor_id, status, response_time_ms, message, checked_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(h.id, h.monitorId, h.status, h.responseTimeMs, h.message, h.checkedAt)
+  }
+
+  getLatestHeartbeat(monitorId: string): Heartbeat | null {
+    const row = this.db
+      .prepare(`SELECT * FROM heartbeats WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1`)
+      .get(monitorId) as Record<string, unknown> | undefined
+    return row ? mapHeartbeat(row) : null
+  }
+
+  private getLatestHeartbeatByMonitor(): Map<string, Heartbeat> {
+    const rows = this.db
+      .prepare(
+        `SELECT h.* FROM heartbeats h
+         JOIN (SELECT monitor_id, MAX(checked_at) AS max_at FROM heartbeats GROUP BY monitor_id) t
+           ON h.monitor_id = t.monitor_id AND h.checked_at = t.max_at`
+      )
+      .all() as Record<string, unknown>[]
+    return new Map(rows.map((r) => [r.monitor_id as string, mapHeartbeat(r)]))
+  }
+
+  private getRecentHeartbeatsByMonitor(limit: number): Map<string, Heartbeat[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM (
+           SELECT h.*, ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY checked_at DESC) AS rn
+           FROM heartbeats h
+         ) WHERE rn <= ?`
+      )
+      .all(limit) as (Record<string, unknown> & { rn: number })[]
+    const byMonitor = new Map<string, Heartbeat[]>()
+    for (const row of rows) {
+      const monitorId = row.monitor_id as string
+      if (!byMonitor.has(monitorId)) byMonitor.set(monitorId, [])
+      byMonitor.get(monitorId)!.push(mapHeartbeat(row))
+    }
+    for (const list of byMonitor.values()) list.reverse()
+    return byMonitor
+  }
+
+  listHeartbeats(monitorId: string, limit = 100): Heartbeat[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM heartbeats WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT ?`
+      )
+      .all(monitorId, limit) as Record<string, unknown>[]
+    return rows.map(mapHeartbeat)
+  }
+
+  listHeartbeatsSince(monitorId: string, sinceIso: string): Heartbeat[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM heartbeats WHERE monitor_id = ? AND checked_at >= ? ORDER BY checked_at ASC`
+      )
+      .all(monitorId, sinceIso) as Record<string, unknown>[]
+    return rows.map(mapHeartbeat)
+  }
+
+  pruneHeartbeats(olderThanIso: string): number {
+    const info = this.db.prepare(`DELETE FROM heartbeats WHERE checked_at < ?`).run(olderThanIso)
+    return info.changes
+  }
+
+  // Uptime
+  private getUptimeByMonitor(sinceIso: string): Map<string, number> {
+    const rows = this.db
+      .prepare(
+        `SELECT monitor_id,
+                SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) AS up_count,
+                COUNT(*) AS total
+         FROM heartbeats WHERE checked_at >= ?
+         GROUP BY monitor_id`
+      )
+      .all(sinceIso) as { monitor_id: string; up_count: number; total: number }[]
+    return new Map(
+      rows
+        .filter((r) => r.total > 0)
+        .map((r) => [r.monitor_id, Math.round((r.up_count / r.total) * 1000) / 10])
+    )
+  }
+
+  getUptimeForPeriod(monitorId: string, sinceIso: string): number | null {
+    const row = this.db
+      .prepare(
+        `SELECT SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) AS up_count, COUNT(*) AS total
+         FROM heartbeats WHERE monitor_id = ? AND checked_at >= ?`
+      )
+      .get(monitorId, sinceIso) as { up_count: number; total: number } | undefined
+    if (!row || row.total === 0) return null
+    return Math.round((row.up_count / row.total) * 1000) / 10
+  }
+
+  getMonitorStats(monitorId: string): MonitorStats {
+    const day = 24 * 3600 * 1000
+    const rtRow = this.db
+      .prepare(
+        `SELECT AVG(response_time_ms) AS avg_rt, MIN(response_time_ms) AS min_rt, MAX(response_time_ms) AS max_rt
+         FROM heartbeats WHERE monitor_id = ? AND response_time_ms IS NOT NULL AND checked_at >= ?`
+      )
+      .get(monitorId, new Date(Date.now() - 30 * day).toISOString()) as
+      | { avg_rt: number | null; min_rt: number | null; max_rt: number | null }
+      | undefined
+    return {
+      uptime24h: this.getUptimeForPeriod(monitorId, new Date(Date.now() - 1 * day).toISOString()),
+      uptime7d: this.getUptimeForPeriod(monitorId, new Date(Date.now() - 7 * day).toISOString()),
+      uptime30d: this.getUptimeForPeriod(monitorId, new Date(Date.now() - 30 * day).toISOString()),
+      uptime365d: this.getUptimeForPeriod(monitorId, new Date(Date.now() - 365 * day).toISOString()),
+      avgResponseTimeMs: rtRow?.avg_rt != null ? Math.round(rtRow.avg_rt) : null,
+      minResponseTimeMs: rtRow?.min_rt != null ? Math.round(rtRow.min_rt) : null,
+      maxResponseTimeMs: rtRow?.max_rt != null ? Math.round(rtRow.max_rt) : null
+    }
+  }
+
+  // Status pages
+  createStatusPage(page: StatusPageRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO status_pages (id, slug, title, description, show_response_times, public, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(page.id, page.slug, page.title, page.description, page.showResponseTimes ? 1 : 0, page.public ? 1 : 0, page.createdAt)
+  }
+
+  listStatusPages(): StatusPageRecord[] {
+    const rows = this.db.prepare(`SELECT * FROM status_pages ORDER BY created_at DESC`).all() as Record<string, unknown>[]
+    return rows.map(mapStatusPage)
+  }
+
+  getStatusPage(id: string): StatusPageRecord | null {
+    const row = this.db.prepare(`SELECT * FROM status_pages WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+    return row ? mapStatusPage(row) : null
+  }
+
+  getStatusPageBySlug(slug: string): StatusPageRecord | null {
+    const row = this.db.prepare(`SELECT * FROM status_pages WHERE slug = ?`).get(slug) as Record<string, unknown> | undefined
+    return row ? mapStatusPage(row) : null
+  }
+
+  updateStatusPage(id: string, patch: Partial<Omit<StatusPageRecord, "id" | "createdAt">>): void {
+    const fields: string[] = []
+    const values: unknown[] = []
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue
+      const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
+      fields.push(`${col} = ?`)
+      if (typeof value === "boolean") values.push(value ? 1 : 0)
+      else values.push(value)
+    }
+    if (fields.length === 0) return
+    values.push(id)
+    this.db.prepare(`UPDATE status_pages SET ${fields.join(", ")} WHERE id = ?`).run(...values)
+  }
+
+  deleteStatusPage(id: string): void {
+    this.db.prepare(`DELETE FROM status_pages WHERE id = ?`).run(id)
+  }
+
+  setStatusPageMonitors(statusPageId: string, monitorIds: string[]): void {
+    const tx = this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM status_page_monitors WHERE status_page_id = ?`).run(statusPageId)
+      const insert = this.db.prepare(
+        `INSERT INTO status_page_monitors (status_page_id, monitor_id, sort_order) VALUES (?, ?, ?)`
+      )
+      monitorIds.forEach((monitorId, i) => insert.run(statusPageId, monitorId, i))
+    })
+    tx()
+  }
+
+  getStatusPageMonitors(statusPageId: string): MonitorWithStatus[] {
+    const rows = this.db
+      .prepare(
+        `SELECT m.* FROM status_page_monitors spm
+         JOIN monitors m ON m.id = spm.monitor_id
+         WHERE spm.status_page_id = ?
+         ORDER BY spm.sort_order ASC`
+      )
+      .all(statusPageId) as Record<string, unknown>[]
+    const latest = this.getLatestHeartbeatByMonitor()
+    const recent = this.getRecentHeartbeatsByMonitor(90)
+    const uptime24h = this.getUptimeByMonitor(new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+    return rows.map((row) => {
+      const monitor = mapMonitor(row)
+      const hb = latest.get(monitor.id) ?? null
+      return {
+        ...monitor,
+        latestHeartbeat: hb,
+        currentStatus: hb?.status ?? null,
+        recentHeartbeats: recent.get(monitor.id) ?? [],
+        uptime24h: uptime24h.get(monitor.id) ?? null,
+        uptime7d: null,
+        uptime30d: null
+      }
+    })
+  }
+
+  // Maintenance windows
+  createMaintenanceWindow(w: MaintenanceWindowRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO maintenance_windows (id, monitor_id, title, description, start_at, end_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(w.id, w.monitorId, w.title, w.description, w.startAt, w.endAt, w.createdAt)
+  }
+
+  listMaintenanceWindowsForMonitor(monitorId: string): MaintenanceWindowRecord[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM maintenance_windows WHERE monitor_id = ? ORDER BY start_at DESC`)
+      .all(monitorId) as Record<string, unknown>[]
+    return rows.map(mapMaintenanceWindow)
+  }
+
+  hasActiveMaintenanceWindow(monitorId: string, atIso: string): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM maintenance_windows
+         WHERE monitor_id = ? AND start_at <= ? AND end_at >= ?`
+      )
+      .get(monitorId, atIso, atIso) as { c: number }
+    return row.c > 0
+  }
+
+  deleteMaintenanceWindow(id: string): void {
+    this.db.prepare(`DELETE FROM maintenance_windows WHERE id = ?`).run(id)
   }
 
   // Stats
@@ -760,6 +1234,7 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     enabled: row.enabled === 1,
     intervalValue: row.interval_value as number,
     intervalUnit: row.interval_unit as CrawlJob["intervalUnit"],
+    runAt: (row.run_at as string | null) ?? null,
     notifyOnComplete: row.notify_on_complete === 1,
     notifyOnFailure: row.notify_on_failure === 1,
     notifyOnChange: row.notify_on_change === 1,
@@ -861,8 +1336,83 @@ function mapUserNotificationSettings(row: Record<string, unknown>): UserNotifica
       onSslExpiring: false,
       onCrawlComplete: false,
       onMojibakeDetected: false,
-      onCrawlProgress: false
+      onCrawlProgress: false,
+      onMonitorDown: false,
+      onMonitorRecovery: false
     }) as UserNotificationSettings["enabledEvents"],
     updatedAt: row.updated_at as string
+  }
+}
+
+function mapMonitor(row: Record<string, unknown>): MonitorRecord {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    type: row.type as MonitorRecord["type"],
+    url: row.url as string,
+    method: row.method as string,
+    expectedStatus: (row.expected_status as number) ?? 200,
+    expectedBody: (row.expected_body as string | null) ?? null,
+    intervalSeconds: (row.interval_seconds as number) ?? 60,
+    retryCount: (row.retry_count as number) ?? 3,
+    timeoutMs: (row.timeout_ms as number) ?? 10000,
+    acceptedResponseTimeMs: (row.accepted_response_time_ms as number) ?? 5000,
+    enabled: row.enabled === 1,
+    source: row.source as MonitorRecord["source"],
+    jobId: (row.job_id as string | null) ?? null,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string
+  }
+}
+
+function mapHeartbeat(row: Record<string, unknown>): Heartbeat {
+  return {
+    id: row.id as string,
+    monitorId: row.monitor_id as string,
+    status: row.status as HeartbeatStatus,
+    responseTimeMs: (row.response_time_ms as number | null) ?? null,
+    message: (row.message as string | null) ?? null,
+    checkedAt: row.checked_at as string
+  }
+}
+
+function mapStatusPage(row: Record<string, unknown>): StatusPageRecord {
+  return {
+    id: row.id as string,
+    slug: row.slug as string,
+    title: row.title as string,
+    description: (row.description as string | null) ?? null,
+    showResponseTimes: row.show_response_times === 1,
+    public: row.public !== 0,
+    createdAt: row.created_at as string
+  }
+}
+
+function mapMaintenanceWindow(row: Record<string, unknown>): MaintenanceWindowRecord {
+  return {
+    id: row.id as string,
+    monitorId: row.monitor_id as string,
+    title: row.title as string,
+    description: (row.description as string | null) ?? null,
+    startAt: row.start_at as string,
+    endAt: row.end_at as string,
+    createdAt: row.created_at as string
+  }
+}
+
+function deriveMonitorName(url: string): string {
+  try {
+    const u = new URL(url)
+    return `${u.hostname}${u.pathname === "/" ? "" : u.pathname}`
+  } catch {
+    return url
+  }
+}
+
+function deriveDomain(url: string): string {
+  try {
+    return new URL(url).hostname || "unknown"
+  } catch {
+    return "unknown"
   }
 }

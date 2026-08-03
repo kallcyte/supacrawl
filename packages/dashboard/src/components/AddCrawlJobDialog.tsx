@@ -14,6 +14,18 @@ interface Props {
   initial?: CrawlJob | null
 }
 
+const SCHEDULE_PRESETS: { label: string; value: number; unit: "minutes" | "hours" | "days" }[] = [
+  { label: "Every 15 minutes", value: 15, unit: "minutes" },
+  { label: "Every 30 minutes", value: 30, unit: "minutes" },
+  { label: "Every hour", value: 1, unit: "hours" },
+  { label: "Every 2 hours", value: 2, unit: "hours" },
+  { label: "Every 6 hours", value: 6, unit: "hours" },
+  { label: "Every 12 hours", value: 12, unit: "hours" },
+  { label: "Every day", value: 1, unit: "days" },
+  { label: "Every 2 days", value: 2, unit: "days" },
+  { label: "Every week", value: 7, unit: "days" }
+]
+
 export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initial }: Props) {
   const [name, setName] = useState(initial?.name ?? "")
   const [sitemapUrl, setSitemapUrl] = useState(initial?.sitemapUrl ?? "")
@@ -22,6 +34,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
   const [intervalUnit, setIntervalUnit] = useState<"minutes" | "hours" | "days">(
     initial?.intervalUnit ?? "minutes"
   )
+  const [runAt, setRunAt] = useState(initial?.runAt ?? "")
   const [notifyOnComplete, setNotifyOnComplete] = useState(initial?.notifyOnComplete ?? false)
   const [notifyOnFailure, setNotifyOnFailure] = useState(initial?.notifyOnFailure ?? true)
   const [notifyOnChange, setNotifyOnChange] = useState(initial?.notifyOnChange ?? true)
@@ -41,6 +54,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
       setEnabled(initial?.enabled ?? true)
       setIntervalValue(String(initial?.intervalValue ?? 60))
       setIntervalUnit(initial?.intervalUnit ?? "minutes")
+      setRunAt(initial?.runAt ?? "")
       setNotifyOnComplete(initial?.notifyOnComplete ?? false)
       setNotifyOnFailure(initial?.notifyOnFailure ?? true)
       setNotifyOnChange(initial?.notifyOnChange ?? true)
@@ -144,6 +158,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
         enabled,
         intervalValue: Number(intervalValue),
         intervalUnit,
+        runAt: runAt || null,
         notifyOnComplete,
         notifyOnFailure,
         notifyOnChange,
@@ -245,26 +260,80 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                 <Label>Enabled</Label>
               </div>
 
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="intervalValue">Check interval</Label>
-                  <Input
-                    id="intervalValue"
-                    type="number"
-                    min={1}
-                    value={intervalValue}
-                    onChange={(e) => setIntervalValue(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="schedulePreset">Schedule</Label>
                 <select
-                  className="h-10 rounded-md border bg-background px-3 py-2 text-sm"
-                  value={intervalUnit}
-                  onChange={(e) => setIntervalUnit(e.target.value as typeof intervalUnit)}
+                  id="schedulePreset"
+                  className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={SCHEDULE_PRESETS.some(
+                    (p) => p.value === Number(intervalValue) && p.unit === intervalUnit
+                  )
+                    ? SCHEDULE_PRESETS.find(
+                        (p) => p.value === Number(intervalValue) && p.unit === intervalUnit
+                      )!.label
+                    : "custom"}
+                  onChange={(e) => {
+                    const label = e.target.value
+                    const preset = SCHEDULE_PRESETS.find((p) => p.label === label)
+                    if (preset) {
+                      setIntervalValue(String(preset.value))
+                      setIntervalUnit(preset.unit)
+                      if (preset.unit !== "days") setRunAt("")
+                    }
+                  }}
                 >
-                  <option value="minutes">Minutes</option>
-                  <option value="hours">Hours</option>
-                  <option value="days">Days</option>
+                  {SCHEDULE_PRESETS.map((p) => (
+                    <option key={p.label} value={p.label}>
+                      {p.label}
+                    </option>
+                  ))}
+                  <option value="custom">Custom…</option>
                 </select>
+
+                {!SCHEDULE_PRESETS.some(
+                  (p) => p.value === Number(intervalValue) && p.unit === intervalUnit
+                ) && (
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="intervalValue">Check interval</Label>
+                      <Input
+                        id="intervalValue"
+                        type="number"
+                        min={1}
+                        value={intervalValue}
+                        onChange={(e) => setIntervalValue(e.target.value)}
+                      />
+                    </div>
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 py-2 text-sm"
+                      value={intervalUnit}
+                      onChange={(e) => setIntervalUnit(e.target.value as typeof intervalUnit)}
+                    >
+                      <option value="minutes">Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+                )}
+
+                {SCHEDULE_PRESETS.some(
+                  (p) => p.value === Number(intervalValue) && p.unit === intervalUnit
+                ) && (intervalUnit === "days" || runAt !== "") && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="runAt" className="text-sm text-muted-foreground">
+                      at
+                    </Label>
+                    <Input
+                      id="runAt"
+                      type="time"
+                      value={runAt}
+                      onChange={(e) => setRunAt(e.target.value)}
+                      className="w-32"
+                      aria-label="Time of day"
+                    />
+                    <span className="text-xs text-muted-foreground">(optional)</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import NotificationTutorial from "@/components/NotificationTutorial"
 import { toast } from "@/lib/use-toast"
+import PageInfo from "@/components/PageInfo"
+import notificationsExplainer from "@/content/notifications-explainer.md?raw"
 
 interface NotifiersInfo {
   enabled: string[]
@@ -108,11 +110,14 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure where alerts are sent when crawls detect issues
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure where alerts are sent when crawls detect issues
+          </p>
+        </div>
+        <PageInfo title="Notifications" content={notificationsExplainer} className="h-8 w-8" />
       </div>
 
       {error && (

@@ -13,6 +13,8 @@ export { checkUrl, buildLastmodMap } from "./checker.js"
 export { extractSeoInfo } from "./seo.js"
 export { buildCrawlReportHtml, buildCrawlSummaryText } from "./report.js"
 export { runCrawlWithPersistence } from "./orchestrator.js"
+export { checkMonitor } from "./monitor.js"
+export { MonitorScheduler } from "./monitor-scheduler.js"
 export { loadConfigFromFile, parseConfig, writeConfigToFile, defaultConfig } from "./config.js"
 export {
   Notifier,

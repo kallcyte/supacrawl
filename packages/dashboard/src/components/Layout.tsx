@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Toaster from "@/components/Toaster"
 import {
+  Activity,
   Globe,
   History,
   LayoutDashboard,
@@ -26,6 +27,7 @@ interface LayoutProps {
 
 const nav = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
+  { to: "/monitors", label: "Monitors", icon: Activity },
   { to: "/crawls", label: "Crawls", icon: ListChecks },
   { to: "/urls/history", label: "URL History", icon: History },
   { to: "/settings", label: "Settings", icon: Settings }

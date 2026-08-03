@@ -89,6 +89,7 @@ export interface CrawlJob {
   enabled: boolean
   intervalValue: number
   intervalUnit: "minutes" | "hours" | "days"
+  runAt: string | null
   notifyOnComplete: boolean
   notifyOnFailure: boolean
   notifyOnChange: boolean
@@ -104,6 +105,9 @@ export interface CrawlJob {
   updatedAt: string
   lastRunAt: string | null
   lastRunStatus: string | null
+  nextRunAt?: string | null
+  notifyOnProgress: boolean
+  notificationProviders: Record<string, unknown> | null
 }
 
 export interface SitemapTreeNode {
@@ -142,6 +146,57 @@ export interface CrawlSummary {
 export interface StatusBucket {
   status: string
   count: number
+}
+
+export type MonitorType = "http" | "tcp" | "ping" | "dns"
+export type MonitorSource = "manual" | "crawl_job"
+export type HeartbeatStatus = "up" | "down" | "pending"
+
+export interface Monitor {
+  id: string
+  name: string
+  type: MonitorType
+  url: string
+  method: string
+  expectedStatus: number
+  expectedBody: string | null
+  intervalSeconds: number
+  retryCount: number
+  timeoutMs: number
+  acceptedResponseTimeMs: number
+  enabled: boolean
+  source: MonitorSource
+  jobId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Heartbeat {
+  id: string
+  monitorId: string
+  status: HeartbeatStatus
+  responseTimeMs: number | null
+  message: string | null
+  checkedAt: string
+}
+
+export interface MonitorWithStatus extends Monitor {
+  latestHeartbeat: Heartbeat | null
+  currentStatus: HeartbeatStatus | null
+  recentHeartbeats: Heartbeat[]
+  uptime24h: number | null
+  uptime7d: number | null
+  uptime30d: number | null
+}
+
+export interface MonitorStats {
+  uptime24h: number | null
+  uptime7d: number | null
+  uptime30d: number | null
+  uptime365d: number | null
+  avgResponseTimeMs: number | null
+  minResponseTimeMs: number | null
+  maxResponseTimeMs: number | null
 }
 
 export interface User {
@@ -298,7 +353,55 @@ export const api = {
     request<UserNotificationSettings>("/api/user/notifications"),
 
   updateUserNotifications: (body: Partial<UserNotificationSettings>) =>
-    request<{ ok: boolean }>("/api/user/notifications", { method: "PUT", body: JSON.stringify(body) })
+    request<{ ok: boolean }>("/api/user/notifications", { method: "PUT", body: JSON.stringify(body) }),
+
+  listMonitors: (params?: { page?: number; perPage?: number }) =>
+    request<{
+      monitors: MonitorWithStatus[]
+      page: number
+      perPage: number
+      totalPages: number
+      totalMonitors: number
+      totalDomains: number
+    }>(
+      `/api/monitors${params ? `?page=${params.page ?? 1}&perPage=${params.perPage ?? 5}` : ""}`
+    ),
+
+  getMonitor: (id: string) =>
+    request<{ monitor: Monitor; stats: MonitorStats; running: boolean }>(`/api/monitors/${id}`),
+
+  createMonitor: (body: Partial<Monitor>) =>
+    request<Monitor>("/api/monitors", { method: "POST", body: JSON.stringify(body) }),
+
+  updateMonitor: (id: string, body: Partial<Monitor>) =>
+    request<Monitor>(`/api/monitors/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  deleteMonitor: (id: string) =>
+    request<{ ok: boolean }>(`/api/monitors/${id}`, { method: "DELETE" }),
+
+  bulkUpdateMonitors: (ids: string[], patch: Partial<Monitor>) =>
+    request<{ updated: number }>("/api/monitors/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, patch })
+    }),
+
+  bulkDeleteMonitors: (ids: string[]) =>
+    request<{ deleted: number }>("/api/monitors/bulk/delete", {
+      method: "POST",
+      body: JSON.stringify({ ids })
+    }),
+
+  startMonitor: (id: string) =>
+    request<{ ok: boolean }>(`/api/monitors/${id}/start`, { method: "POST" }),
+
+  stopMonitor: (id: string) =>
+    request<{ ok: boolean }>(`/api/monitors/${id}/stop`, { method: "POST" }),
+
+  getMonitorHeartbeats: (id: string, range: "24h" | "7d" | "30d" = "24h") =>
+    request<{ heartbeats: Heartbeat[] }>(`/api/monitors/${id}/heartbeats?range=${range}`),
+
+  getMonitorUptime: (id: string) =>
+    request<{ stats: MonitorStats }>(`/api/monitors/${id}/uptime`),
 }
 
 export interface UserNotificationSettings {
@@ -312,6 +415,9 @@ export interface UserNotificationSettings {
     onSslExpiring: boolean
     onCrawlComplete: boolean
     onMojibakeDetected: boolean
+    onCrawlProgress: boolean
+    onMonitorDown?: boolean
+    onMonitorRecovery?: boolean
   }
 }
 

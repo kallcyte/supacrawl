@@ -36,7 +36,9 @@ const userNotifSchema = z.object({
     onSslExpiring: z.boolean(),
     onCrawlComplete: z.boolean(),
     onMojibakeDetected: z.boolean(),
-    onCrawlProgress: z.boolean()
+    onCrawlProgress: z.boolean(),
+    onMonitorDown: z.boolean().optional(),
+    onMonitorRecovery: z.boolean().optional()
   })
 })
 
@@ -68,7 +70,20 @@ export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteD
     const session = await requireAuth(req, reply, deps.auth)
     if (!session) return
     const body = userNotifSchema.parse(req.body)
-    deps.storage.upsertUserNotificationSettings(session.user.id, body)
+    const full = {
+      ...body,
+      enabledEvents: {
+        onCrawlFailure: body.enabledEvents.onCrawlFailure,
+        onContentChange: body.enabledEvents.onContentChange,
+        onSslExpiring: body.enabledEvents.onSslExpiring,
+        onCrawlComplete: body.enabledEvents.onCrawlComplete,
+        onMojibakeDetected: body.enabledEvents.onMojibakeDetected,
+        onCrawlProgress: body.enabledEvents.onCrawlProgress ?? false,
+        onMonitorDown: body.enabledEvents.onMonitorDown ?? false,
+        onMonitorRecovery: body.enabledEvents.onMonitorRecovery ?? false
+      }
+    }
+    deps.storage.upsertUserNotificationSettings(session.user.id, full)
     return { ok: true }
   })
 }

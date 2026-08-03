@@ -18,6 +18,8 @@ import { Trash2, UserPlus } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
+import PageInfo from "@/components/PageInfo"
+import usersExplainer from "@/content/users-explainer.md?raw"
 
 export default function UsersPage() {
   const { data: me } = useSession()
@@ -109,10 +111,13 @@ export default function UsersPage() {
             Manage who can access the dashboard
           </p>
         </div>
-        <Button onClick={() => setCreating((v) => !v)}>
-          <UserPlus className="mr-1 h-3.5 w-3.5" />
-          {creating ? "Cancel" : "New user"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <PageInfo title="the Users page" content={usersExplainer} className="h-8 w-8" />
+          <Button onClick={() => setCreating((v) => !v)}>
+            <UserPlus className="mr-1 h-3.5 w-3.5" />
+            {creating ? "Cancel" : "New user"}
+          </Button>
+        </div>
       </div>
 
       {error && (
