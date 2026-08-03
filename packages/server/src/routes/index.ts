@@ -14,6 +14,9 @@ import { notifiersRoutes } from "./notifiers.js"
 import { authRoutes } from "./auth.js"
 import { setupRoutes } from "./setup.js"
 import { userNotificationsRoutes } from "./user-notifications.js"
+import { monitorsRoutes } from "./monitors.js"
+import type { MonitorScheduler } from "@supacrawl/core"
+import type { JobScheduler } from "../job-scheduler.js"
 
 export interface RouteDeps {
   app: FastifyInstance
@@ -22,6 +25,8 @@ export interface RouteDeps {
   notifier: Notifier
   config: Config
   crawlManager: CrawlManager
+  monitorScheduler: MonitorScheduler
+  jobScheduler: JobScheduler
   dbPath: string
   configPath: string
 }
@@ -40,6 +45,7 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
     await notifiersRoutes(instance, deps)
     await authRoutes(instance, deps)
     await userNotificationsRoutes(instance, deps)
+    await monitorsRoutes(instance, deps)
     await setupRoutes(instance, { ...deps, setup })
 
     instance.get("/api/ws/crawl/:id", { websocket: true }, (socket, req) => {
@@ -47,6 +53,13 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
       deps.app.log.info(`WebSocket client connected for crawl ${crawlId}`)
       socket.on("close", () => {
         deps.app.log.info(`WebSocket client disconnected from crawl ${crawlId}`)
+      })
+    })
+
+    instance.get("/api/ws/monitors", { websocket: true }, (socket) => {
+      deps.app.log.info("WebSocket client connected for monitors")
+      socket.on("close", () => {
+        deps.app.log.info("WebSocket client disconnected from monitors")
       })
     })
   })

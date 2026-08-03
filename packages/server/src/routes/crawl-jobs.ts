@@ -5,8 +5,14 @@ import { CrawlJobSchema, CrawlJobExportSchema, discoverSitemapTree } from "@supa
 import type { CrawlJob } from "@supacrawl/core"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
+import { nextRunAtMs } from "../job-scheduler.js"
 
 const updateJobSchema = CrawlJobSchema.partial()
+
+function withNextRunAt(job: CrawlJob): CrawlJob & { nextRunAt: string | null } {
+  const next = nextRunAtMs(job)
+  return { ...job, nextRunAt: next === null ? null : new Date(Math.max(next, Date.now())).toISOString() }
+}
 
 export async function crawlJobsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
   app.get("/api/crawl-jobs", async (req, reply) => {
@@ -17,7 +23,7 @@ export async function crawlJobsRoutes(app: FastifyInstance, deps: RouteDeps): Pr
     for (const j of jobs) {
       if (deps.crawlManager.isJobRunning(j.id)) running.add(j.id)
     }
-    return { jobs, running: [...running] }
+    return { jobs: jobs.map(withNextRunAt), running: [...running] }
   })
 
   app.get("/api/crawl-jobs/:id", async (req, reply) => {

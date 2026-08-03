@@ -21,7 +21,8 @@
     "respectRobotsTxt": true,
     "maxUrls": 999999,
     "retryOnTransientError": true,
-    "maxRetries": 2
+    "maxRetries": 2,
+    "detectMojibake": true
   },
   "checks": {
     "ssl": {
@@ -59,7 +60,9 @@
       "onCrawlFailure": true,
       "onContentChange": true,
       "onSslExpiring": true,
-      "onCrawlComplete": true
+      "onCrawlComplete": true,
+      "onMojibakeDetected": true,
+      "onCrawlProgress": true
     }
   }
 }

@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch"
 import { Bell, Loader2, Save, ShieldAlert } from "lucide-react"
 import { isPushEnabled, setPushEnabled } from "@/lib/useCrawlNotifications"
 import { toast } from "@/lib/use-toast"
+import PageInfo from "@/components/PageInfo"
+import settingsExplainer from "@/content/settings-explainer.md?raw"
 
 interface Config {
   crawl: {
@@ -45,7 +47,10 @@ const EVENT_LABELS: Record<string, string> = {
   onContentChange: "Content change detected",
   onSslExpiring: "SSL certificate expiring",
   onCrawlComplete: "Crawl completed",
-  onMojibakeDetected: "Mojibake (encoding issues)"
+  onMojibakeDetected: "Mojibake (encoding issues)",
+  onCrawlProgress: "Crawl progress",
+  onMonitorDown: "Monitor went down",
+  onMonitorRecovery: "Monitor recovered"
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -60,7 +65,10 @@ const DEFAULT_EVENTS: UserNotificationSettings["enabledEvents"] = {
   onContentChange: false,
   onSslExpiring: false,
   onCrawlComplete: false,
-  onMojibakeDetected: false
+  onMojibakeDetected: false,
+  onCrawlProgress: false,
+  onMonitorDown: false,
+  onMonitorRecovery: false
 }
 
 export default function SettingsPage() {
@@ -195,11 +203,14 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure your notification preferences and account settings
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure your notification preferences and account settings
+          </p>
+        </div>
+        <PageInfo title="Settings" content={settingsExplainer} className="h-8 w-8" />
       </div>
 
       {/* My Notification Preferences */}

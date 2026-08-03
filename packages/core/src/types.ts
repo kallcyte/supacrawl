@@ -72,7 +72,9 @@ export const NotificationsConfigSchema = z.object({
     onSslExpiring: z.boolean().default(true),
     onCrawlComplete: z.boolean().default(false),
     onMojibakeDetected: z.boolean().default(false),
-    onCrawlProgress: z.boolean().default(false)
+    onCrawlProgress: z.boolean().default(false),
+    onMonitorDown: z.boolean().default(true),
+    onMonitorRecovery: z.boolean().default(true)
   })
 })
 export type NotificationsConfig = z.infer<typeof NotificationsConfigSchema>
@@ -110,7 +112,9 @@ export const ConfigSchema = z.object({
       onSslExpiring: true,
       onCrawlComplete: false,
       onMojibakeDetected: false,
-      onCrawlProgress: false
+      onCrawlProgress: false,
+      onMonitorDown: true,
+      onMonitorRecovery: true
     }
   }),
   schedule: z.string().optional()
@@ -202,6 +206,8 @@ export type NotificationEvent =
   | "onCrawlComplete"
   | "onMojibakeDetected"
   | "onCrawlProgress"
+  | "onMonitorDown"
+  | "onMonitorRecovery"
 
 export interface CrawlSummaryIssue {
   url: string
@@ -316,6 +322,7 @@ export const CrawlJobSchema = z.object({
   enabled: z.boolean().default(true),
   intervalValue: z.number().int().positive().default(60),
   intervalUnit: IntervalUnitSchema.default("minutes"),
+  runAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional().default(null),
   notifyOnComplete: z.boolean().default(false),
   notifyOnFailure: z.boolean().default(true),
   notifyOnChange: z.boolean().default(true),
@@ -340,6 +347,7 @@ export interface CrawlJob {
   enabled: boolean
   intervalValue: number
   intervalUnit: IntervalUnit
+  runAt: string | null
   notifyOnComplete: boolean
   notifyOnFailure: boolean
   notifyOnChange: boolean
@@ -401,6 +409,111 @@ export interface UserNotificationSettings {
     onCrawlComplete: boolean
     onMojibakeDetected: boolean
     onCrawlProgress: boolean
+    onMonitorDown: boolean
+    onMonitorRecovery: boolean
   }
   updatedAt: string
+}
+
+export const MonitorTypeSchema = z.enum(["http", "tcp", "ping", "dns"])
+export type MonitorType = z.infer<typeof MonitorTypeSchema>
+
+export const MonitorSourceSchema = z.enum(["manual", "crawl_job"])
+export type MonitorSource = z.infer<typeof MonitorSourceSchema>
+
+export const MonitorSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  type: MonitorTypeSchema.default("http"),
+  url: z.string().min(1, "Target URL is required"),
+  method: z.string().default("GET"),
+  expectedStatus: z.number().int().default(200),
+  expectedBody: z.string().nullable().optional(),
+  intervalSeconds: z.number().int().positive().default(60),
+  retryCount: z.number().int().nonnegative().default(3),
+  timeoutMs: z.number().int().positive().default(10000),
+  acceptedResponseTimeMs: z.number().int().positive().default(5000),
+  enabled: z.boolean().default(true),
+  source: MonitorSourceSchema.default("manual"),
+  jobId: z.string().nullable().optional()
+})
+export type Monitor = z.infer<typeof MonitorSchema>
+
+export interface MonitorRecord extends Monitor {
+  id: string
+  jobId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export const HeartbeatStatusSchema = z.enum(["up", "down", "pending"])
+export type HeartbeatStatus = z.infer<typeof HeartbeatStatusSchema>
+
+export interface Heartbeat {
+  id: string
+  monitorId: string
+  status: HeartbeatStatus
+  responseTimeMs: number | null
+  message: string | null
+  checkedAt: string
+}
+
+export interface HeartbeatResult {
+  monitorId: string
+  status: HeartbeatStatus
+  responseTimeMs: number | null
+  message: string | null
+  checkedAt: string
+}
+
+export interface MonitorWithStatus extends MonitorRecord {
+  latestHeartbeat: Heartbeat | null
+  currentStatus: HeartbeatStatus | null
+  recentHeartbeats: Heartbeat[]
+  uptime24h: number | null
+  uptime7d: number | null
+  uptime30d: number | null
+}
+
+export interface MonitorStats {
+  uptime24h: number | null
+  uptime7d: number | null
+  uptime30d: number | null
+  uptime365d: number | null
+  avgResponseTimeMs: number | null
+  minResponseTimeMs: number | null
+  maxResponseTimeMs: number | null
+}
+
+export const StatusPageSchema = z.object({
+  slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/i, "Slug may only contain letters, numbers and dashes"),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().nullable().optional(),
+  showResponseTimes: z.boolean().default(true),
+  public: z.boolean().default(true)
+})
+export type StatusPage = z.infer<typeof StatusPageSchema>
+
+export interface StatusPageRecord extends StatusPage {
+  id: string
+  createdAt: string
+}
+
+export interface StatusPageMonitor {
+  statusPageId: string
+  monitorId: string
+  sortOrder: number
+}
+
+export const MaintenanceWindowSchema = z.object({
+  monitorId: z.string(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().nullable().optional(),
+  startAt: z.string(),
+  endAt: z.string()
+})
+export type MaintenanceWindow = z.infer<typeof MaintenanceWindowSchema>
+
+export interface MaintenanceWindowRecord extends MaintenanceWindow {
+  id: string
+  createdAt: string
 }

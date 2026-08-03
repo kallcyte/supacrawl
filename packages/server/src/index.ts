@@ -6,10 +6,11 @@ import fastifyStatic from "@fastify/static"
 import { dirname, join, resolve } from "node:path"
 import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { Storage, loadConfigFromFile, Notifier, type Config, type CrawlProgress } from "@supacrawl/core"
+import { Storage, loadConfigFromFile, Notifier, MonitorScheduler, type Config, type CrawlProgress, type Heartbeat } from "@supacrawl/core"
 import { createAuth, type Auth } from "./auth.js"
 import { registerRoutes } from "./routes/index.js"
 import { CrawlManager } from "./crawl-manager.js"
+import { JobScheduler } from "./job-scheduler.js"
 
 export { createAuth }
 export type { AuthOptions } from "./auth.js"
@@ -34,6 +35,8 @@ export interface AppContext {
   notifier: Notifier
   config: Config
   crawlManager: CrawlManager
+  monitorScheduler: MonitorScheduler
+  jobScheduler: JobScheduler
 }
 
 export async function buildApp(opts: ServerOptions): Promise<AppContext> {
@@ -122,7 +125,26 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
     })
   })
 
-  await registerRoutes({ app, auth, storage, notifier, config, crawlManager, dbPath: opts.dbPath, configPath: opts.configPath })
+  const monitorScheduler = new MonitorScheduler({
+    storage,
+    notifier,
+    onHeartbeat: (heartbeat: Heartbeat) => {
+      const wsServer = (app as unknown as { websocketServer?: { clients: Set<{ readyState: number; send: (data: string) => void }> } }).websocketServer
+      if (!wsServer) return
+      wsServer.clients.forEach((client) => {
+        if (client.readyState === 1) {
+          client.send(JSON.stringify({ type: "heartbeat", ...heartbeat }))
+        }
+      })
+    }
+  })
+
+  const jobScheduler = new JobScheduler({ storage, crawlManager })
+
+  await registerRoutes({ app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler, dbPath: opts.dbPath, configPath: opts.configPath })
+
+  monitorScheduler.startAll()
+  jobScheduler.start()
 
   if (opts.dashboardDist && existsSync(opts.dashboardDist)) {
     await app.register(fastifyStatic, {
@@ -151,7 +173,7 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
 
   app.get("/api/health", async () => ({ ok: true, timestamp: new Date().toISOString() }))
 
-  return { app, auth, storage, notifier, config, crawlManager }
+  return { app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler }
 }
 
 export async function startServer(opts: ServerOptions): Promise<void> {
@@ -167,6 +189,8 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 
   const shutdown = async () => {
     ctx.app.log.info("Shutting down...")
+    ctx.monitorScheduler.stopAll()
+    ctx.jobScheduler.stop()
     await ctx.app.close()
     ctx.storage.close()
     process.exit(0)

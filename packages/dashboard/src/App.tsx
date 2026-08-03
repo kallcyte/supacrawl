@@ -12,6 +12,8 @@ import UrlHistoryPage from "@/pages/UrlHistory"
 import UsersPage from "@/pages/Users"
 import NotificationsPage from "@/pages/Notifications"
 import SettingsPage from "@/pages/Settings"
+import MonitorsPage from "@/pages/Monitors"
+import MonitorDetailPage from "@/pages/MonitorDetail"
 import Layout from "@/components/Layout"
 import { Loader2 } from "lucide-react"
 
@@ -52,6 +54,8 @@ export default function App() {
         <Route index element={<OverviewPage />} />
         <Route path="crawls" element={<CrawlsPage />} />
         <Route path="crawls/:id" element={<CrawlDetailPage />} />
+        <Route path="monitors" element={<MonitorsPage />} />
+        <Route path="monitors/:id" element={<MonitorDetailPage />} />
         <Route path="urls/history" element={<UrlHistoryPage />} />
         <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="notifications" element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />

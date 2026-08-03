@@ -85,7 +85,9 @@ export class Notifier {
         onSslExpiring: settings.enabledEvents.onSslExpiring,
         onCrawlComplete: settings.enabledEvents.onCrawlComplete,
         onMojibakeDetected: settings.enabledEvents.onMojibakeDetected,
-        onCrawlProgress: settings.enabledEvents.onCrawlProgress
+        onCrawlProgress: settings.enabledEvents.onCrawlProgress,
+        onMonitorDown: settings.enabledEvents.onMonitorDown,
+        onMonitorRecovery: settings.enabledEvents.onMonitorRecovery
       }
     }
   }
@@ -128,7 +130,9 @@ export class Notifier {
         onSslExpiring: job.notifySslExpiring,
         onCrawlComplete: job.notifyOnComplete,
         onMojibakeDetected: job.notifyOnMojibake,
-        onCrawlProgress: job.notifyOnProgress
+        onCrawlProgress: job.notifyOnProgress,
+        onMonitorDown: true,
+        onMonitorRecovery: true
       }
     }
   }

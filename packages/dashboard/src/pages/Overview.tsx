@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Activity, AlertTriangle, ArrowRight, FileCheck2, Globe } from "lucide-react"
 import { Link } from "react-router-dom"
 import { formatDate } from "@/lib/utils"
+import PageInfo from "@/components/PageInfo"
+import overviewExplainer from "@/content/overview-explainer.md?raw"
 import HealthRatioArea from "@/components/charts/HealthRatioArea"
 import CrawlDurationBar from "@/components/charts/CrawlDurationBar"
 import LiveProgress from "@/components/LiveProgress"
@@ -93,6 +95,7 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <PageInfo title="the Overview" content={overviewExplainer} className="h-8 w-8" />
           <Button asChild variant="outline" size="sm">
             <Link to="/crawls">
               View crawls <ArrowRight className="ml-1 h-3.5 w-3.5" />

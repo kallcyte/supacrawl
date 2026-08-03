@@ -33,6 +33,8 @@ import {
 } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import { toast } from "@/lib/use-toast"
+import PageInfo from "@/components/PageInfo"
+import crawlDetailExplainer from "@/content/crawl-detail-explainer.md?raw"
 
 type Filter = "all" | "broken" | "4xx" | "5xx" | "changed" | "mojibake" | "redirect"
 
@@ -326,6 +328,7 @@ export default function CrawlDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <PageInfo title="Crawl Detail" content={crawlDetailExplainer} className="h-8 w-8" />
           {crawl.status === "running" && crawl.jobId && (
             <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping} className="text-destructive">
               {stopping ? (

@@ -24,6 +24,8 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { Activity, ArrowRightLeft, Bug, Clock, Gauge, Info, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react"
+import PageInfo from "@/components/PageInfo"
+import urlHistoryExplainer from "@/content/url-history-explainer.md?raw"
 
 function seoChanges(curr: CrawlResult["seo"], prev: CrawlResult["seo"]): string[] {
   if (!curr) return []
@@ -112,11 +114,14 @@ export default function UrlHistoryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">URL History</h1>
-        <p className="text-sm text-muted-foreground">
-          Inspect how a single URL has changed across crawls
-        </p>
+      <div className="flex items-start gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">URL History</h1>
+          <p className="text-sm text-muted-foreground">
+            Inspect how a single URL has changed across crawls
+          </p>
+        </div>
+        <PageInfo title="URL History" content={urlHistoryExplainer} className="ml-auto h-8 w-8" />
       </div>
 
       <Card>
