@@ -1,3 +1,5 @@
+import chardet from "chardet"
+
 interface MojibakeResult {
   score: number
   flagged: boolean
@@ -76,29 +78,48 @@ function replacementDensity(text: string): number {
   return countReplacementChars(text) / vl
 }
 
-export function detectMojibake(body: Uint8Array): MojibakeResult {
-  let text: string
-  try {
-    const decoder = new TextDecoder("utf-8", { fatal: false })
-    text = decoder.decode(body)
-  } catch {
-    return { score: 1, flagged: true }
-  }
-
+function utf8HeuristicScore(text: string): number {
   const vl = visibleLength(text)
-  if (vl < 50) return { score: 0, flagged: false }
+  if (vl < 50) return 0
 
   const repDensity = replacementDensity(text)
   const patternDensity = mojibakePatternDensity(text)
   const mixScore = scriptMixingScore(text)
 
-  const score = Math.min(
-    1,
-    repDensity * 20 + patternDensity * 8 + mixScore * 0.8
-  )
+  return Math.min(1, repDensity * 20 + patternDensity * 8 + mixScore * 0.8)
+}
 
-  return {
-    score: Math.round(score * 1000) / 1000,
-    flagged: score > 0.5
+const NON_UTF8_CONFIDENCE_THRESHOLD = 70
+
+export function detectMojibake(body: Uint8Array): MojibakeResult {
+  const results = chardet.analyse(body)
+  const top = results[0]
+
+  if (!top) {
+    let text: string
+    try {
+      text = new TextDecoder("utf-8", { fatal: false }).decode(body)
+    } catch {
+      return { score: 1, flagged: true }
+    }
+    const score = Math.round(utf8HeuristicScore(text) * 1000) / 1000
+    return { score, flagged: score > 0.5 }
   }
+
+  const isUtf8 = top.name === "UTF-8" || top.name === "ASCII"
+
+  if (!isUtf8 && top.confidence >= NON_UTF8_CONFIDENCE_THRESHOLD) {
+    const score = Math.round((top.confidence / 100) * 1000) / 1000
+    return { score, flagged: score > 0.5 }
+  }
+
+  let text: string
+  try {
+    text = new TextDecoder("utf-8", { fatal: false }).decode(body)
+  } catch {
+    return { score: 1, flagged: true }
+  }
+
+  const score = Math.round(utf8HeuristicScore(text) * 1000) / 1000
+  return { score, flagged: score > 0.5 }
 }
