@@ -120,4 +120,13 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+
+  select {
+    color-scheme: light dark;
+  }
+
+  select option {
+    background: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
 }

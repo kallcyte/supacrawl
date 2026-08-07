@@ -77,7 +77,7 @@ export async function crawlJobsRoutes(app: FastifyInstance, deps: RouteDeps): Pr
   })
 
   app.post("/api/crawl-jobs/:id/start", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
+    const session = await requireAdmin(req, reply, deps.auth)
     if (!session) return
     const { id } = req.params as { id: string }
     const job = deps.storage.getCrawlJob(id)
@@ -90,7 +90,7 @@ export async function crawlJobsRoutes(app: FastifyInstance, deps: RouteDeps): Pr
   })
 
   app.post("/api/crawl-jobs/:id/stop", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
+    const session = await requireAdmin(req, reply, deps.auth)
     if (!session) return
     const { id } = req.params as { id: string }
     const ok = await deps.crawlManager.cancelJobCrawl(id)

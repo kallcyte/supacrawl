@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { Switch } from "@/components/ui/switch"
 import { formatDate } from "@/lib/utils"
 import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink, Download, Upload } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
@@ -37,7 +36,6 @@ export default function CrawlsPage() {
   const [editing, setEditing] = useState<CrawlJob | null>(null)
   const [starting, setStarting] = useState<string | null>(null)
   const [stopping, setStopping] = useState<string | null>(null)
-  const [toggling, setToggling] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedJob, setExpandedJob] = useState<string | null>(null)
   const [jobHistory, setJobHistory] = useState<Record<string, CrawlRecord[]>>({})
@@ -107,19 +105,6 @@ export default function CrawlsPage() {
       toast({ title: "Failed to stop crawl", description: (err as Error).message, variant: "destructive" })
     } finally {
       setStopping(null)
-    }
-  }
-
-  async function handleToggleEnabled(job: CrawlJob) {
-    setToggling(job.id)
-    try {
-      await api.updateCrawlJob(job.id, { enabled: !job.enabled })
-      await load()
-      toast({ title: job.enabled ? "Auto-crawl disabled" : "Auto-crawl enabled", variant: "success" })
-    } catch (err) {
-      toast({ title: "Failed to update crawl job", description: (err as Error).message, variant: "destructive" })
-    } finally {
-      setToggling(null)
     }
   }
 
@@ -274,15 +259,8 @@ export default function CrawlsPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{job.name}</span>
                           <Badge variant={job.enabled ? "default" : "secondary"}>
-                            {job.enabled ? "Enabled" : "Disabled"}
+                            {job.enabled ? "Run on Schedule" : "Not Scheduled"}
                           </Badge>
-                          <Switch
-                            checked={job.enabled}
-                            disabled={toggling === job.id}
-                            onCheckedChange={() => handleToggleEnabled(job)}
-                            aria-label={job.enabled ? "Disable auto-crawl" : "Enable auto-crawl"}
-                            title={job.enabled ? "Disable auto-crawl" : "Enable auto-crawl"}
-                          />
                           {isRunning && (
                             <Badge variant="secondary" className="animate-pulse">
                               Running
@@ -309,7 +287,7 @@ export default function CrawlsPage() {
                             <> &middot; Next run {formatDate(job.nextRunAt)}</>
                           )}
                           {job.enabled && !job.nextRunAt && (
-                            <> &middot; Run once to start auto-crawl</>
+                            <> &middot; Run once to start scheduling</>
                           )}
                           {job.lastRunAt && (
                             <> &middot; Last run {formatDate(job.lastRunAt)}</>
@@ -317,7 +295,7 @@ export default function CrawlsPage() {
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-wrap items-center gap-1">
-                        {isRunning ? (
+                        {isAdmin && (isRunning ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -344,7 +322,7 @@ export default function CrawlsPage() {
                               <Play className="h-3.5 w-3.5" />
                             )}
                           </Button>
-                        )}
+                        ))}
                         <Button
                           variant="ghost"
                           size="sm"

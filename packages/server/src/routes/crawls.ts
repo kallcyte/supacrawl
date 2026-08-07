@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import { z } from "zod"
 import type { RouteDeps } from "./index.js"
-import { requireAuth } from "../auth-helpers.js"
+import { requireAdmin, requireAuth } from "../auth-helpers.js"
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).default(50),
@@ -35,14 +35,14 @@ export async function crawlsRoutes(app: FastifyInstance, deps: RouteDeps): Promi
   })
 
   app.post("/api/crawls/start", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
+    const session = await requireAdmin(req, reply, deps.auth)
     if (!session) return
     const id = await deps.crawlManager.startCrawl()
     return { crawlId: id, startedAt: new Date().toISOString() }
   })
 
   app.post("/api/crawls/:id/cancel", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
+    const session = await requireAdmin(req, reply, deps.auth)
     if (!session) return
     const { id } = req.params as { id: string }
     const ok = await deps.crawlManager.cancelCrawl(id)
