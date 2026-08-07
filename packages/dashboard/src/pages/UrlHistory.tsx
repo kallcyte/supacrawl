@@ -88,6 +88,7 @@ export default function UrlHistoryPage() {
     const changed = history.filter((h) => h.contentChanged).length
     const redirects = history.filter((h) => (h.statusCode ?? 0) >= 300 && (h.statusCode ?? 0) < 400).length
     const mojibake = history.filter((h) => h.mojibakeFlagged).length
+    const llmGarbage = history.filter((h) => h.llmGarbageFlagged).length
     const avgTime = history.reduce((sum, h) => sum + (h.responseTimeMs ?? 0), 0) / history.length
     const sslExpiring = history.some((h) => {
       if (!h.sslValidUntil) return false
@@ -104,6 +105,7 @@ export default function UrlHistoryPage() {
       changed,
       redirects,
       mojibake,
+      llmGarbage,
       avgTime,
       sslExpiring,
       failureRate: Math.round((failed / history.length) * 100),
@@ -450,6 +452,12 @@ export default function UrlHistoryPage() {
                               <span className="inline-flex items-center gap-0.5 text-amber-500" title={`Mojibake score: ${h.mojibakeScore !== null ? Math.round(h.mojibakeScore * 100) : "?"}%`}>
                                 <Bug className="h-3 w-3" />
                                 {h.mojibakeScore !== null ? `${Math.round(h.mojibakeScore * 100)}%` : ""}
+                              </span>
+                            )}
+                            {h.llmGarbageFlagged && (
+                              <span className="inline-flex items-center gap-0.5 text-cyan-600" title={`LLM garbage score: ${h.llmGarbageScore !== null ? Math.round(h.llmGarbageScore * 100) : "?"}%`}>
+                                <Bug className="h-3 w-3" />
+                                {h.llmGarbageScore !== null ? `${Math.round(h.llmGarbageScore * 100)}%` : ""}
                               </span>
                             )}
                             {h.sslValidUntil && (

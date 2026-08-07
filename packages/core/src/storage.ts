@@ -73,6 +73,8 @@ export class Storage {
         check_method TEXT NOT NULL,
         mojibake_score REAL,
         mojibake_flagged INTEGER DEFAULT 0,
+        llm_garbage_score REAL,
+        llm_garbage_flagged INTEGER DEFAULT 0,
         seo TEXT
       );
 
@@ -191,6 +193,12 @@ export class Storage {
     if (!this.hasColumn("crawl_results", "mojibake_flagged")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_flagged INTEGER DEFAULT 0`)
     }
+    if (!this.hasColumn("crawl_results", "llm_garbage_score")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN llm_garbage_score REAL`)
+    }
+    if (!this.hasColumn("crawl_results", "llm_garbage_flagged")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN llm_garbage_flagged INTEGER DEFAULT 0`)
+    }
     if (!this.hasColumn("crawl_results", "seo")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo TEXT`)
     }
@@ -202,6 +210,12 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_jobs", "notify_on_mojibake")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_mojibake INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("crawl_jobs", "detect_llm_garbage")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN detect_llm_garbage INTEGER DEFAULT 1`)
+    }
+    if (!this.hasColumn("crawl_jobs", "notify_on_llm_garbage")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_on_llm_garbage INTEGER DEFAULT 0`)
     }
     if (!this.hasColumn("crawl_jobs", "notify_ssl_expiring")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_ssl_expiring INTEGER DEFAULT 1`)
@@ -330,8 +344,8 @@ export class Storage {
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
           content_changed, error, redirect_chain, ssl_valid_until,
-          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -349,17 +363,19 @@ export class Storage {
         r.checkMethod,
         r.mojibakeScore,
         r.mojibakeFlagged ? 1 : 0,
+        r.llmGarbageScore,
+        r.llmGarbageFlagged ? 1 : 0,
         r.seo ? JSON.stringify(r.seo) : null
       )
   }
 
   listResults(
     crawlId: string,
-    filter?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean }
+    filter?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean; llmGarbageOnly?: boolean }
   ): CrawlResultRecord[] {
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -371,6 +387,9 @@ export class Storage {
     if (filter?.mojibakeOnly) {
       sql += ` AND mojibake_flagged = 1`
     }
+    if (filter?.llmGarbageOnly) {
+      sql += ` AND llm_garbage_flagged = 1`
+    }
     sql += ` ORDER BY checked_at ASC`
     const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[]
     return rows.map(mapResult)
@@ -381,7 +400,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
          FROM crawl_results WHERE id = ?`
       )
       .get(id) as Record<string, unknown> | undefined
@@ -433,7 +452,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, seo
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
          FROM crawl_results WHERE url = ?
          ORDER BY checked_at DESC LIMIT ?`
       )
@@ -487,10 +506,11 @@ export class Storage {
          (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
           run_at,
           notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
-          notify_ssl_expiring, notify_on_progress, detect_mojibake,
+          notify_on_llm_garbage,
+          notify_ssl_expiring, notify_on_progress, detect_mojibake, detect_llm_garbage,
           delay_ms, max_concurrency, timeout_ms, user_agent,
           respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         job.id, job.name, job.sitemapUrl,
@@ -500,7 +520,8 @@ export class Storage {
         job.runAt,
         job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
         job.notifyOnMojibake ? 1 : 0,
-        job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
+        job.notifyOnLlmGarbage ? 1 : 0,
+        job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0, job.detectLlmGarbage ? 1 : 0,
         job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
         job.respectRobotsTxt ? 1 : 0, job.maxUrls,
         job.notificationProviders ? JSON.stringify(job.notificationProviders) : null,
@@ -551,10 +572,11 @@ export class Storage {
        (id, name, sitemap_url, sitemap_urls, enabled, interval_value, interval_unit,
         run_at,
         notify_on_complete, notify_on_failure, notify_on_change, notify_on_mojibake,
-        notify_ssl_expiring, notify_on_progress, detect_mojibake,
+        notify_on_llm_garbage,
+        notify_ssl_expiring, notify_on_progress, detect_mojibake, detect_llm_garbage,
         delay_ms, max_concurrency, timeout_ms, user_agent,
         respect_robots_txt, max_urls, notification_providers, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     const now = new Date().toISOString()
     const tx = this.db.transaction(() => {
@@ -567,7 +589,8 @@ export class Storage {
           job.runAt,
           job.notifyOnComplete ? 1 : 0, job.notifyOnFailure ? 1 : 0, job.notifyOnChange ? 1 : 0,
           job.notifyOnMojibake ? 1 : 0,
-          job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0,
+          job.notifyOnLlmGarbage ? 1 : 0,
+          job.notifySslExpiring ? 1 : 0, job.notifyOnProgress ? 1 : 0, job.detectMojibake ? 1 : 0, job.detectLlmGarbage ? 1 : 0,
           job.delayMs, job.maxConcurrency, job.timeoutMs, job.userAgent,
           job.respectRobotsTxt ? 1 : 0, job.maxUrls,
           job.notificationProviders ? JSON.stringify(job.notificationProviders) : null,
@@ -1113,6 +1136,16 @@ export class Storage {
         severity: "low" as const
       }))
 
+    const llmGarbage: CrawlSummaryIssue[] = results
+      .filter((r) => r.llmGarbageFlagged)
+      .map((r) => ({
+        url: r.url,
+        detail: r.llmGarbageScore !== null
+          ? `LLM artifact detected (confidence: ${Math.round(r.llmGarbageScore * 100)}%)`
+          : "Possible LLM garbage",
+        severity: "low" as const
+      }))
+
     const responseTimes = results
       .map((r) => r.responseTimeMs)
       .filter((t): t is number => t !== null)
@@ -1147,7 +1180,7 @@ export class Storage {
         responseTimes.length > 0 ? Math.max(...responseTimes) : null,
       fastestResponseTimeMs:
         responseTimes.length > 0 ? Math.min(...responseTimes) : null,
-      issues: { broken, changed, sslExpiring, mojibake }
+      issues: { broken, changed, sslExpiring, mojibake, llmGarbage }
     }
   }
 
@@ -1239,9 +1272,11 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     notifyOnFailure: row.notify_on_failure === 1,
     notifyOnChange: row.notify_on_change === 1,
     notifyOnMojibake: row.notify_on_mojibake === 1,
+    notifyOnLlmGarbage: row.notify_on_llm_garbage === 1,
     notifySslExpiring: row.notify_ssl_expiring !== 0,
     notifyOnProgress: row.notify_on_progress === 1,
     detectMojibake: row.detect_mojibake !== 0,
+    detectLlmGarbage: row.detect_llm_garbage !== 0,
     delayMs: row.delay_ms as number,
     maxConcurrency: row.max_concurrency as number,
     timeoutMs: row.timeout_ms as number,
@@ -1289,6 +1324,8 @@ function mapResult(row: Record<string, unknown>): CrawlResultRecord {
     checkMethod: row.check_method as CrawlResultRecord["checkMethod"],
     mojibakeScore: (row.mojibake_score as number | null) ?? null,
     mojibakeFlagged: row.mojibake_flagged === 1,
+    llmGarbageScore: (row.llm_garbage_score as number | null) ?? null,
+    llmGarbageFlagged: row.llm_garbage_flagged === 1,
     seo: parseSeo(row.seo)
   }
 }
@@ -1336,6 +1373,7 @@ function mapUserNotificationSettings(row: Record<string, unknown>): UserNotifica
       onSslExpiring: false,
       onCrawlComplete: false,
       onMojibakeDetected: false,
+      onLlmGarbageDetected: false,
       onCrawlProgress: false,
       onMonitorDown: false,
       onMonitorRecovery: false

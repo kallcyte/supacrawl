@@ -40,6 +40,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
   const [notifyOnChange, setNotifyOnChange] = useState(initial?.notifyOnChange ?? true)
   const [detectMojibake, setDetectMojibake] = useState(initial?.detectMojibake ?? true)
   const [notifyOnMojibake, setNotifyOnMojibake] = useState(initial?.notifyOnMojibake ?? false)
+  const [detectLlmGarbage, setDetectLlmGarbage] = useState(initial?.detectLlmGarbage ?? true)
+  const [notifyOnLlmGarbage, setNotifyOnLlmGarbage] = useState(initial?.notifyOnLlmGarbage ?? false)
   const [maxUrls, setMaxUrls] = useState(String(initial?.maxUrls ?? 999999))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +62,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
       setNotifyOnChange(initial?.notifyOnChange ?? true)
       setDetectMojibake(initial?.detectMojibake ?? true)
       setNotifyOnMojibake(initial?.notifyOnMojibake ?? false)
+      setDetectLlmGarbage(initial?.detectLlmGarbage ?? true)
+      setNotifyOnLlmGarbage(initial?.notifyOnLlmGarbage ?? false)
       setError(null)
       setTree(null)
       setSelectedUrls(new Set(initial?.sitemapUrls ?? []))
@@ -164,6 +168,8 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
         notifyOnChange,
         detectMojibake,
         notifyOnMojibake,
+        detectLlmGarbage,
+        notifyOnLlmGarbage,
         delayMs: initial?.delayMs ?? 2000,
         maxConcurrency: initial?.maxConcurrency ?? 2,
         timeoutMs: initial?.timeoutMs ?? 30000,
@@ -257,14 +263,15 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
 
               <div className="flex items-center gap-2">
                 <Switch checked={enabled} onCheckedChange={setEnabled} />
-                <Label>Enabled</Label>
+                <Label>Run in schedule</Label>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="schedulePreset">Schedule</Label>
                 <select
                   id="schedulePreset"
-                  className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+                  disabled={!enabled}
                   value={SCHEDULE_PRESETS.some(
                     (p) => p.value === Number(intervalValue) && p.unit === intervalUnit
                   )
@@ -301,12 +308,14 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                         type="number"
                         min={1}
                         value={intervalValue}
+                        disabled={!enabled}
                         onChange={(e) => setIntervalValue(e.target.value)}
                       />
                     </div>
                     <select
-                      className="h-10 rounded-md border bg-background px-3 py-2 text-sm"
+                      className="h-10 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
                       value={intervalUnit}
+                      disabled={!enabled}
                       onChange={(e) => setIntervalUnit(e.target.value as typeof intervalUnit)}
                     >
                       <option value="minutes">Minutes</option>
@@ -327,6 +336,7 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                       id="runAt"
                       type="time"
                       value={runAt}
+                      disabled={!enabled}
                       onChange={(e) => setRunAt(e.target.value)}
                       className="w-32"
                       aria-label="Time of day"
@@ -361,6 +371,18 @@ export default function AddCrawlJobDialog({ open, onOpenChange, onSubmit, initia
                 <div className="flex items-center gap-2">
                   <Switch checked={notifyOnMojibake} onCheckedChange={setNotifyOnMojibake} disabled={!detectMojibake} />
                   <span className="text-sm">Notify on mojibake detected</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="block">LLM Garbage Detection</Label>
+                <div className="flex items-center gap-2">
+                  <Switch checked={detectLlmGarbage} onCheckedChange={setDetectLlmGarbage} />
+                  <span className="text-sm">Detect AI-generated artifacts (placeholders, refusals, prompt leaks)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={notifyOnLlmGarbage} onCheckedChange={setNotifyOnLlmGarbage} disabled={!detectLlmGarbage} />
+                  <span className="text-sm">Notify on LLM garbage detected</span>
                 </div>
               </div>
             </div>

@@ -54,6 +54,7 @@ export class TelegramProvider implements NotificationProvider {
       const changedColor = s.changedCount > 0 ? "#d97706" : "#059669"
       const sslColor = s.sslCount > 0 ? "#ea580c" : "#059669"
       const mjColor = s.mojibakeCount > 0 ? "#9333ea" : "#059669"
+      const lgColor = s.llmGarbageCount > 0 ? "#0891b2" : "#059669"
 
       const stat = (emoji: string, label: string, count: number, color: string) =>
         `${emoji} <b>${count}</b> <i>${label}</i>`
@@ -61,7 +62,8 @@ export class TelegramProvider implements NotificationProvider {
       text += stat("\uD83D\uDEA8", "Broken", s.brokenCount, brokenColor) + "\n"
       text += stat("\uD83D\uDD04", "Changed", s.changedCount, changedColor) + "\n"
       text += stat("\uD83D\uDD12", "SSL Expiring", s.sslCount, sslColor) + "\n"
-      text += stat("\uD83D\uDD24", "Mojibake", s.mojibakeCount, mjColor) + "\n\n"
+      text += stat("\uD83D\uDD24", "Mojibake", s.mojibakeCount, mjColor) + "\n"
+      text += stat("\uD83E\uDD16", "LLM Garbage", s.llmGarbageCount, lgColor) + "\n\n"
 
       // Performance
       const perf: string[] = []
@@ -79,7 +81,8 @@ export class TelegramProvider implements NotificationProvider {
           { emoji: "\uD83D\uDEA8", label: "Broken URLs", items: urls.broken },
           { emoji: "\uD83D\uDD04", label: "Changed URLs", items: urls.changed },
           { emoji: "\uD83D\uDD12", label: "SSL Expiring", items: urls.sslExpiring },
-          { emoji: "\uD83D\uDD24", label: "Mojibake", items: urls.mojibake }
+          { emoji: "\uD83D\uDD24", label: "Mojibake", items: urls.mojibake },
+          { emoji: "\uD83E\uDD16", label: "LLM Garbage", items: urls.llmGarbage }
         ]
         for (const sec of sections) {
           if (sec.items.length > 0) {

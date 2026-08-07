@@ -59,6 +59,7 @@ export async function runCrawlWithPersistence(
     const results: CheckResult[] = []
     const sslResults: CheckResult[] = []
     const mojibakeResults: CheckResult[] = []
+    const llmGarbageResults: CheckResult[] = []
 
     // Progress milestones: fire onCrawlProgress at 25%, 50%, 75%
     const progressMilestones = new Set([25, 50, 75])
@@ -109,6 +110,7 @@ export async function runCrawlWithPersistence(
         results.push(r)
         sslResults.push(r)
         mojibakeResults.push(r)
+        llmGarbageResults.push(r)
         const id = randomUUID()
         opts.storage.insertResult({
           id,
@@ -126,6 +128,8 @@ export async function runCrawlWithPersistence(
           checkMethod: r.checkMethod,
           mojibakeScore: r.mojibakeScore,
           mojibakeFlagged: r.mojibakeFlagged,
+          llmGarbageScore: r.llmGarbageScore,
+          llmGarbageFlagged: r.llmGarbageFlagged,
           seo: r.seo
         })
 
@@ -207,6 +211,10 @@ export async function runCrawlWithPersistence(
       .filter((r) => r.mojibakeFlagged)
       .map((r) => r.url)
 
+    const llmGarbageFlagged = llmGarbageResults
+      .filter((r) => r.llmGarbageFlagged)
+      .map((r) => r.url)
+
     if (opts.notifier.isEventEnabled("onCrawlComplete")) {
       const healthScore =
         finalState.urlsChecked > 0
@@ -237,6 +245,7 @@ export async function runCrawlWithPersistence(
           changedCount: finalState.urlsChanged,
           sslCount: expiringSoon.length,
           mojibakeCount: mojibakeFlagged.length,
+          llmGarbageCount: llmGarbageFlagged.length,
           brokenUrls: brokenUrls.map((r) => ({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` })),
           changedUrls: changedUrls.map((r) => ({ url: r.url })),
           sslUrls: expiringSoon.slice(0, 30)
@@ -257,6 +266,21 @@ export async function runCrawlWithPersistence(
           message: `Crawl ${crawlId} found ${mojibakeFlagged.length} URLs with garbled text: ${mojibakeFlagged.slice(0, 5).join(", ")}${mojibakeFlagged.length > 5 ? "..." : ""}`,
           crawlId,
           meta: { mojibakeCount: mojibakeFlagged.length }
+        })
+      }
+    }
+
+    if (opts.config.crawl.detectLlmGarbage !== false) {
+      if (
+        llmGarbageFlagged.length > 0 &&
+        opts.notifier.isEventEnabled("onLlmGarbageDetected")
+      ) {
+        await opts.notifier.notify("onLlmGarbageDetected", {
+          event: "onLlmGarbageDetected",
+          title: `${llmGarbageFlagged.length} URL(s) with LLM garbage detected`,
+          message: `Crawl ${crawlId} found ${llmGarbageFlagged.length} URLs with AI-generated artifacts: ${llmGarbageFlagged.slice(0, 5).join(", ")}${llmGarbageFlagged.length > 5 ? "..." : ""}`,
+          crawlId,
+          meta: { llmGarbageCount: llmGarbageFlagged.length }
         })
       }
     }

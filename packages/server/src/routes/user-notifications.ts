@@ -36,6 +36,7 @@ const userNotifSchema = z.object({
     onSslExpiring: z.boolean(),
     onCrawlComplete: z.boolean(),
     onMojibakeDetected: z.boolean(),
+    onLlmGarbageDetected: z.boolean(),
     onCrawlProgress: z.boolean(),
     onMonitorDown: z.boolean().optional(),
     onMonitorRecovery: z.boolean().optional()
@@ -59,6 +60,7 @@ export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteD
           onSslExpiring: false,
           onCrawlComplete: false,
           onMojibakeDetected: false,
+          onLlmGarbageDetected: false,
           onCrawlProgress: false
         }
       }
@@ -78,6 +80,7 @@ export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteD
         onSslExpiring: body.enabledEvents.onSslExpiring,
         onCrawlComplete: body.enabledEvents.onCrawlComplete,
         onMojibakeDetected: body.enabledEvents.onMojibakeDetected,
+        onLlmGarbageDetected: body.enabledEvents.onLlmGarbageDetected ?? false,
         onCrawlProgress: body.enabledEvents.onCrawlProgress ?? false,
         onMonitorDown: body.enabledEvents.onMonitorDown ?? false,
         onMonitorRecovery: body.enabledEvents.onMonitorRecovery ?? false

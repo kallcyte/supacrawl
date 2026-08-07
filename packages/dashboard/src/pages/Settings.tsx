@@ -48,6 +48,7 @@ const EVENT_LABELS: Record<string, string> = {
   onSslExpiring: "SSL certificate expiring",
   onCrawlComplete: "Crawl completed",
   onMojibakeDetected: "Mojibake (encoding issues)",
+  onLlmGarbageDetected: "LLM Garbage (AI prompt artifacts)",
   onCrawlProgress: "Crawl progress",
   onMonitorDown: "Monitor went down",
   onMonitorRecovery: "Monitor recovered"
@@ -66,6 +67,7 @@ const DEFAULT_EVENTS: UserNotificationSettings["enabledEvents"] = {
   onSslExpiring: false,
   onCrawlComplete: false,
   onMojibakeDetected: false,
+  onLlmGarbageDetected: false,
   onCrawlProgress: false,
   onMonitorDown: false,
   onMonitorRecovery: false
@@ -213,8 +215,8 @@ export default function SettingsPage() {
         <PageInfo title="Settings" content={settingsExplainer} className="h-8 w-8" />
       </div>
 
-      {/* My Notification Preferences */}
-      <Card>
+      {/* My Notification Preferences (admin-only — per-user notification channels are not exposed in the UI) */}
+      {isAdmin && <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -273,7 +275,7 @@ export default function SettingsPage() {
             </>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Browser Push Notifications */}
       <Card>

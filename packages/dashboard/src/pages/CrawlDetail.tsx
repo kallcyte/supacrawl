@@ -33,10 +33,11 @@ import {
 } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import { toast } from "@/lib/use-toast"
+import { useSession } from "@/lib/auth-client"
 import PageInfo from "@/components/PageInfo"
 import crawlDetailExplainer from "@/content/crawl-detail-explainer.md?raw"
 
-type Filter = "all" | "broken" | "4xx" | "5xx" | "changed" | "mojibake" | "redirect"
+type Filter = "all" | "broken" | "4xx" | "5xx" | "changed" | "mojibake" | "llmGarbage" | "redirect"
 
 /** Hex approximations of Tailwind v4 CSS variables (which use oklch). */
 const TAILWIND_COLORS = `
@@ -126,6 +127,9 @@ const TAILWIND_COLORS = `
 
 export default function CrawlDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { data: sessionData } = useSession()
+  const role = (sessionData?.user as { role?: string } | undefined)?.role
+  const isAdmin = role === "admin"
   const [crawl, setCrawl] = useState<CrawlRecord | null>(null)
   const [results, setResults] = useState<CrawlResult[]>([])
   const [distribution, setDistribution] = useState<StatusBucket[]>([])
@@ -299,6 +303,7 @@ export default function CrawlDetailPage() {
       if (filter === "5xx") return (r.statusCode ?? 0) >= 500
       if (filter === "changed") return r.contentChanged
       if (filter === "mojibake") return r.mojibakeFlagged
+      if (filter === "llmGarbage") return r.llmGarbageFlagged
       if (filter === "redirect") return (r.statusCode ?? 0) >= 300 && (r.statusCode ?? 0) < 400
       return true
     })
@@ -329,7 +334,7 @@ export default function CrawlDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <PageInfo title="Crawl Detail" content={crawlDetailExplainer} className="h-8 w-8" />
-          {crawl.status === "running" && crawl.jobId && (
+          {isAdmin && crawl.status === "running" && crawl.jobId && (
             <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping} className="text-destructive">
               {stopping ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -420,6 +425,14 @@ export default function CrawlDetailPage() {
             </CardTitle>
           </CardHeader>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>LLM Garbage</CardDescription>
+            <CardTitle className="text-2xl text-cyan-600">
+              {results.filter((r) => r.llmGarbageFlagged).length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
       {/* Tabs: Results / Report */}
@@ -490,6 +503,13 @@ export default function CrawlDetailPage() {
                     >
                       Mojibake
                     </Button>
+                    <Button
+                      size="sm"
+                      variant={filter === "llmGarbage" ? "default" : "outline"}
+                      onClick={() => setFilter("llmGarbage")}
+                    >
+                      LLM Garbage
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -531,6 +551,13 @@ export default function CrawlDetailPage() {
                                   <Bug className="h-3 w-3" />
                                   Mojibake detected
                                   {r.mojibakeScore !== null && ` (${Math.round(r.mojibakeScore * 100)}%)`}
+                                </div>
+                              )}
+                              {r.llmGarbageFlagged && (
+                                <div className="mt-1 flex items-center gap-1 text-xs text-cyan-600">
+                                  <Bug className="h-3 w-3" />
+                                  LLM garbage
+                                  {r.llmGarbageScore !== null && ` (${Math.round(r.llmGarbageScore * 100)}%)`}
                                 </div>
                               )}
                             </TableCell>
@@ -615,7 +642,7 @@ export default function CrawlDetailPage() {
                 {/* Stats cards row */}
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gridTemplateColumns: "repeat(5, 1fr)",
                   gap: "10px",
                   marginBottom: "16px"
                 }}>
@@ -624,7 +651,8 @@ export default function CrawlDetailPage() {
                       { label: "Broken", value: summary.issues.broken.length, icon: "\u{1F6A8}", color: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
                       { label: "Changed", value: summary.issues.changed.length, icon: "\u{1F504}", color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
                       { label: "SSL Expiring", value: summary.issues.sslExpiring.length, icon: "\u{1F512}", color: "#ea580c", bg: "#fff7ed", border: "#fed7aa" },
-                      { label: "Mojibake", value: summary.issues.mojibake.length, icon: "\u{1F524}", color: "#9333ea", bg: "#faf5ff", border: "#e9d5ff" }
+                      { label: "Mojibake", value: summary.issues.mojibake.length, icon: "\u{1F524}", color: "#9333ea", bg: "#faf5ff", border: "#e9d5ff" },
+                      { label: "LLM Garbage", value: summary.issues.llmGarbage.length, icon: "\u{1F916}", color: "#0891b2", bg: "#ecfeff", border: "#a5f3fc" }
                     ]
                     return stats.map((s, i) => (
                       <div key={i} style={{
@@ -680,12 +708,16 @@ export default function CrawlDetailPage() {
                 {summary.issues.mojibake.length > 0 && (
                   <PdfIssueSection title={"\u{1F524} Mojibake (Garbled Text)"} count={summary.issues.mojibake.length} color="#9333ea" bg="#faf5ff" border="#e9d5ff" items={summary.issues.mojibake.map((i) => ({ url: i.url, detail: i.detail }))} />
                 )}
+                {summary.issues.llmGarbage.length > 0 && (
+                  <PdfIssueSection title={"\u{1F916} LLM Garbage (AI Artifacts)"} count={summary.issues.llmGarbage.length} color="#0891b2" bg="#ecfeff" border="#a5f3fc" items={summary.issues.llmGarbage.map((i) => ({ url: i.url, detail: i.detail }))} />
+                )}
 
                 {/* Everything clean */}
                 {summary.issues.broken.length === 0 &&
                   summary.issues.changed.length === 0 &&
                   summary.issues.sslExpiring.length === 0 &&
-                  summary.issues.mojibake.length === 0 && (
+                  summary.issues.mojibake.length === 0 &&
+                  summary.issues.llmGarbage.length === 0 && (
                     <div style={{
                       background: "#ecfdf5",
                       border: "1px solid #a7f3d0",

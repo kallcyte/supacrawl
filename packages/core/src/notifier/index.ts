@@ -85,6 +85,7 @@ export class Notifier {
         onSslExpiring: settings.enabledEvents.onSslExpiring,
         onCrawlComplete: settings.enabledEvents.onCrawlComplete,
         onMojibakeDetected: settings.enabledEvents.onMojibakeDetected,
+        onLlmGarbageDetected: settings.enabledEvents.onLlmGarbageDetected,
         onCrawlProgress: settings.enabledEvents.onCrawlProgress,
         onMonitorDown: settings.enabledEvents.onMonitorDown,
         onMonitorRecovery: settings.enabledEvents.onMonitorRecovery
@@ -93,7 +94,7 @@ export class Notifier {
   }
 
   /** Build a NotificationsConfig from a CrawlJob's DB fields. */
-  static configFromJob(job: Pick<CrawlJob, "notifyOnComplete" | "notifyOnFailure" | "notifyOnChange" | "notifyOnMojibake" | "notifySslExpiring" | "notifyOnProgress" | "notificationProviders">): NotificationsConfig {
+  static configFromJob(job: Pick<CrawlJob, "notifyOnComplete" | "notifyOnFailure" | "notifyOnChange" | "notifyOnMojibake" | "notifyOnLlmGarbage" | "notifySslExpiring" | "notifyOnProgress" | "notificationProviders">): NotificationsConfig {
     const providers = job.notificationProviders ?? {}
     return {
       providers: {
@@ -130,6 +131,7 @@ export class Notifier {
         onSslExpiring: job.notifySslExpiring,
         onCrawlComplete: job.notifyOnComplete,
         onMojibakeDetected: job.notifyOnMojibake,
+        onLlmGarbageDetected: job.notifyOnLlmGarbage,
         onCrawlProgress: job.notifyOnProgress,
         onMonitorDown: true,
         onMonitorRecovery: true

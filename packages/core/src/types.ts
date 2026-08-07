@@ -9,7 +9,8 @@ export const CrawlConfigSchema = z.object({
   maxUrls: z.number().int().positive().default(999999),
   retryOnTransientError: z.boolean().default(true),
   maxRetries: z.number().int().nonnegative().default(2),
-  detectMojibake: z.boolean().default(true)
+  detectMojibake: z.boolean().default(true),
+  detectLlmGarbage: z.boolean().default(true)
 })
 export type CrawlConfig = z.infer<typeof CrawlConfigSchema>
 
@@ -72,6 +73,7 @@ export const NotificationsConfigSchema = z.object({
     onSslExpiring: z.boolean().default(true),
     onCrawlComplete: z.boolean().default(false),
     onMojibakeDetected: z.boolean().default(false),
+    onLlmGarbageDetected: z.boolean().default(false),
     onCrawlProgress: z.boolean().default(false),
     onMonitorDown: z.boolean().default(true),
     onMonitorRecovery: z.boolean().default(true)
@@ -112,6 +114,7 @@ export const ConfigSchema = z.object({
       onSslExpiring: true,
       onCrawlComplete: false,
       onMojibakeDetected: false,
+      onLlmGarbageDetected: false,
       onCrawlProgress: false,
       onMonitorDown: true,
       onMonitorRecovery: true
@@ -185,6 +188,8 @@ export interface CrawlResultRecord {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  llmGarbageScore: number | null
+  llmGarbageFlagged: boolean
   seo: SeoInfo | null
 }
 
@@ -205,6 +210,7 @@ export type NotificationEvent =
   | "onSslExpiring"
   | "onCrawlComplete"
   | "onMojibakeDetected"
+  | "onLlmGarbageDetected"
   | "onCrawlProgress"
   | "onMonitorDown"
   | "onMonitorRecovery"
@@ -233,6 +239,7 @@ export interface CrawlSummary {
     changed: CrawlSummaryIssue[]
     sslExpiring: CrawlSummaryIssue[]
     mojibake: CrawlSummaryIssue[]
+    llmGarbage: CrawlSummaryIssue[]
   }
 }
 
@@ -241,6 +248,7 @@ export interface CrawlReportUrls {
   changed: { url: string; detail?: string }[]
   sslExpiring: { url: string; detail?: string }[]
   mojibake: { url: string; detail?: string }[]
+  llmGarbage: { url: string; detail?: string }[]
 }
 
 export interface CrawlReportStats {
@@ -251,6 +259,7 @@ export interface CrawlReportStats {
   changedCount: number
   sslCount: number
   mojibakeCount: number
+  llmGarbageCount: number
   avgResponseTimeMs: number | null
   fastestResponseTimeMs: number | null
   slowestResponseTimeMs: number | null
@@ -327,9 +336,11 @@ export const CrawlJobSchema = z.object({
   notifyOnFailure: z.boolean().default(true),
   notifyOnChange: z.boolean().default(true),
   notifyOnMojibake: z.boolean().default(false),
+  notifyOnLlmGarbage: z.boolean().default(false),
   notifySslExpiring: z.boolean().default(true),
   notifyOnProgress: z.boolean().default(false),
   detectMojibake: z.boolean().optional().default(true),
+  detectLlmGarbage: z.boolean().optional().default(true),
   delayMs: z.number().int().nonnegative().default(2000),
   maxConcurrency: z.number().int().positive().default(2),
   timeoutMs: z.number().int().positive().default(30000),
@@ -352,9 +363,11 @@ export interface CrawlJob {
   notifyOnFailure: boolean
   notifyOnChange: boolean
   notifyOnMojibake: boolean
+  notifyOnLlmGarbage: boolean
   notifySslExpiring: boolean
   notifyOnProgress: boolean
   detectMojibake: boolean
+  detectLlmGarbage: boolean
   delayMs: number
   maxConcurrency: number
   timeoutMs: number
@@ -393,6 +406,8 @@ export interface CheckResult {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  llmGarbageScore: number | null
+  llmGarbageFlagged: boolean
   seo: SeoInfo | null
 }
 
@@ -408,6 +423,7 @@ export interface UserNotificationSettings {
     onSslExpiring: boolean
     onCrawlComplete: boolean
     onMojibakeDetected: boolean
+    onLlmGarbageDetected: boolean
     onCrawlProgress: boolean
     onMonitorDown: boolean
     onMonitorRecovery: boolean

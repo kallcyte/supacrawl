@@ -105,7 +105,8 @@ export class SlackProvider implements NotificationProvider {
           statBlock("Broken", s.brokenCount, "#dc2626", "🚨"),
           statBlock("Changed", s.changedCount, "#d97706", "🔄"),
           statBlock("SSL Expiring", s.sslCount, "#ea580c", "🔒"),
-          statBlock("Mojibake", s.mojibakeCount, "#9333ea", "🔤")
+          statBlock("Mojibake", s.mojibakeCount, "#9333ea", "🔤"),
+          statBlock("LLM Garbage", s.llmGarbageCount, "#0891b2", "🤖")
         ]
       })
 
@@ -128,7 +129,8 @@ export class SlackProvider implements NotificationProvider {
           { block: "🚨 Broken URLs", items: urls.broken },
           { block: "🔄 Changed URLs", items: urls.changed },
           { block: "🔒 SSL Expiring", items: urls.sslExpiring },
-          { block: "🔤 Mojibake", items: urls.mojibake }
+          { block: "🔤 Mojibake", items: urls.mojibake },
+          { block: "🤖 LLM Garbage", items: urls.llmGarbage }
         ]
         for (const sec of sections) {
           if (sec.items.length > 0) {
@@ -159,6 +161,7 @@ export class SlackProvider implements NotificationProvider {
         : payload.event === "onContentChange" ? "warning"
         : payload.event === "onSslExpiring" ? "warning"
         : payload.event === "onMojibakeDetected" ? "warning"
+        : payload.event === "onLlmGarbageDetected" ? "warning"
         : "good"
 
       const body = {

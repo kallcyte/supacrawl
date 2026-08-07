@@ -26,7 +26,8 @@ export function defaultConfig(): Partial<Config> {
       maxUrls: 999999,
       retryOnTransientError: true,
       maxRetries: 2,
-      detectMojibake: true
+      detectMojibake: true,
+      detectLlmGarbage: true
     }
   }
 }

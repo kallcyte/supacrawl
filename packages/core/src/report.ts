@@ -12,6 +12,7 @@ export function buildCrawlReportHtml(opts: {
   changedCount: number
   sslCount: number
   mojibakeCount: number
+  llmGarbageCount: number
   brokenUrls: ReportUrl[]
   changedUrls: ReportUrl[]
   sslUrls: string[]
@@ -64,6 +65,7 @@ export function buildCrawlReportHtml(opts: {
       ${statCard(opts.changedCount, "Changed", "&#x1F504;", "#d97706", "#fffbeb", "#fde68a")}
       ${statCard(opts.sslCount, "SSL Expiring", "&#x1F512;", "#ea580c", "#fff7ed", "#fed7aa")}
       ${statCard(opts.mojibakeCount, "Mojibake", "&#x1F524;", "#9333ea", "#faf5ff", "#e9d5ff")}
+      ${statCard(opts.llmGarbageCount, "LLM Garbage", "&#x1F916;", "#0891b2", "#ecfeff", "#a5f3fc")}
     </tr>
   </table>
 
@@ -71,8 +73,8 @@ export function buildCrawlReportHtml(opts: {
     <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">&#x1F4CA; Summary</div>
     <div style="font-size:12px;color:#64748b;">
       Checked <strong style="color:#0f172a;">${opts.totalChecked}</strong> of <strong style="color:#0f172a;">${opts.totalFound}</strong> URLs ·
-      ${opts.brokenCount > 0 || opts.changedCount > 0 || opts.sslCount > 0 || opts.mojibakeCount > 0
-        ? `${opts.brokenCount + opts.changedCount + opts.sslCount + opts.mojibakeCount} issues found`
+      ${opts.brokenCount > 0 || opts.changedCount > 0 || opts.sslCount > 0 || opts.mojibakeCount > 0 || opts.llmGarbageCount > 0
+        ? `${opts.brokenCount + opts.changedCount + opts.sslCount + opts.mojibakeCount + opts.llmGarbageCount} issues found`
         : "All URLs healthy &#x2705;"}
     </div>
   </div>

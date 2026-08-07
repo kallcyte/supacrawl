@@ -47,6 +47,8 @@ export interface CrawlResult {
   checkMethod: "GET" | "HEAD" | "skipped"
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  llmGarbageScore: number | null
+  llmGarbageFlagged: boolean
   seo: SeoInfo | null
 }
 
@@ -94,7 +96,9 @@ export interface CrawlJob {
   notifyOnFailure: boolean
   notifyOnChange: boolean
   notifyOnMojibake: boolean
+  notifyOnLlmGarbage: boolean
   detectMojibake: boolean
+  detectLlmGarbage: boolean
   delayMs: number
   maxConcurrency: number
   timeoutMs: number
@@ -140,6 +144,7 @@ export interface CrawlSummary {
     changed: CrawlSummaryIssue[]
     sslExpiring: CrawlSummaryIssue[]
     mojibake: CrawlSummaryIssue[]
+    llmGarbage: CrawlSummaryIssue[]
   }
 }
 
@@ -251,11 +256,12 @@ export const api = {
     request<{ ok: boolean }>(`/api/crawls/${id}/cancel`, { method: "POST" }),
   deleteCrawl: (id: string) =>
     request<{ ok: boolean }>(`/api/crawls/${id}`, { method: "DELETE" }),
-  listResults: (id: string, opts?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean }) => {
+  listResults: (id: string, opts?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean; llmGarbageOnly?: boolean }) => {
     const q = new URLSearchParams()
     if (opts?.brokenOnly) q.set("brokenOnly", "true")
     if (opts?.changedOnly) q.set("changedOnly", "true")
     if (opts?.mojibakeOnly) q.set("mojibakeOnly", "true")
+    if (opts?.llmGarbageOnly) q.set("llmGarbageOnly", "true")
     const qs = q.toString()
     return request<{ crawlId: string; results: CrawlResult[] }>(
       `/api/crawls/${id}/results${qs ? "?" + qs : ""}`
@@ -415,6 +421,7 @@ export interface UserNotificationSettings {
     onSslExpiring: boolean
     onCrawlComplete: boolean
     onMojibakeDetected: boolean
+    onLlmGarbageDetected: boolean
     onCrawlProgress: boolean
     onMonitorDown?: boolean
     onMonitorRecovery?: boolean

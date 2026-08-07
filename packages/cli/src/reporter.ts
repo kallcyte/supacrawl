@@ -18,6 +18,7 @@ export function printReport(
     const flags: string[] = []
     if (r.error) flags.push(chalk.red(`error: ${r.error}`))
     if (r.mojibakeFlagged) flags.push(chalk.yellow(`mojibake (${((r.mojibakeScore ?? 0) * 100).toFixed(0)}%)`))
+    if (r.llmGarbageFlagged) flags.push(chalk.cyan(`llm-garbage (${((r.llmGarbageScore ?? 0) * 100).toFixed(0)}%)`))
     console.log(`  ${url.padEnd(maxLen)}  ${status}  ${chalk.gray(time)}`)
     for (const f of flags) console.log(`    ${f}`)
   }

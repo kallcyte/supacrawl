@@ -2,6 +2,7 @@ import { URL } from "node:url"
 import { sha256 } from "./diff.js"
 import { checkSsl } from "./ssl.js"
 import { detectMojibake } from "./mojibake.js"
+import { detectLlmGarbage } from "./llm-garbage.js"
 import { extractSeoInfo } from "./seo.js"
 import type { CheckMethod, CheckResult, CrawlConfig, SitemapEntry } from "./types.js"
 
@@ -50,6 +51,8 @@ export async function checkUrl(
     checkMethod: method,
     mojibakeScore: null,
     mojibakeFlagged: false,
+    llmGarbageScore: null,
+    llmGarbageFlagged: false,
     seo: null
   }
   let attempt = 0
@@ -98,6 +101,11 @@ export async function checkUrl(
           const mojibake = detectMojibake(buf)
           result.mojibakeScore = mojibake.score
           result.mojibakeFlagged = mojibake.flagged
+        }
+        if (ctx.config.detectLlmGarbage !== false) {
+          const llmGarbage = detectLlmGarbage(buf)
+          result.llmGarbageScore = llmGarbage.score
+          result.llmGarbageFlagged = llmGarbage.flagged
         }
       }
       try {
