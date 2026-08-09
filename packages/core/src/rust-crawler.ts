@@ -5,10 +5,10 @@ import type { CrawlJob, CrawlConfig, CheckResult, CrawlProgress } from "./types.
 interface KnownHash {
   url: string
   hash: string
-  hasSeo: boolean
-  lastCheckedAt: string | null
-  sitemapLastmod: string | null
-  prevSeo?: unknown | null
+  has_seo: boolean
+  last_checked_at: string | null
+  sitemap_lastmod: string | null
+  prev_seo?: unknown | null
 }
 
 interface RustCrawlRequest {

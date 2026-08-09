@@ -284,9 +284,9 @@ export class CrawlManager {
         knownHashes: this.storage.getAllUrlStates().map((s) => ({
           url: s.url,
           hash: s.lastContentHash ?? "",
-          hasSeo: s.hasSeo,
-          lastCheckedAt: s.lastCheckedAt ?? null,
-          sitemapLastmod: s.sitemapLastmod ?? null,
+          has_seo: s.hasSeo,
+          last_checked_at: s.lastCheckedAt ?? null,
+          sitemap_lastmod: s.sitemapLastmod ?? null,
         })),
         dbPath: process.env.CRAWLER_DB_PATH ?? this.storage.dbPath,
         abortSignal: controller.signal,

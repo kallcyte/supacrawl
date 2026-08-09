@@ -264,8 +264,11 @@ pub struct CrawlProgress {
 pub struct KnownHash {
     pub url: String,
     pub hash: String,
+    #[serde(default)]
     pub has_seo: bool,
+    #[serde(default)]
     pub last_checked_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
     pub sitemap_lastmod: Option<String>,
     #[serde(default)]
     pub prev_seo: Option<SeoInfo>,
