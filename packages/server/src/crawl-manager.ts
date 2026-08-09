@@ -293,7 +293,7 @@ export class CrawlManager {
         onProgress: (p) => this.onProgress(p),
         onResult: (r) => {},
         onComplete: (record) => {
-          const status = record.status as "completed" | "failed"
+          const status = record.status === "failed" ? "failed" : "completed"
           if (opts?.job) {
             this.storage.updateCrawlJob(opts.job.id, {
               lastRunAt: new Date().toISOString(),
@@ -305,7 +305,7 @@ export class CrawlManager {
             jobId: opts?.job?.id ?? null,
             startedAt: new Date().toISOString(),
             finishedAt: new Date().toISOString(),
-            status: record.status as "completed" | "failed",
+            status,
             urlsTotal: record.urlsTotal,
             urlsChecked: record.urlsChecked,
             urlsChanged: record.urlsChanged,
@@ -315,24 +315,14 @@ export class CrawlManager {
           }).catch((err) => console.error(`[user notifications] ${err}`))
         },
         onError: (error) => {
-          this.onProgress({
-            crawlId: id,
-            total: 0,
-            checked: 0,
-            changed: 0,
-            broken: 0,
-            skipped: 0,
-            status: "failed",
-            startedAt: new Date().toISOString(),
-          })
-          console.error(`[crawl ${id}] failed:`, error)
+          this.markCrawlFailed(id, error, opts?.job)
         },
       })
 
       rustCrawler
         .start()
         .catch((err) => {
-          console.error(`[crawl ${id}] failed:`, err)
+          this.markCrawlFailed(id, err, opts?.job)
         })
         .finally(() => {
           this.activeCrawls.delete(id)
@@ -395,6 +385,33 @@ export class CrawlManager {
     c.abort()
     this.activeCrawls.delete(crawlId)
     return true
+  }
+
+  private markCrawlFailed(crawlId: string, error: unknown, job?: CrawlJob): void {
+    const message =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "Crawl failed"
+    this.storage.updateCrawl(crawlId, {
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      errorMessage: message
+    })
+    if (job) {
+      this.storage.updateCrawlJob(job.id, {
+        lastRunAt: new Date().toISOString(),
+        lastRunStatus: "failed"
+      })
+    }
+    this.onProgress({
+      crawlId,
+      total: 0,
+      checked: 0,
+      changed: 0,
+      broken: 0,
+      skipped: 0,
+      status: "failed",
+      startedAt: new Date().toISOString(),
+    })
+    console.error(`[crawl ${crawlId}] failed:`, error)
   }
 
   async cancelJobCrawl(jobId: string): Promise<boolean> {
