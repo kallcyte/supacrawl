@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto"
 import type { Config, CrawlJob, CrawlProgress, CrawlConfig, CrawlRecord, Storage, Notifier, UserNotificationSettings, NotificationEvent } from "@supacrawl/core"
-import { runCrawlWithPersistence, Notifier as NotifierClass, buildCrawlReportHtml } from "@supacrawl/core"
+import {
+  runCrawlWithPersistence,
+  Notifier as NotifierClass,
+  buildCrawlReportHtml,
+  RustCrawler,
+  getDefaultDaemonBin,
+  isRustBackend
+} from "@supacrawl/core"
 
 export interface StartCrawlOptions {
   job?: CrawlJob
@@ -263,6 +270,80 @@ export class CrawlManager {
     const jobNotifier = this.getNotifierForJob(opts?.job)
 
     tryGc()
+
+    if (isRustBackend()) {
+      const rustCrawler = new RustCrawler(id, {
+        daemonBin: getDefaultDaemonBin(),
+        config: {
+          crawl: crawlConfig,
+          checks: { ...this.config.checks },
+        },
+        sitemaps: opts?.job
+          ? (opts.job.sitemapUrls ?? [opts.job.sitemapUrl])
+          : this.config.sitemaps.filter((s) => s.enabled).map((s) => s.url),
+        knownHashes: this.storage.getAllUrlStates().map((s) => ({
+          url: s.url,
+          hash: s.lastContentHash ?? "",
+          hasSeo: s.hasSeo,
+          lastCheckedAt: s.lastCheckedAt ?? null,
+          sitemapLastmod: s.sitemapLastmod ?? null,
+        })),
+        dbPath: process.env.CRAWLER_DB_PATH ?? this.storage.dbPath,
+        abortSignal: controller.signal,
+        onProgress: (p) => this.onProgress(p),
+        onResult: (r) => {},
+        onComplete: (record) => {
+          const status = record.status as "completed" | "failed"
+          if (opts?.job) {
+            this.storage.updateCrawlJob(opts.job.id, {
+              lastRunAt: new Date().toISOString(),
+              lastRunStatus: status,
+            })
+          }
+          this.sendUserNotifications(id, {
+            id,
+            jobId: opts?.job?.id ?? null,
+            startedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString(),
+            status: record.status as "completed" | "failed",
+            urlsTotal: record.urlsTotal,
+            urlsChecked: record.urlsChecked,
+            urlsChanged: record.urlsChanged,
+            urlsBroken: record.urlsBroken,
+            urlsSkipped: record.urlsSkipped,
+            errorMessage: record.errorMessage ?? null,
+          }).catch((err) => console.error(`[user notifications] ${err}`))
+        },
+        onError: (error) => {
+          this.onProgress({
+            crawlId: id,
+            total: 0,
+            checked: 0,
+            changed: 0,
+            broken: 0,
+            skipped: 0,
+            status: "failed",
+            startedAt: new Date().toISOString(),
+          })
+          console.error(`[crawl ${id}] failed:`, error)
+        },
+      })
+
+      rustCrawler
+        .start()
+        .catch((err) => {
+          console.error(`[crawl ${id}] failed:`, err)
+        })
+        .finally(() => {
+          this.activeCrawls.delete(id)
+          if (opts?.job) {
+            this.jobCrawlMap.delete(opts.job.id)
+          }
+          tryGc()
+        })
+
+      return id
+    }
 
     runCrawlWithPersistence({
       crawlId: id,

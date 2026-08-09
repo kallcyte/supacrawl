@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs"
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import { z } from "zod"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
@@ -29,24 +29,24 @@ const configSchema = z.object({
   schedule: z.string().optional()
 })
 
-export async function settingsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/settings", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
+export function settingsRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/settings", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
     const { sitemaps: _, ...rest } = deps.config
-    return rest
+    return c.json(rest)
   })
 
-  app.put("/api/settings", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const parsed = configSchema.parse(req.body)
+  app.put("/api/settings", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const parsed = configSchema.parse(await c.req.json())
     deps.config.crawl = parsed.crawl
     deps.config.checks = parsed.checks
     deps.config.notifications = parsed.notifications
     deps.config.schedule = parsed.schedule
     deps.storage.setSetting("config", JSON.stringify(deps.config))
     writeConfigToFile(deps.configPath, deps.config)
-    return { ok: true }
+    return c.json({ ok: true })
   })
 }

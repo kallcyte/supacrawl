@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import type { RouteDeps } from "./index.js"
 import crypto from "node:crypto"
 import { promisify } from "node:util"
@@ -27,17 +27,17 @@ async function hashPassword(password: string): Promise<string> {
   return `${salt}:${key.toString("hex")}`
 }
 
-export async function authRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.post("/api/auth/custom-forgot-password", async (req, reply) => {
-    const { email } = req.body as { email?: string }
-    if (!email) return reply.code(400).send({ error: "Email is required" })
+export function authRoutes(app: Hono, deps: RouteDeps): void {
+  app.post("/api/auth/custom-forgot-password", async (c) => {
+    const { email } = await c.req.json() as { email?: string }
+    if (!email) return c.json({ error: "Email is required" }, 400)
 
     const db = getDb(deps.dbPath)
     const user = db.prepare("SELECT id, email FROM user WHERE email = ?").get(email) as { id: string; email: string } | undefined
 
     if (!user) {
       db.close()
-      return { message: "If that email exists, a reset link has been sent" }
+      return c.json({ message: "If that email exists, a reset link has been sent" })
     }
 
     db.prepare("DELETE FROM password_reset_token WHERE user_id = ?").run(user.id)
@@ -51,21 +51,20 @@ export async function authRoutes(app: FastifyInstance, deps: RouteDeps): Promise
     )
     db.close()
 
-    const port = req.port ? `:${req.port}` : ""
-    const resetUrl = `${req.protocol}://${req.hostname}${port}/reset-password?token=${token}`
-    deps.app.log.info(`[supacrawl] Password reset for ${user.email}: ${resetUrl}`)
+    const url = new URL(c.req.url)
+    const resetUrl = `${url.protocol}//${url.host}/reset-password?token=${token}`
     console.log(`[supacrawl] Password reset for ${user.email}: ${resetUrl}`)
 
-    return { message: "If that email exists, a reset link has been sent" }
+    return c.json({ message: "If that email exists, a reset link has been sent" })
   })
 
-  app.post("/api/auth/custom-reset-password", async (req, reply) => {
-    const { token, newPassword } = req.body as { token?: string; newPassword?: string }
+  app.post("/api/auth/custom-reset-password", async (c) => {
+    const { token, newPassword } = await c.req.json() as { token?: string; newPassword?: string }
     if (!token || !newPassword) {
-      return reply.code(400).send({ error: "Token and new password are required" })
+      return c.json({ error: "Token and new password are required" }, 400)
     }
     if (newPassword.length < 8) {
-      return reply.code(400).send({ error: "Password must be at least 8 characters" })
+      return c.json({ error: "Password must be at least 8 characters" }, 400)
     }
 
     const db = getDb(deps.dbPath)
@@ -76,7 +75,7 @@ export async function authRoutes(app: FastifyInstance, deps: RouteDeps): Promise
 
     if (!row) {
       db.close()
-      return reply.code(400).send({ error: "Invalid or expired token" })
+      return c.json({ error: "Invalid or expired token" }, 400)
     }
 
     const hashedPassword = await hashPassword(newPassword)
@@ -84,6 +83,6 @@ export async function authRoutes(app: FastifyInstance, deps: RouteDeps): Promise
     db.prepare("DELETE FROM password_reset_token WHERE user_id = ?").run(row.user_id)
     db.close()
 
-    return { message: "Password reset successfully" }
+    return c.json({ message: "Password reset successfully" })
   })
 }

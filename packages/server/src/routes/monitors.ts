@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import { z } from "zod"
 import { MonitorSchema } from "@supacrawl/core"
 import type { MonitorRecord } from "@supacrawl/core"
@@ -37,11 +37,11 @@ const rangeToMs: Record<z.infer<typeof rangeSchema>, number> = {
   "30d": 30 * 24 * 3600 * 1000
 }
 
-export async function monitorsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/monitors", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { page: pageRaw, perPage: perPageRaw } = req.query as { page?: string; perPage?: string }
+export function monitorsRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/monitors", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const { page: pageRaw, perPage: perPageRaw } = c.req.query()
     const perPage = Math.min(Math.max(Number(perPageRaw) || 5, 1), 50)
     const domains = deps.storage.listMonitorDomains()
     const totalDomains = domains.length
@@ -50,13 +50,13 @@ export async function monitorsRoutes(app: FastifyInstance, deps: RouteDeps): Pro
     const page = Math.min(Math.max(Number(pageRaw) || 1, 1), totalPages)
     const pageDomains = domains.slice((page - 1) * perPage, page * perPage)
     const monitors = deps.storage.listMonitorsInDomains(pageDomains.map((d) => d.domain))
-    return { monitors, page, perPage, totalPages, totalMonitors, totalDomains }
+    return c.json({ monitors, page, perPage, totalPages, totalMonitors, totalDomains })
   })
 
-  app.post("/api/monitors/bulk", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const body = bulkUpdateSchema.parse(req.body)
+  app.post("/api/monitors/bulk", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = bulkUpdateSchema.parse(await c.req.json())
     const updated = deps.storage.updateMonitors(body.ids, {
       ...body.patch,
       updatedAt: new Date().toISOString()
@@ -67,22 +67,22 @@ export async function monitorsRoutes(app: FastifyInstance, deps: RouteDeps): Pro
       if (current.enabled) deps.monitorScheduler.startMonitor(id)
       else deps.monitorScheduler.stopMonitor(id)
     }
-    return { updated }
+    return c.json({ updated })
   })
 
-  app.post("/api/monitors/bulk/delete", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const body = bulkDeleteSchema.parse(req.body)
+  app.post("/api/monitors/bulk/delete", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = bulkDeleteSchema.parse(await c.req.json())
     for (const id of body.ids) deps.monitorScheduler.stopMonitor(id)
     const deleted = deps.storage.deleteMonitors(body.ids)
-    return { deleted }
+    return c.json({ deleted })
   })
 
-  app.post("/api/monitors", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const body = createMonitorSchema.parse(req.body)
+  app.post("/api/monitors", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = createMonitorSchema.parse(await c.req.json())
     const now = new Date().toISOString()
     const monitor: MonitorRecord = {
       ...body,
@@ -94,85 +94,85 @@ export async function monitorsRoutes(app: FastifyInstance, deps: RouteDeps): Pro
     }
     deps.storage.createMonitor(monitor)
     if (monitor.enabled) deps.monitorScheduler.startMonitor(monitor.id)
-    return monitor
+    return c.json(monitor)
   })
 
-  app.get("/api/monitors/:id", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.get("/api/monitors/:id", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
     const monitor = deps.storage.getMonitor(id)
-    if (!monitor) return reply.code(404).send({ error: "Monitor not found" })
+    if (!monitor) return c.json({ error: "Monitor not found" }, 404)
     const stats = deps.storage.getMonitorStats(id)
-    return { monitor, stats, running: deps.monitorScheduler.isRunning(id) }
+    return c.json({ monitor, stats, running: deps.monitorScheduler.isRunning(id) })
   })
 
-  app.put("/api/monitors/:id", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.put("/api/monitors/:id", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const id = c.req.param("id")
     const existing = deps.storage.getMonitor(id)
-    if (!existing) return reply.code(404).send({ error: "Monitor not found" })
-    const body = updateMonitorSchema.parse(req.body)
+    if (!existing) return c.json({ error: "Monitor not found" }, 404)
+    const body = updateMonitorSchema.parse(await c.req.json())
     deps.storage.updateMonitor(id, { ...body, updatedAt: new Date().toISOString() })
     const updated = deps.storage.getMonitor(id)
     if (updated?.enabled) deps.monitorScheduler.startMonitor(id)
     else deps.monitorScheduler.stopMonitor(id)
-    return updated
+    return c.json(updated)
   })
 
-  app.delete("/api/monitors/:id", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.delete("/api/monitors/:id", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const id = c.req.param("id")
     const existing = deps.storage.getMonitor(id)
-    if (!existing) return reply.code(404).send({ error: "Monitor not found" })
+    if (!existing) return c.json({ error: "Monitor not found" }, 404)
     deps.monitorScheduler.stopMonitor(id)
     deps.storage.deleteMonitor(id)
-    return { ok: true }
+    return c.json({ ok: true })
   })
 
-  app.post("/api/monitors/:id/start", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.post("/api/monitors/:id/start", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
     const existing = deps.storage.getMonitor(id)
-    if (!existing) return reply.code(404).send({ error: "Monitor not found" })
+    if (!existing) return c.json({ error: "Monitor not found" }, 404)
     deps.storage.updateMonitor(id, { enabled: true, updatedAt: new Date().toISOString() })
     deps.monitorScheduler.startMonitor(id)
-    return { ok: true }
+    return c.json({ ok: true })
   })
 
-  app.post("/api/monitors/:id/stop", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.post("/api/monitors/:id/stop", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
     const existing = deps.storage.getMonitor(id)
-    if (!existing) return reply.code(404).send({ error: "Monitor not found" })
+    if (!existing) return c.json({ error: "Monitor not found" }, 404)
     deps.storage.updateMonitor(id, { enabled: false, updatedAt: new Date().toISOString() })
     deps.monitorScheduler.stopMonitor(id)
-    return { ok: true }
+    return c.json({ ok: true })
   })
 
-  app.get("/api/monitors/:id/heartbeats", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.get("/api/monitors/:id/heartbeats", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
     const monitor = deps.storage.getMonitor(id)
-    if (!monitor) return reply.code(404).send({ error: "Monitor not found" })
-    const { range } = req.query as { range?: string }
+    if (!monitor) return c.json({ error: "Monitor not found" }, 404)
+    const { range } = c.req.query()
     const parsed = rangeSchema.parse(range ?? "24h")
     const since = new Date(Date.now() - rangeToMs[parsed]).toISOString()
     const heartbeats = deps.storage.listHeartbeatsSince(id, since)
-    return { heartbeats }
+    return c.json({ heartbeats })
   })
 
-  app.get("/api/monitors/:id/uptime", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.get("/api/monitors/:id/uptime", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
     const monitor = deps.storage.getMonitor(id)
-    if (!monitor) return reply.code(404).send({ error: "Monitor not found" })
-    return { stats: deps.storage.getMonitorStats(id) }
+    if (!monitor) return c.json({ error: "Monitor not found" }, 404)
+    return c.json({ stats: deps.storage.getMonitorStats(id) })
   })
 }
