@@ -80,24 +80,43 @@ export class RustCrawler {
       })
 
       let resolved = false
+      let killTimeout: NodeJS.Timeout
+
+      const fail = (err: Error) => {
+        if (resolved) return
+        resolved = true
+        clearTimeout(killTimeout)
+        reject(err)
+      }
 
       this.process.on("error", (err) => {
-        if (!resolved) {
-          resolved = true
-          reject(err)
-        }
+        fail(err)
       })
 
-      this.process.on("exit", (code) => {
-        if (!resolved && code !== 0) {
-          resolved = true
-          reject(new Error(`Rust daemon exited with code ${code}`))
-        }
+      this.process.on("exit", (code, signal) => {
+        fail(new Error(`Rust daemon exited with code ${code ?? "null"}${signal ? ` (signal ${signal})` : ""}${describeExit(signal)}`))
       })
+
+      // Drain stderr: the daemon logs warnings/panics there. Not reading it
+      // fills the 64KB pipe buffer and blocks the daemon mid-crawl.
+      if (this.process.stderr) {
+        this.process.stderr.on("data", (chunk: Buffer) => {
+          const text = chunk.toString().trimEnd()
+          if (text) console.error(`[crawl-daemon] ${text}`)
+        })
+      }
 
       this.options.abortSignal?.addEventListener("abort", () => {
         this.process?.kill("SIGTERM")
       })
+
+      // Wall-clock cap. Report it as a timeout rather than the SIGTERM
+      // exit below winning the race with a cryptic "exited with code null".
+      killTimeout = setTimeout(() => {
+        this.process?.kill("SIGTERM")
+        setTimeout(() => this.process?.kill("SIGKILL"), 5000)
+        fail(new Error("Crawl timeout after 30 minutes"))
+      }, 30 * 60 * 1000)
 
       const rl = createInterface({ input: this.process.stdout! })
 
@@ -124,6 +143,7 @@ export class RustCrawler {
               break
 
             case "complete":
+              clearTimeout(killTimeout)
               if (!resolved) {
                 resolved = true
                 const record = { crawlId: msg.crawlId, ...msg.record }
@@ -133,6 +153,7 @@ export class RustCrawler {
               break
 
             case "error":
+              clearTimeout(killTimeout)
               if (!resolved) {
                 resolved = true
                 this.options.onError?.(msg.error)
@@ -158,15 +179,6 @@ export class RustCrawler {
       }
 
       this.process.stdin!.write(JSON.stringify(request) + "\n")
-
-      // Timeout after 30 minutes
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true
-          this.process?.kill("SIGTERM")
-          reject(new Error("Crawl timeout after 30 minutes"))
-        }
-      }, 30 * 60 * 1000)
     })
   }
 
@@ -181,4 +193,19 @@ export function getDefaultDaemonBin(): string {
 
 export function isRustBackend(): boolean {
   return process.env.CRAWLER_BACKEND === "rust"
+}
+
+function describeExit(signal: string | null): string {
+  switch (signal) {
+    case "SIGKILL":
+      return " — killed by SIGKILL, likely OOM or container limit"
+    case "SIGSEGV":
+      return " — segfault in the daemon"
+    case "SIGABRT":
+      return " — daemon panicked"
+    case "SIGTERM":
+      return " — terminated (crawl cancelled?)"
+    default:
+      return ""
+  }
 }

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CrawlConfig {
     #[serde(default = "default_delay_ms")]
     pub delay_ms: u64,
@@ -74,6 +75,7 @@ impl Default for CrawlConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChecksConfig {
     #[serde(default)]
     pub ssl: SslCheckConfig,
@@ -84,6 +86,7 @@ pub struct ChecksConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SslCheckConfig {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -105,6 +108,7 @@ impl Default for SslCheckConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResponseTimeConfig {
     #[serde(default)]
     pub warn_ms: u64,

@@ -433,6 +433,7 @@ async fn run_ipc_crawl(
     let urls: Vec<(url::Url, Option<String>)> = entries
         .iter()
         .filter_map(|e| url::Url::parse(&e.loc).ok().map(|u| (u, e.lastmod.clone())))
+        .take(request.config.max_urls.unwrap_or(usize::MAX))
         .collect();
 
     let total = urls.len();
