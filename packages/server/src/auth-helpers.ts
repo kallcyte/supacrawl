@@ -1,4 +1,4 @@
-import type { FastifyReply, FastifyRequest } from "fastify"
+import type { Context } from "hono"
 import type { Auth } from "./auth.js"
 
 export interface AuthSession {
@@ -15,40 +15,29 @@ export interface AuthSession {
   }
 }
 
-export async function getSession(req: FastifyRequest, auth: Auth): Promise<AuthSession | null> {
-  const headers = new Headers()
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (v !== undefined) {
-      if (Array.isArray(v)) headers.set(k, v.join(", "))
-      else headers.set(k, String(v))
-    }
+export async function getSession(c: Context, auth: Auth): Promise<AuthSession | null> {
+  try {
+    const result = await auth.api.getSession({ headers: c.req.raw.headers })
+    return result as unknown as AuthSession | null
+  } catch {
+    return null
   }
-  const result = await auth.api.getSession({ headers })
-  return result as unknown as AuthSession | null
 }
 
-export async function requireAuth(
-  req: FastifyRequest,
-  reply: FastifyReply,
-  auth: Auth
-): Promise<AuthSession | null> {
-  const session = await getSession(req, auth)
+export async function requireAuth(c: Context, auth: Auth): Promise<AuthSession | null> {
+  const session = await getSession(c, auth)
   if (!session) {
-    reply.code(401).send({ error: "Unauthorized" })
+    c.status(401)
     return null
   }
   return session
 }
 
-export async function requireAdmin(
-  req: FastifyRequest,
-  reply: FastifyReply,
-  auth: Auth
-): Promise<AuthSession | null> {
-  const session = await requireAuth(req, reply, auth)
+export async function requireAdmin(c: Context, auth: Auth): Promise<AuthSession | null> {
+  const session = await requireAuth(c, auth)
   if (!session) return null
   if (session.user.role !== "admin") {
-    reply.code(403).send({ error: "Forbidden" })
+    c.status(403)
     return null
   }
   return session

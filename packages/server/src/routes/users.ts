@@ -1,5 +1,5 @@
 import Database from "better-sqlite3"
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import { z } from "zod"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin } from "../auth-helpers.js"
@@ -29,25 +29,24 @@ interface DbUser {
   banExpires: string | null
 }
 
-export async function usersRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/admin/users", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
+export function usersRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/admin/users", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
     try {
       const db = new Database(deps.dbPath)
       const users = db.prepare("SELECT id, name, email, role, createdAt, updatedAt FROM user ORDER BY createdAt DESC").all() as Pick<DbUser, "id" | "name" | "email" | "role" | "createdAt" | "updatedAt">[]
       db.close()
-      return { users, total: users.length }
+      return c.json({ users, total: users.length })
     } catch (err) {
-      req.log.error(err)
-      reply.code(500).send({ error: (err as Error).message })
+      return c.json({ error: (err as Error).message }, 500)
     }
   })
 
-  app.post("/api/admin/users", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const body = createUserSchema.parse(req.body)
+  app.post("/api/admin/users", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = createUserSchema.parse(await c.req.json())
     try {
       const authApi = deps.auth.api as unknown as {
         createUser: (args: { body: Record<string, unknown>; headers: Headers }) => Promise<unknown>
@@ -59,48 +58,48 @@ export async function usersRoutes(app: FastifyInstance, deps: RouteDeps): Promis
           name: body.name ?? body.email.split("@")[0],
           role: body.role
         },
-        headers: new Headers({ cookie: req.headers.cookie ?? "" })
+        headers: c.req.raw.headers
       })
-      return result
+      return c.json(result as Record<string, unknown>)
     } catch (err) {
-      reply.code(400).send({ error: (err as Error).message })
+      return c.json({ error: (err as Error).message }, 400)
     }
   })
 
-  app.patch("/api/admin/users/:id/role", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
-    const { role } = updateRoleSchema.parse(req.body)
+  app.patch("/api/admin/users/:id/role", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const id = c.req.param("id")
+    const { role } = updateRoleSchema.parse(await c.req.json())
     try {
       const authApi = deps.auth.api as unknown as {
         setRole: (args: { body: Record<string, unknown>; headers: Headers }) => Promise<unknown>
       }
       const result = await authApi.setRole({
         body: { userId: id, role },
-        headers: new Headers({ cookie: req.headers.cookie ?? "" })
+        headers: c.req.raw.headers
       })
-      return result
+      return c.json(result as Record<string, unknown>)
     } catch (err) {
-      reply.code(400).send({ error: (err as Error).message })
+      return c.json({ error: (err as Error).message }, 400)
     }
   })
 
-  app.delete("/api/admin/users/:id", async (req, reply) => {
-    const session = await requireAdmin(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
+  app.delete("/api/admin/users/:id", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const id = c.req.param("id")
     try {
       const authApi = deps.auth.api as unknown as {
         removeUser: (args: { body: Record<string, unknown>; headers: Headers }) => Promise<unknown>
       }
       const result = await authApi.removeUser({
         body: { userId: id },
-        headers: new Headers({ cookie: req.headers.cookie ?? "" })
+        headers: c.req.raw.headers
       })
-      return result
+      return c.json(result as Record<string, unknown>)
     } catch (err) {
-      reply.code(400).send({ error: (err as Error).message })
+      return c.json({ error: (err as Error).message }, 400)
     }
   })
 }

@@ -9,5 +9,5 @@ export default defineConfig({
   target: "node22",
   splitting: false,
   shims: false,
-  external: ["nodemailer", "better-auth", "better-sqlite3", "@supacrawl/core"]
+  external: ["nodemailer", "better-auth", "better-sqlite3", "@supacrawl/core", "hono", "@hono/node-server", "ws"]
 })

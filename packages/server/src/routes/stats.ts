@@ -1,24 +1,24 @@
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import type { RouteDeps } from "./index.js"
 import { requireAuth } from "../auth-helpers.js"
 
-export async function statsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/stats/overview", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    return deps.storage.getOverviewStats()
+export function statsRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/stats/overview", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    return c.json(deps.storage.getOverviewStats())
   })
 
-  app.get("/api/stats/timeline", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    return { timeline: deps.storage.getTimeline(30) }
+  app.get("/api/stats/timeline", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    return c.json({ timeline: deps.storage.getTimeline(30) })
   })
 
-  app.get("/api/stats/duration-trend", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
+  app.get("/api/stats/duration-trend", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
     const trend = deps.storage.getCrawlDurationTrend(30)
-    return { trend }
+    return c.json({ trend })
   })
 }

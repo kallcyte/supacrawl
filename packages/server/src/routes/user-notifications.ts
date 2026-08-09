@@ -1,7 +1,7 @@
-import type { FastifyInstance } from "fastify"
-import { z } from "zod"
+import type { Hono } from "hono"
 import type { RouteDeps } from "./index.js"
 import { requireAuth } from "../auth-helpers.js"
+import { z } from "zod"
 
 const userNotifSchema = z.object({
   slack: z.object({
@@ -43,13 +43,13 @@ const userNotifSchema = z.object({
   })
 })
 
-export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/user/notifications", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
+export function userNotificationsRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/user/notifications", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
     const settings = deps.storage.getUserNotificationSettings(session.user.id)
     if (!settings) {
-      return {
+      return c.json({
         slack: { enabled: false },
         telegram: { enabled: false },
         email: { enabled: false },
@@ -63,15 +63,15 @@ export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteD
           onLlmGarbageDetected: false,
           onCrawlProgress: false
         }
-      }
+      })
     }
-    return settings
+    return c.json(settings)
   })
 
-  app.put("/api/user/notifications", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const body = userNotifSchema.parse(req.body)
+  app.put("/api/user/notifications", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const body = userNotifSchema.parse(await c.req.json())
     const full = {
       ...body,
       enabledEvents: {
@@ -87,6 +87,6 @@ export async function userNotificationsRoutes(app: FastifyInstance, deps: RouteD
       }
     }
     deps.storage.upsertUserNotificationSettings(session.user.id, full)
-    return { ok: true }
+    return c.json({ ok: true })
   })
 }

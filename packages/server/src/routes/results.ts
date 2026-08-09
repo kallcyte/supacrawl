@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify"
+import type { Hono } from "hono"
 import { z } from "zod"
 import type { RouteDeps } from "./index.js"
 import { requireAuth } from "../auth-helpers.js"
@@ -10,29 +10,29 @@ const listQuerySchema = z.object({
   llmGarbageOnly: z.coerce.boolean().optional()
 })
 
-export async function resultsRoutes(app: FastifyInstance, deps: RouteDeps): Promise<void> {
-  app.get("/api/crawls/:id/results", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
-    const query = listQuerySchema.parse(req.query)
+export function resultsRoutes(app: Hono, deps: RouteDeps): void {
+  app.get("/api/crawls/:id/results", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
+    const query = listQuerySchema.parse(c.req.query())
     const results = deps.storage.listResults(id, query)
-    return { crawlId: id, results }
+    return c.json({ crawlId: id, results })
   })
 
-  app.get("/api/crawls/:id/results/:uid", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { uid } = req.params as { id: string; uid: string }
+  app.get("/api/crawls/:id/results/:uid", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const uid = c.req.param("uid")
     const result = deps.storage.getResult(uid)
-    if (!result) return reply.code(404).send({ error: "Not found" })
-    return result
+    if (!result) return c.json({ error: "Not found" }, 404)
+    return c.json(result)
   })
 
-  app.get("/api/crawls/:id/status-distribution", async (req, reply) => {
-    const session = await requireAuth(req, reply, deps.auth)
-    if (!session) return
-    const { id } = req.params as { id: string }
-    return deps.storage.getStatusDistribution(id)
+  app.get("/api/crawls/:id/status-distribution", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
+    return c.json(deps.storage.getStatusDistribution(id))
   })
 }
