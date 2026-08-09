@@ -15,8 +15,10 @@ import { authRoutes } from "./auth.js"
 import { setupRoutes } from "./setup.js"
 import { userNotificationsRoutes } from "./user-notifications.js"
 import { monitorsRoutes } from "./monitors.js"
+import { resourcesRoutes } from "./resources.js"
 import type { MonitorScheduler } from "@supacrawl/core"
 import type { JobScheduler } from "../job-scheduler.js"
+import type { ResourceMonitor } from "../resource-monitor.js"
 
 export interface RouteDeps {
   app: FastifyInstance
@@ -27,6 +29,7 @@ export interface RouteDeps {
   crawlManager: CrawlManager
   monitorScheduler: MonitorScheduler
   jobScheduler: JobScheduler
+  resourceMonitor: ResourceMonitor
   dbPath: string
   configPath: string
 }
@@ -46,6 +49,7 @@ export async function registerRoutes(deps: RouteDeps): Promise<void> {
     await authRoutes(instance, deps)
     await userNotificationsRoutes(instance, deps)
     await monitorsRoutes(instance, deps)
+    await resourcesRoutes(instance, deps)
     await setupRoutes(instance, { ...deps, setup })
 
     instance.get("/api/ws/crawl/:id", { websocket: true }, (socket, req) => {

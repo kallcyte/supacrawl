@@ -16,6 +16,7 @@ import type {
   MonitorRecord,
   MonitorStats,
   MonitorWithStatus,
+  ResourceSnapshot,
   SeoInfo,
   StatusPageMonitor,
   StatusPageRecord,
@@ -229,6 +230,20 @@ export class Storage {
     if (!this.hasColumn("crawl_jobs", "run_at")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN run_at TEXT`)
     }
+    if (!this.hasColumn("resource_snapshots", "disk_used_mb")) {
+      this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN disk_used_mb REAL NOT NULL DEFAULT 0`)
+    }
+
+    this.db.exec(`CREATE TABLE IF NOT EXISTS resource_snapshots (
+      id TEXT PRIMARY KEY,
+      rss_mb REAL NOT NULL DEFAULT 0,
+      heap_total_mb REAL NOT NULL DEFAULT 0,
+      heap_used_mb REAL NOT NULL DEFAULT 0,
+      external_mb REAL NOT NULL DEFAULT 0,
+      cpu_percent REAL NOT NULL DEFAULT 0,
+      disk_used_mb REAL NOT NULL DEFAULT 0,
+      recorded_at TEXT NOT NULL
+    )`)
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS user_notification_settings (
       user_id TEXT PRIMARY KEY,
@@ -1242,6 +1257,38 @@ export class Storage {
       .prepare(`DELETE FROM user_notification_settings WHERE user_id = ?`)
       .run(userId)
   }
+
+  insertResourceSnapshot(snapshot: Omit<ResourceSnapshot, "id">): void {
+    const id = randomUUID()
+    this.db
+      .prepare(
+        `INSERT INTO resource_snapshots (id, rss_mb, heap_total_mb, heap_used_mb, external_mb, cpu_percent, disk_used_mb, recorded_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, snapshot.rssMb, snapshot.heapTotalMb, snapshot.heapUsedMb, snapshot.externalMb, snapshot.cpuPercent, snapshot.diskUsedMb, snapshot.recordedAt)
+  }
+
+  getResourceSnapshots(since: string): ResourceSnapshot[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM resource_snapshots WHERE recorded_at >= ? ORDER BY recorded_at ASC`)
+      .all(since) as Record<string, unknown>[]
+    return rows.map(mapResourceSnapshot)
+  }
+
+  getLatestResourceSnapshot(): ResourceSnapshot | null {
+    const row = this.db
+      .prepare(`SELECT * FROM resource_snapshots ORDER BY recorded_at DESC LIMIT 1`)
+      .get() as Record<string, unknown> | undefined
+    if (!row) return null
+    return mapResourceSnapshot(row)
+  }
+
+  purgeOldResourceSnapshots(before: string): number {
+    const result = this.db
+      .prepare(`DELETE FROM resource_snapshots WHERE recorded_at < ?`)
+      .run(before)
+    return result.changes
+  }
 }
 
 function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
@@ -1452,5 +1499,18 @@ function deriveDomain(url: string): string {
     return new URL(url).hostname || "unknown"
   } catch {
     return "unknown"
+  }
+}
+
+function mapResourceSnapshot(row: Record<string, unknown>): ResourceSnapshot {
+  return {
+    id: row.id as string,
+    rssMb: (row.rss_mb as number) ?? 0,
+    heapTotalMb: (row.heap_total_mb as number) ?? 0,
+    heapUsedMb: (row.heap_used_mb as number) ?? 0,
+    externalMb: (row.external_mb as number) ?? 0,
+    cpuPercent: (row.cpu_percent as number) ?? 0,
+    diskUsedMb: (row.disk_used_mb as number) ?? 0,
+    recordedAt: row.recorded_at as string
   }
 }

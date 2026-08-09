@@ -408,6 +408,32 @@ export const api = {
 
   getMonitorUptime: (id: string) =>
     request<{ stats: MonitorStats }>(`/api/monitors/${id}/uptime`),
+
+  getResourceNow: () =>
+    request<{
+      rssMb: number
+      heapTotalMb: number
+      heapUsedMb: number
+      externalMb: number
+      cpuUserMs: number
+      cpuSystemMs: number
+      diskUsedMb: number
+      uptime: number
+    }>("/api/resources/now"),
+
+  getResourceHistory: (range: "15m" | "1h" | "6h" | "24h" = "1h") =>
+    request<{ snapshots: ResourceSnapshot[] }>(`/api/resources/history?range=${range}`),
+}
+
+export interface ResourceSnapshot {
+  id: string
+  rssMb: number
+  heapTotalMb: number
+  heapUsedMb: number
+  externalMb: number
+  cpuPercent: number
+  diskUsedMb: number
+  recordedAt: string
 }
 
 export interface UserNotificationSettings {

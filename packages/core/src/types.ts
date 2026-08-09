@@ -533,3 +533,14 @@ export interface MaintenanceWindowRecord extends MaintenanceWindow {
   id: string
   createdAt: string
 }
+
+export interface ResourceSnapshot {
+  id: string
+  rssMb: number
+  heapTotalMb: number
+  heapUsedMb: number
+  externalMb: number
+  cpuPercent: number
+  diskUsedMb: number
+  recordedAt: string
+}

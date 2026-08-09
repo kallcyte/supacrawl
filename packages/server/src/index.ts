@@ -11,6 +11,7 @@ import { createAuth, type Auth } from "./auth.js"
 import { registerRoutes } from "./routes/index.js"
 import { CrawlManager } from "./crawl-manager.js"
 import { JobScheduler } from "./job-scheduler.js"
+import { ResourceMonitor } from "./resource-monitor.js"
 
 export { createAuth }
 export type { AuthOptions } from "./auth.js"
@@ -37,6 +38,7 @@ export interface AppContext {
   crawlManager: CrawlManager
   monitorScheduler: MonitorScheduler
   jobScheduler: JobScheduler
+  resourceMonitor: ResourceMonitor
 }
 
 export async function buildApp(opts: ServerOptions): Promise<AppContext> {
@@ -140,11 +142,16 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   })
 
   const jobScheduler = new JobScheduler({ storage, crawlManager })
+  const resourceMonitor = new ResourceMonitor(storage, opts.dbPath)
 
-  await registerRoutes({ app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler, dbPath: opts.dbPath, configPath: opts.configPath })
+  await registerRoutes({
+    app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler, resourceMonitor,
+    dbPath: opts.dbPath, configPath: opts.configPath
+  })
 
   monitorScheduler.startAll()
   jobScheduler.start()
+  resourceMonitor.start()
 
   if (opts.dashboardDist && existsSync(opts.dashboardDist)) {
     await app.register(fastifyStatic, {
@@ -173,7 +180,7 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
 
   app.get("/api/health", async () => ({ ok: true, timestamp: new Date().toISOString() }))
 
-  return { app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler }
+  return { app, auth, storage, notifier, config, crawlManager, monitorScheduler, jobScheduler, resourceMonitor }
 }
 
 export async function startServer(opts: ServerOptions): Promise<void> {
@@ -191,6 +198,7 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     ctx.app.log.info("Shutting down...")
     ctx.monitorScheduler.stopAll()
     ctx.jobScheduler.stop()
+    ctx.resourceMonitor.stop()
     await ctx.app.close()
     ctx.storage.close()
     process.exit(0)
