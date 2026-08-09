@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { api, type CrawlRecord } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
+import { formatDuration } from "@/lib/utils"
 
 interface Progress {
   crawlId: string
@@ -19,6 +20,7 @@ interface Progress {
 export default function LiveProgress({ crawl }: { crawl?: CrawlRecord }) {
   const [progress, setProgress] = useState<Progress | null>(null)
   const [connected, setConnected] = useState(false)
+  const [samples, setSamples] = useState<{ t: number; checked: number }[]>([])
 
   // Sync from parent crawl prop
   useEffect(() => {
@@ -80,6 +82,39 @@ export default function LiveProgress({ crawl }: { crawl?: CrawlRecord }) {
     }
   }, [])
 
+  // Track (timestamp, checked) samples in a rolling window to estimate ETA.
+  // Progress arrives from WebSocket updates (JS backend) or parent polling
+  // (Rust backend), so this works regardless of the crawl backend.
+  useEffect(() => {
+    if (!progress || progress.status !== "running") {
+      setSamples([])
+      return
+    }
+    const now = Date.now()
+    setSamples((prev) => {
+      const last = prev[prev.length - 1]
+      if (last && now - last.t < 1_000) return prev
+      if (last && last.checked === progress.checked && now - last.t < 60_000) return prev
+      const windowMs = 60_000
+      const oldest = now - windowMs
+      const before = prev.filter((s) => s.t < oldest).at(-1)
+      const within = prev.filter((s) => s.t >= oldest)
+      return before ? [before, ...within, { t: now, checked: progress.checked }] : [...within, { t: now, checked: progress.checked }]
+    })
+  }, [progress])
+
+  let etaMs: number | null = null
+  if (progress && samples.length >= 2) {
+    const first = samples[0]
+    const last = samples[samples.length - 1]
+    const span = last.t - first.t
+    const done = last.checked - first.checked
+    const remaining = progress.total - progress.checked
+    if (span >= 3000 && done > 0 && remaining > 0) {
+      etaMs = (remaining / done) * span
+    }
+  }
+
   if (!progress || progress.status !== "running") {
     return (
       <Card>
@@ -122,6 +157,16 @@ export default function LiveProgress({ crawl }: { crawl?: CrawlRecord }) {
           <span>Broken: {progress.broken}</span>
           <span>Changed: {progress.changed}</span>
           <span>Skipped: {progress.skipped}</span>
+          {etaMs !== null && (
+            <span className="text-emerald-600">
+              Est. finish in ~{formatDuration(etaMs)} (
+              {new Date(Date.now() + etaMs).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              })}
+              )
+            </span>
+          )}
           {progress.currentUrl && (
             <span className="truncate font-mono" title={progress.currentUrl}>
               → {progress.currentUrl}
