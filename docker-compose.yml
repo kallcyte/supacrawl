@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "3456:3456"
+      - "9090:9090"
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env or shell}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
@@ -10,11 +11,20 @@ services:
       - BETTER_AUTH_URL=https://supacrawl.kall.dev
       - PORT=3456
       - HOST=0.0.0.0
+      - CRAWLER_BACKEND=rust
+      - CRAWLER_DAEMON_BIN=/usr/local/bin/crawl-daemon
+      - CRAWLER_DB_PATH=/app/data/supacrawl.db
     volumes:
       - supacrawl-data:/app/data
     networks:
       - default
       - dokploy-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
     labels:
       - "traefik.http.routers.supacrawl.rule=Host(`supacrawl.kall.dev`)"
       - "traefik.http.routers.supacrawl.entrypoints=websecure"

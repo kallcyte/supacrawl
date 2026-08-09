@@ -30,12 +30,14 @@ export interface StorageOptions {
 
 export class Storage {
   private db: SqliteDb
+  readonly dbPath: string
 
   constructor(opts: StorageOptions) {
     mkdirSync(dirname(opts.path), { recursive: true })
     this.db = new BetterSqlite3(opts.path)
     this.db.pragma("journal_mode = WAL")
     this.db.pragma("busy_timeout = 5000")
+    this.dbPath = opts.path
     this.migrate()
   }
 
