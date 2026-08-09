@@ -316,6 +316,17 @@ export default function CrawlDetailPage() {
         ? elapsed
         : null
 
+  const failed = results.filter((r) => (r.statusCode ?? 0) >= 400 || r.error)
+  const byCause = new Map<string, { count: number; urls: string[] }>()
+  for (const r of failed) {
+    const key = r.statusCode !== null ? `HTTP ${r.statusCode}` : describeError(r.error)
+    const g = byCause.get(key) ?? { count: 0, urls: [] }
+    g.count++
+    if (g.urls.length < 3) g.urls.push(r.url)
+    byCause.set(key, g)
+  }
+  const causes = [...byCause.entries()].sort((a, b) => b[1].count - a[1].count)
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -353,6 +364,12 @@ export default function CrawlDetailPage() {
       {error && (
         <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {crawl.status === "failed" && crawl.errorMessage && (
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <span className="font-medium">Crawl failed:</span> {crawl.errorMessage}
         </div>
       )}
 
@@ -434,6 +451,48 @@ export default function CrawlDetailPage() {
           </CardHeader>
         </Card>
       </div>
+
+      {failed.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              Why {failed.length} URL{failed.length === 1 ? "" : "s"} failed
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {causes.map(([cause, g]) => (
+              <div key={cause} className="rounded-md border p-2">
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="font-medium">
+                    {cause.startsWith("HTTP ") ? (
+                      <Badge variant="destructive">{cause}</Badge>
+                    ) : (
+                      <span className="text-destructive">{cause}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {g.count} URL{g.count === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {g.urls.map((u) => (
+                    <li key={u} className="truncate font-mono text-xs" title={u}>
+                      <a href={u} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                        {u}
+                      </a>
+                    </li>
+                  ))}
+                  {g.count > g.urls.length && (
+                    <li className="text-xs text-muted-foreground">
+                      …and {g.count - g.urls.length} more
+                    </li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs: Results / Report */}
       <Tabs value={tabValue} onValueChange={setTabValue}>
@@ -757,6 +816,17 @@ function StatusBadge({ code }: { code: number | null }) {
   if (code < 400) return <Badge variant="warning">{code}</Badge>
   if (code < 500) return <Badge variant="destructive">{code}</Badge>
   return <Badge variant="destructive">{code}</Badge>
+}
+
+function describeError(err: string | null): string {
+  const msg = (err ?? "Unknown error").toLowerCase()
+  if (msg.includes("aborted") || msg.includes("timeout")) return "Timeout"
+  if (msg.includes("fetch failed")) return "Network error"
+  if (msg.includes("redirect")) return "Redirect loop"
+  if (msg.includes("certificate") || msg.includes("ssl") || msg.includes("tls")) {
+    return "SSL / TLS error"
+  }
+  return err ?? "Unknown error"
 }
 
 function PdfIssueSection({
