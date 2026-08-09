@@ -373,6 +373,19 @@ export default function CrawlDetailPage() {
         </div>
       )}
 
+      {crawl.status === "failed" && !crawl.errorMessage && (
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+          <span className="font-medium">Crawl failed:</span> no error details were recorded
+          (the crawler may have crashed or the server restarted mid-crawl).
+        </div>
+      )}
+
+      {crawl.status !== "failed" && crawl.errorMessage && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+          <span className="font-medium">Crawl completed with errors:</span> {crawl.errorMessage}
+        </div>
+      )}
+
       {crawl.status === "running" && <LiveProgress crawl={crawl} />}
 
       {/* Summary cards — always visible */}

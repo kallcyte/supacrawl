@@ -400,6 +400,14 @@ export default function CrawlsPage() {
                                     >
                                       {c.status}
                                     </Badge>
+                                    {c.status === "failed" && c.errorMessage && (
+                                      <div
+                                        className="mt-1 max-w-[320px] truncate text-xs text-destructive"
+                                        title={c.errorMessage}
+                                      >
+                                        {c.errorMessage}
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-right">{c.urlsChecked}</TableCell>
                                   <TableCell className="text-right text-destructive">
