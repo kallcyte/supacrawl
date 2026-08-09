@@ -13,3 +13,5 @@ coverage/
 .idea/
 *.tsbuildinfo
 supacrawl.config.json
+
+crawler/target/

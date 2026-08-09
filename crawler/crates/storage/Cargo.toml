@@ -1,0 +1,19 @@
+[package]
+name = "crawl-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "SQLite storage layer for crawl results and URL state"
+
+[dependencies]
+crawl-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+rusqlite.workspace = true
+url.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+

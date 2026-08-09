@@ -1,0 +1,20 @@
+[package]
+name = "crawl-notifier"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Notification providers (Slack, Telegram, Email, Webhook)"
+
+[dependencies]
+crawl-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+hex = "0.4"
+hmac = "0.12"
+

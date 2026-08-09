@@ -1,0 +1,23 @@
+[package]
+name = "crawl-fetcher"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "HTTP client, redirects, TLS check, and SSRF guard for the supacrawl crawler"
+
+[dependencies]
+crawl-core = { path = "../core" }
+serde.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+url.workspace = true
+ipnet.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio-rustls = "0.26"
+webpki-roots = "1"
+web-time = "1"
+futures-util = "0.3"
+x509-parser = "0.17"
+
