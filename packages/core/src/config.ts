@@ -27,7 +27,9 @@ export function defaultConfig(): Partial<Config> {
       retryOnTransientError: true,
       maxRetries: 2,
       detectMojibake: true,
-      detectLlmGarbage: true
+      detectLlmGarbage: true,
+      maxBodyBytes: 5 * 1024 * 1024,
+      maxGlobalConcurrency: 100
     }
   }
 }

@@ -32,14 +32,12 @@ interface HostLimiter {
 
 export async function runCrawl(opts: CrawlRunOptions): Promise<{
   entries: SitemapEntry[]
-  results: CheckResult[]
   errors: string[]
 }> {
   const fetchImpl = opts.fetchImpl ?? fetch
   const startedAt = opts.startedAt ?? new Date().toISOString()
-  const results: CheckResult[] = []
   const errors: string[] = []
-  const allEntries: SitemapEntry[] = []
+  const entries: SitemapEntry[] = []
   const seen = new Set<string>()
   const limiters = new Map<string, HostLimiter>()
 
@@ -69,7 +67,7 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
       for (const u of urls) {
         if (seen.has(u.loc)) continue
         seen.add(u.loc)
-        allEntries.push(u)
+        if (entries.length < opts.config.maxUrls) entries.push(u)
       }
       errors.push(...sitemapErrors)
     } catch (err) {
@@ -77,8 +75,7 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
     }
   }
 
-  const total = Math.min(allEntries.length, opts.config.maxUrls)
-  const entries = allEntries.slice(0, total)
+  const total = entries.length
   opts.onEntries?.(entries)
   const lastmodMap = buildLastmodMap(entries)
   const knownHashes = opts.knownHashes ?? new Map<string, string>()
@@ -89,6 +86,8 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
   let broken = 0
   let skipped = 0
   let currentIdx = 0
+
+  const globalLimiter = pLimit(opts.config.maxGlobalConcurrency)
 
   function getLimiter(host: string): HostLimiter {
     let l = limiters.get(host)
@@ -144,7 +143,8 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
     }
 
     const limiter = getLimiter(host)
-    const task = limiter.limit(async () => {
+    const task = globalLimiter(() =>
+      limiter.limit(async () => {
       if (opts.abortSignal?.aborted) return
       const now = Date.now()
       const wait = limiter.lastRequest + limiter.delayMs - now
@@ -152,13 +152,13 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
       limiter.lastRequest = Date.now()
       if (opts.abortSignal?.aborted) return
       const res = await checkUrl(entry.loc, ctx, fetchImpl)
-      results.push(res)
       if (res.statusCode !== null && res.statusCode >= 400) broken++
       if (res.contentChanged) changed++
       checked++
       opts.onResult?.(res)
       reportProgress(entry.loc)
-    })
+      })
+    )
     tasks.push(task)
     currentIdx++
   }
@@ -179,5 +179,5 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
     })
   }
 
-  return { entries, results, errors }
+  return { entries, errors }
 }

@@ -10,7 +10,9 @@ export const CrawlConfigSchema = z.object({
   retryOnTransientError: z.boolean().default(true),
   maxRetries: z.number().int().nonnegative().default(2),
   detectMojibake: z.boolean().default(true),
-  detectLlmGarbage: z.boolean().default(true)
+  detectLlmGarbage: z.boolean().default(true),
+  maxBodyBytes: z.number().int().positive().default(5 * 1024 * 1024),
+  maxGlobalConcurrency: z.number().int().positive().default(100)
 })
 export type CrawlConfig = z.infer<typeof CrawlConfigSchema>
 
@@ -347,6 +349,7 @@ export const CrawlJobSchema = z.object({
   userAgent: z.string().min(1).default("supacrawl/0.1"),
   respectRobotsTxt: z.boolean().default(true),
   maxUrls: z.number().int().positive().default(999999),
+  maxBodyBytes: z.number().int().positive().default(5 * 1024 * 1024),
   notificationProviders: JobNotificationProvidersSchema.nullable().optional()
 })
 
@@ -374,6 +377,7 @@ export interface CrawlJob {
   userAgent: string
   respectRobotsTxt: boolean
   maxUrls: number
+  maxBodyBytes: number
   notificationProviders: JobNotificationProviders | null
   createdAt: string
   updatedAt: string

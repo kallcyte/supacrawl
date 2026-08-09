@@ -65,6 +65,7 @@ EXPOSE 3456
 ENV NODE_ENV=production
 ENV PORT=3456
 ENV HOST=0.0.0.0
+ENV NODE_OPTIONS="--max-old-space-size=512 --expose-gc"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node -e "fetch('http://localhost:3456/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(e => process.exit(1))"

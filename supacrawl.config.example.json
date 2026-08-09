@@ -8,7 +8,9 @@
     "respectRobotsTxt": true,
     "maxUrls": 999999,
     "retryOnTransientError": true,
-    "maxRetries": 2
+    "maxRetries": 2,
+    "maxBodyBytes": 5242880,
+    "maxGlobalConcurrency": 100
   },
   "checks": {
     "ssl": {

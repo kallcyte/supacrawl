@@ -38,28 +38,23 @@ export async function runCrawlWithPersistence(
   }
   opts.storage.createCrawl(initialRecord, opts.jobId)
 
-  const knownHashes = new Map<string, string>()
+  const knownHashesByUrl = new Map<string, string>()
   for (const s of opts.storage.getAllUrlStates()) {
-    if (s.lastContentHash) knownHashes.set(s.url, s.lastContentHash)
-    if (s.lastCheckedAt) knownHashes.set(`${s.url}#checked`, s.lastCheckedAt)
+    if (s.lastContentHash) knownHashesByUrl.set(s.url, s.lastContentHash)
+    if (s.hasSeo) knownHashesByUrl.set(`${s.url}#seo`, "1")
+    if (s.lastCheckedAt) knownHashesByUrl.set(`${s.url}#checked`, s.lastCheckedAt)
   }
 
   try {
-    const knownHashesByUrl = new Map<string, string>()
-    for (const s of opts.storage.getAllUrlStates()) {
-      if (s.lastContentHash) knownHashesByUrl.set(s.url, s.lastContentHash)
-      if (s.hasSeo) knownHashesByUrl.set(`${s.url}#seo`, "1")
-    }
-
     const enabledSitemaps = opts.sitemaps ?? opts.config.sitemaps
       .filter((s) => s.enabled)
       .map((s) => s.url)
 
     let lastmodMap = new Map<string, string | undefined>()
     const results: CheckResult[] = []
-    const sslResults: CheckResult[] = []
-    const mojibakeResults: CheckResult[] = []
-    const llmGarbageResults: CheckResult[] = []
+    const expiringSslUrls: string[] = []
+    const mojibakeFlaggedUrls: string[] = []
+    const llmGarbageFlaggedUrls: string[] = []
 
     // Progress milestones: fire onCrawlProgress at 25%, 50%, 75%
     const progressMilestones = new Set([25, 50, 75])
@@ -108,9 +103,16 @@ export async function runCrawlWithPersistence(
       onResult: (r) => {
         opts.onResult?.(r)
         results.push(r)
-        sslResults.push(r)
-        mojibakeResults.push(r)
-        llmGarbageResults.push(r)
+        if (r.sslValidUntil) {
+          const days = Math.floor(
+            (Date.parse(r.sslValidUntil) - Date.now()) / 86400000
+          )
+          if (days >= 0 && days < opts.config.checks.ssl.warnDays) {
+            expiringSslUrls.push(r.url)
+          }
+        }
+        if (r.mojibakeFlagged) mojibakeFlaggedUrls.push(r.url)
+        if (r.llmGarbageFlagged) llmGarbageFlaggedUrls.push(r.url)
         const id = randomUUID()
         opts.storage.insertResult({
           id,
@@ -133,8 +135,7 @@ export async function runCrawlWithPersistence(
           seo: r.seo
         })
 
-        const allStates = opts.storage.getAllUrlStates()
-        const previous = allStates.find((s) => s.url === r.url)
+        const previous = opts.storage.getUrlState(r.url)
         const consecutiveFailures =
           r.statusCode !== null && r.statusCode >= 400
             ? (previous?.consecutiveFailures ?? 0) + 1
@@ -184,15 +185,9 @@ export async function runCrawlWithPersistence(
       })
     }
 
-    const expiringSoon = sslResults
-      .filter((r) => {
-        if (!r.sslValidUntil) return false
-        const days = Math.floor(
-          (Date.parse(r.sslValidUntil) - Date.now()) / 86400000
-        )
-        return days >= 0 && days < opts.config.checks.ssl.warnDays
-      })
-      .map((r) => r.url)
+    const expiringSoon = expiringSslUrls
+    const mojibakeFlagged = mojibakeFlaggedUrls
+    const llmGarbageFlagged = llmGarbageFlaggedUrls
 
     if (
       expiringSoon.length > 0 &&
@@ -206,14 +201,6 @@ export async function runCrawlWithPersistence(
         meta: { count: expiringSoon.length }
       })
     }
-
-    const mojibakeFlagged = mojibakeResults
-      .filter((r) => r.mojibakeFlagged)
-      .map((r) => r.url)
-
-    const llmGarbageFlagged = llmGarbageResults
-      .filter((r) => r.llmGarbageFlagged)
-      .map((r) => r.url)
 
     if (opts.notifier.isEventEnabled("onCrawlComplete")) {
       const healthScore =

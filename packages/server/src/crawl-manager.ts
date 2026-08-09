@@ -21,10 +21,8 @@ export class CrawlManager {
     this.notifier = notifier
   }
 
-  /** Build a per-job notifier, falling back to the global notifier if no job-specific providers set. */
   private getNotifierForJob(job?: CrawlJob): Notifier {
     if (!job || !job.notificationProviders) return this.notifier
-    // Check if any provider is enabled in the job config
     const hasEnabledProvider = Object.values(job.notificationProviders).some(
       (p: unknown) => (p as { enabled?: boolean })?.enabled
     )
@@ -33,41 +31,49 @@ export class CrawlManager {
     return new NotifierClass(cfg)
   }
 
-  /** Send user-level notifications after a crawl completes. */
   private async sendUserNotifications(
     crawlId: string,
     record: CrawlRecord
   ): Promise<void> {
-    const results = this.storage.listResults(crawlId)
-    const expiringSoon = results
-      .filter((r) => {
-        if (!r.sslValidUntil) return false
+    const results = this.storage.listResults(crawlId, undefined, { includeSeo: false })
+
+    const broken: { url: string; detail: string }[] = []
+    const changed: { url: string }[] = []
+    const sslExpiring: { url: string; validUntil: string }[] = []
+    const mojibake: { url: string; score: number | null }[] = []
+    const llmGarbage: { url: string; score: number | null }[] = []
+    const responseTimes: number[] = []
+    for (const r of results) {
+      if (r.statusCode !== null && r.statusCode >= 400) {
+        broken.push({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` })
+      }
+      if (r.contentChanged) changed.push({ url: r.url })
+      if (r.sslValidUntil) {
         const days = Math.floor(
           (Date.parse(r.sslValidUntil) - Date.now()) / 86400000
         )
-        return days >= 0 && days < this.config.checks.ssl.warnDays
-      })
-    const expiringUrls = expiringSoon.slice(0, 10)
-    const mojibakeFlagged = results
-      .filter((r) => r.mojibakeFlagged)
-    const mojibakeUrls = mojibakeFlagged.slice(0, 10)
-    const llmGarbageFlagged = results
-      .filter((r) => r.llmGarbageFlagged)
-    const llmGarbageUrls = llmGarbageFlagged.slice(0, 10)
-    const brokenUrls = results
-      .filter((r) => r.statusCode !== null && r.statusCode >= 400)
-      .slice(0, 10)
-    const changedUrls = results
-      .filter((r) => r.contentChanged)
-      .slice(0, 10)
+        if (days >= 0 && days < this.config.checks.ssl.warnDays) {
+          sslExpiring.push({ url: r.url, validUntil: r.sslValidUntil })
+        }
+      }
+      if (r.mojibakeFlagged) mojibake.push({ url: r.url, score: r.mojibakeScore })
+      if (r.llmGarbageFlagged) llmGarbage.push({ url: r.url, score: r.llmGarbageScore })
+      if (r.responseTimeMs !== null) responseTimes.push(r.responseTimeMs)
+    }
+
+    const brokenUrls = broken.slice(0, 10)
+    const changedUrls = changed.slice(0, 10)
+    const expiringUrls = sslExpiring.slice(0, 10)
+    const mojibakeUrls = mojibake.slice(0, 10)
+    const llmGarbageUrls = llmGarbage.slice(0, 10)
 
     const events: { event: NotificationEvent; title: string; message: string; htmlBody?: string }[] = []
 
-    const brokenUrlItems = brokenUrls.map((r) => ({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` }))
+    const brokenUrlItems = brokenUrls.map((r) => ({ url: r.url, detail: r.detail }))
     const changedUrlItems = changedUrls.map((r) => ({ url: r.url }))
     const sslUrlItems = expiringUrls.map((r) => ({ url: r.url }))
-    const mojibakeUrlItems = mojibakeUrls.map((r) => ({ url: r.url, detail: r.mojibakeScore ? `${Math.round(r.mojibakeScore * 100)}%` : "" }))
-    const llmGarbageUrlItems = llmGarbageUrls.map((r) => ({ url: r.url, detail: r.llmGarbageScore ? `${Math.round(r.llmGarbageScore * 100)}%` : "" }))
+    const mojibakeUrlItems = mojibakeUrls.map((r) => ({ url: r.url, detail: r.score ? `${Math.round(r.score * 100)}%` : "" }))
+    const llmGarbageUrlItems = llmGarbageUrls.map((r) => ({ url: r.url, detail: r.score ? `${Math.round(r.score * 100)}%` : "" }))
 
     const reportUrls = {
       broken: brokenUrlItems.slice(0, 30),
@@ -79,10 +85,10 @@ export class CrawlManager {
 
     if (record.urlsBroken > 0) {
       const brokenList = brokenUrls
-        .map((r) => `  • ${r.url} (${r.error ?? `HTTP ${r.statusCode}`})`)
+        .map((r) => `  • ${r.url} (${r.detail})`)
         .join("\n")
       const htmlBrokenList = brokenUrls
-        .map((r) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#dc2626;">•</td><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;">${r.url}</td><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#dc2626;">${r.error ?? `HTTP ${r.statusCode}`}</td></tr>`)
+        .map((r) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#dc2626;">•</td><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;">${r.url}</td><td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#dc2626;">${r.detail}</td></tr>`)
         .join("")
       events.push({
         event: "onCrawlFailure",
@@ -107,34 +113,34 @@ export class CrawlManager {
         htmlBody: buildSummaryHtml("🔄 Content Changes", `Crawl detected ${record.urlsChanged} URL(s) with content changes.`, htmlChangedList, record.urlsChanged)
       })
     }
-    if (expiringSoon.length > 0) {
-      const sslList = expiringSoon
-        .map((r) => `  • ${r}`)
+    if (sslExpiring.length > 0) {
+      const sslList = sslExpiring
+        .map((r) => `  • ${r.url}`)
         .join("\n")
       events.push({
         event: "onSslExpiring",
-        title: `🔒 ${expiringSoon.length} SSL cert(s) expiring soon`,
+        title: `🔒 ${sslExpiring.length} SSL cert(s) expiring soon`,
         message: `URLs with expiring certificates:\n${sslList}`
       })
     }
-    if (mojibakeFlagged.length > 0) {
-      const mjList = mojibakeFlagged
+    if (mojibake.length > 0) {
+      const mjList = mojibake
         .map((r) => `  • ${r.url}`)
         .join("\n")
       events.push({
         event: "onMojibakeDetected",
-        title: `🔤 ${mojibakeFlagged.length} URL(s) with mojibake detected`,
-        message: `Crawl found ${mojibakeFlagged.length} URLs with garbled text:\n${mjList}`
+        title: `🔤 ${mojibake.length} URL(s) with mojibake detected`,
+        message: `Crawl found ${mojibake.length} URLs with garbled text:\n${mjList}`
       })
     }
-    if (llmGarbageFlagged.length > 0) {
-      const lgList = llmGarbageFlagged
+    if (llmGarbage.length > 0) {
+      const lgList = llmGarbage
         .map((r) => `  • ${r.url}`)
         .join("\n")
       events.push({
         event: "onLlmGarbageDetected",
-        title: `🤖 ${llmGarbageFlagged.length} URL(s) with LLM garbage detected`,
-        message: `Crawl found ${llmGarbageFlagged.length} URLs with AI-generated artifacts:\n${lgList}`
+        title: `🤖 ${llmGarbage.length} URL(s) with LLM garbage detected`,
+        message: `Crawl found ${llmGarbage.length} URLs with AI-generated artifacts:\n${lgList}`
       })
     }
 
@@ -144,9 +150,6 @@ export class CrawlManager {
       : 100
 
     // Compute response time stats
-    const responseTimes = results
-      .map((r) => r.responseTimeMs)
-      .filter((t): t is number => t !== null)
     const avgRt = responseTimes.length > 0 ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : null
     const fastestRt = responseTimes.length > 0 ? Math.min(...responseTimes) : null
     const slowestRt = responseTimes.length > 0 ? Math.max(...responseTimes) : null
@@ -157,9 +160,9 @@ export class CrawlManager {
       totalFound: record.urlsTotal,
       brokenCount: record.urlsBroken,
       changedCount: record.urlsChanged,
-      sslCount: expiringSoon.length,
-      mojibakeCount: mojibakeFlagged.length,
-      llmGarbageCount: llmGarbageFlagged.length,
+      sslCount: sslExpiring.length,
+      mojibakeCount: mojibake.length,
+      llmGarbageCount: llmGarbage.length,
       avgResponseTimeMs: avgRt,
       fastestResponseTimeMs: fastestRt,
       slowestResponseTimeMs: slowestRt
@@ -172,12 +175,12 @@ export class CrawlManager {
       totalFound: record.urlsTotal,
       brokenCount: record.urlsBroken,
       changedCount: record.urlsChanged,
-      sslCount: expiringSoon.length,
-      mojibakeCount: mojibakeFlagged.length,
-      llmGarbageCount: llmGarbageFlagged.length,
-      brokenUrls: brokenUrls.map((r) => ({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` })),
+      sslCount: sslExpiring.length,
+      mojibakeCount: mojibake.length,
+      llmGarbageCount: llmGarbage.length,
+      brokenUrls: brokenUrls.map((r) => ({ url: r.url, detail: r.detail })),
       changedUrls: changedUrls.map((r) => ({ url: r.url })),
-      sslUrls: expiringSoon.map((r) => r.url).slice(0, 10)
+      sslUrls: sslExpiring.map((r) => r.url).slice(0, 10)
     })
     events.push({
       event: "onCrawlComplete",
@@ -249,6 +252,8 @@ export class CrawlManager {
           userAgent: opts.job.userAgent,
           respectRobotsTxt: opts.job.respectRobotsTxt,
           maxUrls: opts.job.maxUrls,
+          maxBodyBytes: opts.job.maxBodyBytes,
+          maxGlobalConcurrency: this.config.crawl.maxGlobalConcurrency,
           retryOnTransientError: this.config.crawl.retryOnTransientError,
           maxRetries: this.config.crawl.maxRetries,
           detectMojibake: opts.job.detectMojibake,
@@ -256,6 +261,9 @@ export class CrawlManager {
         }
       : this.config.crawl
     const jobNotifier = this.getNotifierForJob(opts?.job)
+
+    tryGc()
+
     runCrawlWithPersistence({
       crawlId: id,
       config: { ...this.config, crawl: crawlConfig },
@@ -273,7 +281,6 @@ export class CrawlManager {
             lastRunStatus: record.status
           })
         }
-        // Send user-level notifications after crawl completes
         this.sendUserNotifications(id, record).catch((err) =>
           console.error(`[user notifications] ${err}`)
         )
@@ -296,6 +303,7 @@ export class CrawlManager {
         if (opts?.job) {
           this.jobCrawlMap.delete(opts.job.id)
         }
+        tryGc()
       })
     return id
   }
@@ -313,6 +321,12 @@ export class CrawlManager {
     if (!crawlId) return false
     this.jobCrawlMap.delete(jobId)
     return this.cancelCrawl(crawlId)
+  }
+}
+
+function tryGc(): void {
+  if (typeof globalThis.gc === "function") {
+    globalThis.gc()
   }
 }
 

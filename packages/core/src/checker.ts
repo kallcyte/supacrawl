@@ -1,5 +1,5 @@
 import { URL } from "node:url"
-import { sha256 } from "./diff.js"
+import { createHash } from "node:crypto"
 import { checkSsl } from "./ssl.js"
 import { detectMojibake } from "./mojibake.js"
 import { detectLlmGarbage } from "./llm-garbage.js"
@@ -13,6 +13,68 @@ export interface CheckerContext {
 }
 
 const MAX_REDIRECTS = 5
+
+interface BodyRead {
+  body: Uint8Array
+  hash: string
+  truncated: boolean
+}
+
+async function readBodyCapped(
+  res: Response,
+  maxBytes: number
+): Promise<BodyRead> {
+  const hash = createHash("sha256")
+  const chunks: Uint8Array[] = []
+  let total = 0
+  let truncated = false
+
+  const pushChunk = (value: Uint8Array): void => {
+    hash.update(value)
+    const remaining = maxBytes - total
+    if (remaining <= 0) {
+      truncated = true
+      return
+    }
+    if (value.length <= remaining) {
+      chunks.push(value)
+      total += value.length
+    } else {
+      chunks.push(value.subarray(0, remaining))
+      total += remaining
+      truncated = true
+    }
+  }
+
+  if (!res.body) {
+    const buf = new Uint8Array(await res.arrayBuffer())
+    pushChunk(buf)
+  } else {
+    const reader = res.body.getReader()
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        pushChunk(value)
+        if (truncated) {
+          await reader.cancel()
+          break
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
+  const out = new Uint8Array(total)
+  let off = 0
+  for (const c of chunks) {
+    out.set(c, off)
+    off += c.length
+  }
+  return { body: out, hash: hash.digest("hex"), truncated }
+}
 
 function effectiveMethod(
   url: string,
@@ -82,6 +144,7 @@ export async function checkUrl(
           }
           chain.push(currentUrl)
           currentUrl = next
+          res.body?.cancel().catch(() => {})
           continue
         }
         break
@@ -91,19 +154,25 @@ export async function checkUrl(
       result.responseTimeMs = Math.round(performance.now() - start)
       result.redirectChain = chain
       if (finalRes.status >= 200 && finalRes.status < 300 && method === "GET") {
-        const buf = new Uint8Array(await finalRes.arrayBuffer())
-        const hash = sha256(buf)
+        const { body, hash, truncated } = await readBodyCapped(
+          finalRes,
+          ctx.config.maxBodyBytes
+        )
         const previous = ctx.knownHashes.get(url)
         result.contentHash = hash
         result.contentChanged = previous !== undefined && previous !== hash
-        result.seo = extractSeoInfo(buf, currentUrl)
+        result.seo = extractSeoInfo(
+          body,
+          currentUrl,
+          truncated ? ctx.config.maxBodyBytes : body.length
+        )
         if (ctx.config.detectMojibake !== false) {
-          const mojibake = detectMojibake(buf)
+          const mojibake = detectMojibake(body)
           result.mojibakeScore = mojibake.score
           result.mojibakeFlagged = mojibake.flagged
         }
         if (ctx.config.detectLlmGarbage !== false) {
-          const llmGarbage = detectLlmGarbage(buf)
+          const llmGarbage = detectLlmGarbage(body)
           result.llmGarbageScore = llmGarbage.score
           result.llmGarbageFlagged = llmGarbage.flagged
         }

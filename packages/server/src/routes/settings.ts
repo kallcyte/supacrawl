@@ -16,7 +16,9 @@ const configSchema = z.object({
     retryOnTransientError: z.boolean(),
     maxRetries: z.number().int().nonnegative(),
     detectMojibake: z.boolean(),
-    detectLlmGarbage: z.boolean()
+    detectLlmGarbage: z.boolean(),
+    maxBodyBytes: z.number().int().positive().default(5 * 1024 * 1024),
+    maxGlobalConcurrency: z.number().int().positive().default(100)
   }),
   checks: z.object({
     ssl: z.object({ enabled: z.boolean(), warnDays: z.number().int().positive() }),

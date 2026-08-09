@@ -34,6 +34,8 @@ export class Storage {
   constructor(opts: StorageOptions) {
     mkdirSync(dirname(opts.path), { recursive: true })
     this.db = new BetterSqlite3(opts.path)
+    this.db.pragma("journal_mode = WAL")
+    this.db.pragma("busy_timeout = 5000")
     this.migrate()
   }
 
@@ -221,6 +223,9 @@ export class Storage {
     if (!this.hasColumn("crawl_jobs", "notify_ssl_expiring")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notify_ssl_expiring INTEGER DEFAULT 1`)
     }
+    if (!this.hasColumn("crawl_jobs", "max_body_bytes")) {
+      this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN max_body_bytes INTEGER DEFAULT 5242880`)
+    }
     if (!this.hasColumn("crawl_jobs", "notification_providers")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN notification_providers TEXT`)
     }
@@ -386,11 +391,13 @@ export class Storage {
 
   listResults(
     crawlId: string,
-    filter?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean; llmGarbageOnly?: boolean }
+    filter?: { brokenOnly?: boolean; changedOnly?: boolean; mojibakeOnly?: boolean; llmGarbageOnly?: boolean },
+    opts?: { includeSeo?: boolean }
   ): CrawlResultRecord[] {
+    const includeSeo = opts?.includeSeo !== false
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged${includeSeo ? ", seo" : ""}
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -407,7 +414,7 @@ export class Storage {
     }
     sql += ` ORDER BY checked_at ASC`
     const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[]
-    return rows.map(mapResult)
+    return rows.map((r) => mapResult(r, { includeSeo }))
   }
 
   getResult(id: string): CrawlResultRecord | null {
@@ -451,6 +458,17 @@ export class Storage {
       )
   }
 
+  getUrlState(url: string): UrlStateRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT url, last_status_code, last_content_hash, last_response_time_ms,
+                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo
+         FROM url_state WHERE url = ?`
+      )
+      .get(url) as Record<string, unknown> | undefined
+    return row ? mapUrlState(row) : null
+  }
+
   getAllUrlStates(): UrlStateRecord[] {
     const rows = this.db
       .prepare(
@@ -472,7 +490,7 @@ export class Storage {
          ORDER BY checked_at DESC LIMIT ?`
       )
       .all(url, limit) as Record<string, unknown>[]
-    return rows.map(mapResult)
+    return rows.map((r) => mapResult(r))
   }
 
   listUrls(limit = 500, offset = 0): UrlStateRecord[] {
@@ -1330,6 +1348,7 @@ function mapCrawlJob(row: Record<string, unknown>): CrawlJob {
     userAgent: row.user_agent as string,
     respectRobotsTxt: row.respect_robots_txt === 1,
     maxUrls: row.max_urls as number,
+    maxBodyBytes: (row.max_body_bytes as number) ?? 5 * 1024 * 1024,
     notificationProviders,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -1354,7 +1373,8 @@ function mapCrawl(row: Record<string, unknown>): CrawlRecord {
   }
 }
 
-function mapResult(row: Record<string, unknown>): CrawlResultRecord {
+function mapResult(row: Record<string, unknown>, opts?: { includeSeo?: boolean }): CrawlResultRecord {
+  const includeSeo = opts?.includeSeo !== false
   return {
     id: row.id as string,
     crawlId: row.crawl_id as string,
@@ -1373,7 +1393,7 @@ function mapResult(row: Record<string, unknown>): CrawlResultRecord {
     mojibakeFlagged: row.mojibake_flagged === 1,
     llmGarbageScore: (row.llm_garbage_score as number | null) ?? null,
     llmGarbageFlagged: row.llm_garbage_flagged === 1,
-    seo: parseSeo(row.seo)
+    seo: includeSeo ? parseSeo(row.seo) : null
   }
 }
 

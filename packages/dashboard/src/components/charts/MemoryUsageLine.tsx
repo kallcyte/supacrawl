@@ -9,6 +9,7 @@ import {
   Legend
 } from "recharts"
 import ChartTooltip from "./ChartTooltip"
+import { formatLocalTime } from "@/lib/utils"
 
 interface Point {
   time: string
@@ -27,7 +28,7 @@ export default function MemoryUsageLine({ data }: { data: Point[] }) {
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis
           dataKey="time"
-          tickFormatter={(v) => v.slice(11, 16)}
+          tickFormatter={(v) => formatLocalTime(v)}
           stroke="hsl(var(--muted-foreground))"
           fontSize={12}
         />
@@ -37,6 +38,7 @@ export default function MemoryUsageLine({ data }: { data: Point[] }) {
           tickFormatter={(v) => `${v}MB`}
         />
         <Tooltip
+          labelFormatter={(v) => formatLocalTime(v)}
           content={
             <ChartTooltip
               formatter={(item) => ({
