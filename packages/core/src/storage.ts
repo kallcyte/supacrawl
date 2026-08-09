@@ -237,9 +237,6 @@ export class Storage {
     if (!this.hasColumn("crawl_jobs", "run_at")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN run_at TEXT`)
     }
-    if (!this.hasColumn("resource_snapshots", "disk_used_mb")) {
-      this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN disk_used_mb REAL NOT NULL DEFAULT 0`)
-    }
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS resource_snapshots (
       id TEXT PRIMARY KEY,
@@ -251,6 +248,10 @@ export class Storage {
       disk_used_mb REAL NOT NULL DEFAULT 0,
       recorded_at TEXT NOT NULL
     )`)
+
+    if (!this.hasColumn("resource_snapshots", "disk_used_mb")) {
+      this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN disk_used_mb REAL NOT NULL DEFAULT 0`)
+    }
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS user_notification_settings (
       user_id TEXT PRIMARY KEY,
