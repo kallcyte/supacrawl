@@ -397,8 +397,10 @@ async fn run_ipc_crawl(
     let known_hashes = storage.load_known_hashes()?;
 
     let mut entries = Vec::new();
+    let mut sitemap_errors: Vec<String> = Vec::new();
     for sitemap_url_str in &request.sitemaps {
         let Ok(sitemap_url) = url::Url::parse(sitemap_url_str) else {
+            sitemap_errors.push(format!("Invalid sitemap URL: {}", sitemap_url_str));
             continue;
         };
         for resolved in resolve_sitemap_urls(&sitemap_url).await {
@@ -406,10 +408,26 @@ async fn run_ipc_crawl(
                 Ok(e) => entries.extend(e),
                 Err(e) => {
                     metrics::sitemap_error();
+                    sitemap_errors.push(format!("{}: {}", resolved, e));
                     error!(sitemap = %resolved, error = %e, "Failed to parse sitemap");
                 }
             }
         }
+    }
+
+    let mut stdout = tokio::io::stdout();
+
+    if entries.is_empty() && !sitemap_errors.is_empty() {
+        let msg = format!("All sitemaps failed to fetch: {}", sitemap_errors.join("; "));
+        storage.fail_crawl(&crawl_id, &msg)?;
+        let error_msg = serde_json::to_string(&IpcMessage::Error {
+            crawl_id: crawl_id.clone(),
+            error: msg,
+        })
+        .unwrap_or_default();
+        let _ = stdout.write_all(format!("{}\n", error_msg).as_bytes()).await;
+        let _ = stdout.flush().await;
+        return Ok(());
     }
 
     let urls: Vec<(url::Url, Option<String>)> = entries
@@ -419,8 +437,6 @@ async fn run_ipc_crawl(
 
     let total = urls.len();
     info!(total, "Crawl starting");
-
-    let mut stdout = tokio::io::stdout();
 
     let semaphore = Arc::new(Semaphore::new(request.config.max_global_concurrency));
     let delay_ms = request.config.delay_ms;
