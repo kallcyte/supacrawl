@@ -40,19 +40,18 @@ RUN pnpm --filter @supacrawl/core build && \
 FROM rust:1-slim AS rust-builder
 WORKDIR /rust
 
-RUN apt-get update -qq && apt-get install -y -qq musl-tools pkg-config libssl-dev && \
-    rustup target add x86_64-unknown-linux-musl && \
-    rm -rf /var/lib/apt/lists/*
-
 COPY crawler/ ./
 
-RUN cargo build --release --target x86_64-unknown-linux-musl && \
-    strip target/x86_64-unknown-linux-musl/release/crawl-daemon
+# Runner is Debian glibc (node:22-slim), so build the default GNU target
+# instead of musl — musl-tools only ships an i386 musl-gcc, which breaks
+# aws-lc-sys's x86_64 assembly on this image.
+RUN cargo build --release && \
+    strip target/release/crawl-daemon
 
-FROM node:22-slim AS runner
+# trixie (glibc 2.39) is required: better-sqlite3's arm64 prebuilt links
+# GLIBC 2.38, unavailable on the default bookworm base (2.36).
+FROM node:22-trixie-slim AS runner
 WORKDIR /app
-
-RUN apt-get update -qq && apt-get install -y -qq python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -66,13 +65,12 @@ COPY --from=node-builder /app/packages/server/dist /app/packages/server/dist
 COPY --from=node-builder /app/packages/dashboard/dist /app/packages/dashboard/dist
 COPY --from=node-builder /app/packages/server/supacrawl.config.json /app/packages/server/
 
-COPY --from=rust-builder /rust/target/x86_64-unknown-linux-musl/release/crawl-daemon /usr/local/bin/crawl-daemon
+COPY --from=rust-builder /rust/target/release/crawl-daemon /usr/local/bin/crawl-daemon
 
 RUN chmod +x /usr/local/bin/crawl-daemon
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --prod --ignore-scripts && \
-    pnpm rebuild better-sqlite3
+    pnpm install --frozen-lockfile --prod --ignore-scripts
 
 RUN mkdir -p /app/data
 
