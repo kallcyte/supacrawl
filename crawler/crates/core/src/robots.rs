@@ -116,15 +116,24 @@ pub async fn resolve_sitemap_urls(base_url: &Url) -> Vec<Url> {
         Err(_) => return vec![],
     };
 
+    let mut probes = tokio::task::JoinSet::new();
     for path in COMMON_SITEMAP_PATHS {
-        let url = match base_url.join(path) {
-            Ok(u) => u,
-            Err(_) => continue,
+        let Ok(url) = base_url.join(path) else {
+            continue;
         };
-        if let Ok(resp) = client.head(url.clone()).send().await {
-            if resp.status().is_success() {
-                return vec![url];
+        let client = client.clone();
+        probes.spawn(async move {
+            match client.head(url.clone()).send().await {
+                Ok(resp) if resp.status().is_success() => Some(url),
+                _ => None,
             }
+        });
+    }
+
+    while let Some(res) = probes.join_next().await {
+        if let Ok(Some(url)) = res {
+            probes.abort_all();
+            return vec![url];
         }
     }
 

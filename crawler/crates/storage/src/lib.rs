@@ -107,8 +107,10 @@ impl Storage {
 
     pub fn create_crawl(&self, id: &str) -> Result<(), rusqlite::Error> {
         let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        // The server may already have recorded the crawl (with job_id) before
+        // spawning this daemon; keep its row, ours would be a duplicate.
         self.conn().execute(
-            "INSERT INTO crawls (id, started_at, status) VALUES (?1, ?2, 'running')",
+            "INSERT OR IGNORE INTO crawls (id, started_at, status) VALUES (?1, ?2, 'running')",
             params![id, now],
         )?;
         Ok(())

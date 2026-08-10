@@ -272,6 +272,23 @@ export class CrawlManager {
     tryGc()
 
     if (isRustBackend()) {
+      const startedAt = new Date().toISOString()
+      this.storage.createCrawl(
+        {
+          id,
+          jobId: opts?.job?.id ?? null,
+          startedAt,
+          finishedAt: null,
+          status: "running",
+          urlsTotal: 0,
+          urlsChecked: 0,
+          urlsChanged: 0,
+          urlsBroken: 0,
+          urlsSkipped: 0,
+          errorMessage: null,
+        },
+        opts?.job?.id ?? null
+      )
       const rustCrawler = new RustCrawler(id, {
         daemonBin: getDefaultDaemonBin(),
         config: {
@@ -290,7 +307,14 @@ export class CrawlManager {
         })),
         dbPath: process.env.CRAWLER_DB_PATH ?? this.storage.dbPath,
         abortSignal: controller.signal,
-        onProgress: (p) => this.onProgress(p),
+        onProgress: (p) => {
+          this.onProgress(p)
+          this.storage.updateCrawl(p.crawlId, {
+            status: p.status,
+            urlsChecked: p.checked,
+            urlsTotal: p.total,
+          })
+        },
         onResult: (r) => {},
         onComplete: (record) => {
           const status = record.status === "failed" ? "failed" : "completed"

@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -354,6 +355,7 @@ async fn run_ipc_loop(cli: &Cli) -> Result<()> {
     });
 
     while let Ok(Some(line)) = lines.next_line().await {
+        eprintln!("IPC line bytes: {}", line.len());
         let request: StartCrawlRequest = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(e) => {
@@ -441,6 +443,14 @@ async fn run_ipc_crawl(
     let total = urls.len();
     info!(total, "Crawl starting");
 
+    let progress = serde_json::to_string(&IpcMessage::Progress {
+        crawl_id: crawl_id.clone(),
+        checked: 0,
+        total,
+    })?;
+    let _ = stdout.write_all(format!("{}\n", progress).as_bytes()).await;
+    let _ = stdout.flush().await;
+
     let semaphore = Arc::new(Semaphore::new(request.config.max_global_concurrency));
     let delay_ms = request.config.delay_ms;
     let bounded_queue: Arc<
@@ -448,6 +458,7 @@ async fn run_ipc_crawl(
     > = Arc::new(Mutex::new(std::collections::VecDeque::new()));
 
     let result_buffer: Arc<Mutex<Vec<CheckResult>>> = Arc::new(Mutex::new(Vec::new()));
+    let progress_counter = Arc::new(AtomicUsize::new(0));
     const _MAX_BUFFER: usize = 100;
 
     for (url, lastmod) in &urls {
@@ -498,6 +509,7 @@ async fn run_ipc_crawl(
 
                 let checker = checker.clone();
                 let result_buffer = result_buffer.clone();
+                let progress_counter = progress_counter.clone();
                 let _storage = storage.clone();
                 let _id = crawl_id.clone();
 
@@ -521,6 +533,19 @@ async fn run_ipc_crawl(
 
                         let mut buffer = result_buffer.lock().await;
                         buffer.push(result);
+
+                        let done = progress_counter.fetch_add(1, Ordering::Relaxed) + 1;
+                        if done % 25 == 0 {
+                            let msg = serde_json::to_string(&IpcMessage::Progress {
+                                crawl_id: _id.clone(),
+                                checked: done,
+                                total,
+                            })
+                            .unwrap_or_default();
+                            let mut stdout = tokio::io::stdout();
+                            let _ = stdout.write_all(format!("{}\n", msg).as_bytes()).await;
+                            let _ = stdout.flush().await;
+                        }
                     }
                     .in_current_span(),
                 );
@@ -551,6 +576,14 @@ async fn run_ipc_crawl(
     drop(buffer);
 
     let results = storage.load_latest_results_for_crawl(&crawl_id)?;
+
+    let final_progress = serde_json::to_string(&IpcMessage::Progress {
+        crawl_id: crawl_id.clone(),
+        checked: results.len(),
+        total,
+    })?;
+    let _ = stdout.write_all(format!("{}\n", final_progress).as_bytes()).await;
+    let _ = stdout.flush().await;
 
     let broken_urls: Vec<String> = results
         .iter()
