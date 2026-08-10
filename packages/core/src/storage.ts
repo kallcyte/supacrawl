@@ -207,8 +207,14 @@ export class Storage {
     if (!this.hasColumn("crawl_results", "seo")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo TEXT`)
     }
+    if (!this.hasColumn("crawl_results", "seo_diff")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo_diff TEXT`)
+    }
     if (!this.hasColumn("url_state", "has_seo")) {
       this.db.exec(`ALTER TABLE url_state ADD COLUMN has_seo INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("url_state", "prev_seo")) {
+      this.db.exec(`ALTER TABLE url_state ADD COLUMN prev_seo TEXT`)
     }
     if (!this.hasColumn("crawl_jobs", "detect_mojibake")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN detect_mojibake INTEGER DEFAULT 1`)

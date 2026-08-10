@@ -17,6 +17,7 @@ pub async fn fetch_and_parse_sitemap(
 ) -> Result<Vec<SitemapEntry>, Box<dyn std::error::Error>> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(10))
         .gzip(true)
         .brotli(true)
         .build()?;
@@ -32,7 +33,7 @@ pub async fn fetch_and_parse_sitemap(
             break;
         }
 
-        let resp = client.get(url.clone()).send().await?;
+        let resp = client.get(url.clone()).send().await?.error_for_status()?;
         let body = resp.bytes().await?;
 
         let body_bytes = if is_gzipped(&body) {
@@ -78,6 +79,7 @@ pub async fn fetch_and_parse_sitemap(
 pub async fn discover_sitemap_tree(root_url: &Url) -> Result<SitemapTreeNode, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(10))
         .build()?;
 
     let mut root = SitemapTreeNode {
@@ -90,7 +92,7 @@ pub async fn discover_sitemap_tree(root_url: &Url) -> Result<SitemapTreeNode, Bo
     queue.push_back((&mut root as *mut SitemapTreeNode, root_url.clone()));
 
     while let Some((parent_ptr, url)) = queue.pop_front() {
-        let resp = client.get(url.clone()).send().await?;
+        let resp = client.get(url.clone()).send().await?.error_for_status()?;
         let body = resp.bytes().await?;
 
         let body_bytes = if is_gzipped(&body) {

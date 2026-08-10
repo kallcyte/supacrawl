@@ -5,6 +5,7 @@ pub async fn fetch_and_parse_robots(origin: &Url) -> RobotsData {
     let robots_url = origin.join("/robots.txt").unwrap_or_else(|_| origin.clone());
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
+        .connect_timeout(std::time::Duration::from_secs(5))
         .build()
         .ok();
 
@@ -108,6 +109,7 @@ pub async fn resolve_sitemap_urls(base_url: &Url) -> Vec<Url> {
 
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
+        .connect_timeout(std::time::Duration::from_secs(5))
         .build()
     {
         Ok(c) => c,

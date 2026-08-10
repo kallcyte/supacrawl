@@ -54,6 +54,8 @@ async fn main() -> Result<()> {
         .json()
         .init();
 
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     let cli = Cli::parse();
     let dir = cli.db.parent().unwrap_or(Path::new("."));
     tokio::fs::create_dir_all(dir).await?;

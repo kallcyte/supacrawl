@@ -43,7 +43,7 @@ impl Storage {
             );
 
             CREATE TABLE IF NOT EXISTS crawl_results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 crawl_id TEXT NOT NULL REFERENCES crawls(id),
                 url TEXT NOT NULL,
                 status_code INTEGER,
@@ -106,9 +106,10 @@ impl Storage {
     }
 
     pub fn create_crawl(&self, id: &str) -> Result<(), rusqlite::Error> {
+        let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         self.conn().execute(
-            "INSERT INTO crawls (id, status) VALUES (?1, 'running')",
-            params![id],
+            "INSERT INTO crawls (id, started_at, status) VALUES (?1, ?2, 'running')",
+            params![id, now],
         )?;
         Ok(())
     }
@@ -164,10 +165,14 @@ impl Storage {
             .as_ref()
             .and_then(|s| serde_json::to_string(s).ok());
 
+        let checked_at = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let result_id = uuid::Uuid::new_v4().to_string();
+
         self.conn().execute(
-            "INSERT INTO crawl_results (crawl_id, url, status_code, response_time_ms, content_hash, content_changed, error, redirect_chain, ssl_valid_until, sitemap_lastmod, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo, seo_diff)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            "INSERT INTO crawl_results (id, crawl_id, url, status_code, response_time_ms, content_hash, content_changed, error, redirect_chain, ssl_valid_until, sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo, seo_diff)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
+                result_id,
                 crawl_id,
                 result.url,
                 result.status_code,
@@ -178,6 +183,7 @@ impl Storage {
                 serde_json::to_string(&result.redirect_chain).ok(),
                 result.ssl_info.as_ref().map(|s| &s.valid_until),
                 result.sitemap_lastmod,
+                checked_at,
                 serde_json::to_string(&result.check_method).ok().map(|s| s.trim_matches('"').to_string()),
                 result.mojibake_score,
                 result.mojibake_flagged.map(|v| v as i32),
