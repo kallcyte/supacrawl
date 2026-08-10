@@ -82,10 +82,16 @@ export class RustCrawler {
       let resolved = false
       let killTimeout: NodeJS.Timeout
 
+      const finish = () => {
+        if (!resolved) return
+        clearTimeout(killTimeout)
+        this.process?.stdin?.end()
+      }
+
       const fail = (err: Error) => {
         if (resolved) return
         resolved = true
-        clearTimeout(killTimeout)
+        finish()
         reject(err)
       }
 
@@ -146,6 +152,7 @@ export class RustCrawler {
               clearTimeout(killTimeout)
               if (!resolved) {
                 resolved = true
+                finish()
                 const record = { crawlId: msg.crawlId, ...msg.record }
                 this.options.onComplete?.(record)
                 resolve({ crawlId: msg.crawlId, record })
@@ -156,6 +163,7 @@ export class RustCrawler {
               clearTimeout(killTimeout)
               if (!resolved) {
                 resolved = true
+                finish()
                 this.options.onError?.(msg.error)
                 reject(new Error(msg.error))
               }

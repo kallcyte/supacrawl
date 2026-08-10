@@ -355,7 +355,6 @@ async fn run_ipc_loop(cli: &Cli) -> Result<()> {
     });
 
     while let Ok(Some(line)) = lines.next_line().await {
-        eprintln!("IPC line bytes: {}", line.len());
         let request: StartCrawlRequest = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(e) => {

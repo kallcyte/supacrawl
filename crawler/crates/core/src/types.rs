@@ -1,5 +1,31 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
+
+fn deserialize_flexible_datetime<'de, D>(
+    deserializer: D,
+) -> Result<Option<chrono::DateTime<chrono::Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        None => Ok(None),
+        Some(raw) => {
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&raw) {
+                return Ok(Some(dt.with_timezone(&chrono::Utc)));
+            }
+            if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(&raw, "%Y-%m-%d %H:%M:%S") {
+                return Ok(Some(chrono::DateTime::from_naive_utc_and_offset(
+                    naive,
+                    chrono::Utc,
+                )));
+            }
+            Err(serde::de::Error::custom(format!(
+                "invalid datetime: {raw}"
+            )))
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -270,7 +296,7 @@ pub struct KnownHash {
     pub hash: String,
     #[serde(default)]
     pub has_seo: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_flexible_datetime")]
     pub last_checked_at: Option<chrono::DateTime<chrono::Utc>>,
     #[serde(default)]
     pub sitemap_lastmod: Option<String>,

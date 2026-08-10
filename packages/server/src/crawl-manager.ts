@@ -287,7 +287,7 @@ export class CrawlManager {
           urlsSkipped: 0,
           errorMessage: null,
         },
-        opts?.job?.id ?? null
+        opts?.job?.id ?? undefined
       )
       const rustCrawler = new RustCrawler(id, {
         daemonBin: getDefaultDaemonBin(),
@@ -318,6 +318,15 @@ export class CrawlManager {
         onResult: (r) => {},
         onComplete: (record) => {
           const status = record.status === "failed" ? "failed" : "completed"
+          this.storage.updateCrawl(id, {
+            status,
+            urlsChecked: record.urlsChecked,
+            urlsChanged: record.urlsChanged,
+            urlsBroken: record.urlsBroken,
+            urlsSkipped: record.urlsSkipped,
+            urlsTotal: record.urlsTotal,
+            finishedAt: new Date().toISOString(),
+          })
           if (opts?.job) {
             this.storage.updateCrawlJob(opts.job.id, {
               lastRunAt: new Date().toISOString(),
