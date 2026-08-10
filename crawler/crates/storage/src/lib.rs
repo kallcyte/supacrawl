@@ -244,7 +244,8 @@ impl Storage {
 
         let rows = stmt.query_map([], |row| {
             let url: String = row.get(0)?;
-            let hash: String = row.get(1)?;
+            let hash: Option<String> = row.get(1)?;
+            let hash = hash.unwrap_or_default();
             let has_seo: i32 = row.get(2)?;
             let last_checked: Option<String> = row.get(3)?;
             let sitemap_lastmod: Option<String> = row.get(4)?;
