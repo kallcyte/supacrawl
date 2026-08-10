@@ -166,15 +166,20 @@ export async function checkUrl(
           currentUrl,
           truncated ? ctx.config.maxBodyBytes : body.length
         )
-        if (ctx.config.detectMojibake !== false) {
-          const mojibake = detectMojibake(body)
-          result.mojibakeScore = mojibake.score
-          result.mojibakeFlagged = mojibake.flagged
-        }
-        if (ctx.config.detectLlmGarbage !== false) {
-          const llmGarbage = detectLlmGarbage(body)
-          result.llmGarbageScore = llmGarbage.score
-          result.llmGarbageFlagged = llmGarbage.flagged
+        if (ctx.config.detectMojibake !== false || ctx.config.detectLlmGarbage !== false) {
+          // Decode the body once and share it with both detectors instead of
+          // each detector decoding a separate ~maxBodyBytes string per request.
+          const html = new TextDecoder("utf-8", { fatal: false }).decode(body)
+          if (ctx.config.detectMojibake !== false) {
+            const mojibake = detectMojibake(body, html)
+            result.mojibakeScore = mojibake.score
+            result.mojibakeFlagged = mojibake.flagged
+          }
+          if (ctx.config.detectLlmGarbage !== false) {
+            const llmGarbage = detectLlmGarbage(html)
+            result.llmGarbageScore = llmGarbage.score
+            result.llmGarbageFlagged = llmGarbage.flagged
+          }
         }
       }
       try {

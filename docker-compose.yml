@@ -11,6 +11,9 @@ services:
       - BETTER_AUTH_URL=https://supacrawl.kall.dev
       - PORT=3456
       - HOST=0.0.0.0
+      # Heap cap + manual GC so V8 GCs every crawl batch instead of hitting the
+      # 512M cgroup limit below. --expose-gc enables global.gc() in the crawler.
+      - NODE_OPTIONS=--max-old-space-size=512 --expose-gc
 
     volumes:
       - supacrawl-data:/app/data

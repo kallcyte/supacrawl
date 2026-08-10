@@ -1,0 +1,43 @@
+# Local run for podman / docker compose on Windows (podman machine / WSL).
+# (docker-compose.yml is the dokploy-specific deploy file; this one is for local dev.)
+#
+# Prereq: podman machine must be running. Start it once from PowerShell:
+#   podman machine init
+#   podman machine start
+#
+# Usage:
+#   podman compose -f compose.local.yml up -d --build
+#
+# Requires a compose provider. If you don't have one, use run-local.sh (plain
+# podman, no provider needed).
+#
+# Open http://localhost:3456 — the first visit guides you through creating the
+# admin account (bootstrap).
+name: supacrawl
+
+services:
+  supacrawl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: supacrawl
+    ports:
+      - "3456:3456"
+    environment:
+      # Read from .env in this dir. Fails fast if unset.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET (see .env)}
+      BETTER_AUTH_URL: http://localhost:3456
+      BETTER_AUTH_TRUSTED_ORIGINS: http://localhost:3456
+      PORT: "3456"
+      HOST: 0.0.0.0
+      # Heap stays at the image's default 512 MB --max-old-space-size.
+      NODE_OPTIONS: --max-old-space-size=512 --expose-gc
+    volumes:
+      - supacrawl-data:/app/data
+      # Bind-mount your config so sitemap / notification edits apply without a
+      # rebuild. Remove this line to use the config baked into the image.
+      - ./packages/server/supacrawl.config.json:/app/packages/server/supacrawl.config.json:ro
+    restart: unless-stopped
+
+volumes:
+  supacrawl-data:

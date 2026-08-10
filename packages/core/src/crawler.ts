@@ -85,7 +85,6 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
   let changed = 0
   let broken = 0
   let skipped = 0
-  let currentIdx = 0
 
   const globalLimiter = pLimit(opts.config.maxGlobalConcurrency)
 
@@ -123,7 +122,13 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
 
   reportProgress()
 
-  const tasks: Promise<void>[] = []
+  // Feed entries to the limiter queue in a bounded sliding window so we never
+  // hold the whole crawl (15000+ closures + promises) in memory at once.
+  // Host limiters persist across the whole crawl, so per-host throttling
+  // still applies. Awaiting the oldest task slides the window forward without
+  // stalling the pipeline (other in-flight tasks keep running meanwhile).
+  const maxQueued = Math.max(1, opts.config.maxGlobalConcurrency * 2)
+  const pending: Promise<void>[] = []
   for (const entry of entries) {
     if (opts.abortSignal?.aborted) break
     let host: string
@@ -145,25 +150,27 @@ export async function runCrawl(opts: CrawlRunOptions): Promise<{
     const limiter = getLimiter(host)
     const task = globalLimiter(() =>
       limiter.limit(async () => {
-      if (opts.abortSignal?.aborted) return
-      const now = Date.now()
-      const wait = limiter.lastRequest + limiter.delayMs - now
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait))
-      limiter.lastRequest = Date.now()
-      if (opts.abortSignal?.aborted) return
-      const res = await checkUrl(entry.loc, ctx, fetchImpl)
-      if (res.statusCode !== null && res.statusCode >= 400) broken++
-      if (res.contentChanged) changed++
-      checked++
-      opts.onResult?.(res)
-      reportProgress(entry.loc)
+        if (opts.abortSignal?.aborted) return
+        const now = Date.now()
+        const wait = limiter.lastRequest + limiter.delayMs - now
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+        limiter.lastRequest = Date.now()
+        if (opts.abortSignal?.aborted) return
+        const res = await checkUrl(entry.loc, ctx, fetchImpl)
+        if (res.statusCode !== null && res.statusCode >= 400) broken++
+        if (res.contentChanged) changed++
+        checked++
+        opts.onResult?.(res)
+        reportProgress(entry.loc)
       })
     )
-    tasks.push(task)
-    currentIdx++
+    pending.push(task)
+    if (pending.length >= maxQueued) {
+      // Wait for the oldest task so the window slides forward.
+      await pending.shift()
+    }
   }
-
-  await Promise.all(tasks)
+  await Promise.all(pending)
 
   if (opts.onProgress) {
     opts.onProgress({

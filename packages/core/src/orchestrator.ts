@@ -51,10 +51,21 @@ export async function runCrawlWithPersistence(
       .map((s) => s.url)
 
     let lastmodMap = new Map<string, string | undefined>()
-    const results: CheckResult[] = []
+    // Keep only what the completion report needs (bounded), instead of retaining
+    // every result in memory for the whole crawl.
+    const BROKEN_CAP = 30
+    const CHANGED_CAP = 30
+    const SSL_CAP = 30
+    const brokenResults: CheckResult[] = []
+    const changedResults: CheckResult[] = []
+    // Sample lists capped at SSL_CAP; counts kept separately so memory stays
+    // bounded regardless of how many URLs are flagged.
     const expiringSslUrls: string[] = []
     const mojibakeFlaggedUrls: string[] = []
     const llmGarbageFlaggedUrls: string[] = []
+    let expiringSslCount = 0
+    let mojibakeCount = 0
+    let llmGarbageCount = 0
 
     // Progress milestones: fire onCrawlProgress at 25%, 50%, 75%
     const progressMilestones = new Set([25, 50, 75])
@@ -102,17 +113,29 @@ export async function runCrawlWithPersistence(
       },
       onResult: (r) => {
         opts.onResult?.(r)
-        results.push(r)
+        if (r.statusCode !== null && r.statusCode >= 400) {
+          if (brokenResults.length < BROKEN_CAP) brokenResults.push(r)
+        }
+        if (r.contentChanged && changedResults.length < CHANGED_CAP) {
+          changedResults.push(r)
+        }
         if (r.sslValidUntil) {
           const days = Math.floor(
             (Date.parse(r.sslValidUntil) - Date.now()) / 86400000
           )
           if (days >= 0 && days < opts.config.checks.ssl.warnDays) {
-            expiringSslUrls.push(r.url)
+            expiringSslCount++
+            if (expiringSslUrls.length < SSL_CAP) expiringSslUrls.push(r.url)
           }
         }
-        if (r.mojibakeFlagged) mojibakeFlaggedUrls.push(r.url)
-        if (r.llmGarbageFlagged) llmGarbageFlaggedUrls.push(r.url)
+        if (r.mojibakeFlagged) {
+          mojibakeCount++
+          if (mojibakeFlaggedUrls.length < SSL_CAP) mojibakeFlaggedUrls.push(r.url)
+        }
+        if (r.llmGarbageFlagged) {
+          llmGarbageCount++
+          if (llmGarbageFlaggedUrls.length < SSL_CAP) llmGarbageFlaggedUrls.push(r.url)
+        }
         const id = randomUUID()
         opts.storage.insertResult({
           id,
@@ -190,15 +213,15 @@ export async function runCrawlWithPersistence(
     const llmGarbageFlagged = llmGarbageFlaggedUrls
 
     if (
-      expiringSoon.length > 0 &&
+      expiringSslCount > 0 &&
       opts.notifier.isEventEnabled("onSslExpiring")
     ) {
       await opts.notifier.notify("onSslExpiring", {
         event: "onSslExpiring",
-        title: `${expiringSoon.length} SSL cert(s) expiring soon`,
-        message: `URLs with expiring certificates: ${expiringSoon.slice(0, 5).join(", ")}${expiringSoon.length > 5 ? "..." : ""}`,
+        title: `${expiringSslCount} SSL cert(s) expiring soon`,
+        message: `URLs with expiring certificates: ${expiringSoon.slice(0, 5).join(", ")}${expiringSslCount > 5 ? "..." : ""}`,
         crawlId,
-        meta: { count: expiringSoon.length }
+        meta: { count: expiringSslCount }
       })
     }
 
@@ -207,10 +230,8 @@ export async function runCrawlWithPersistence(
         finalState.urlsChecked > 0
           ? Math.round(((finalState.urlsChecked - finalState.urlsBroken) / finalState.urlsChecked) * 100)
           : 100
-      const brokenUrls = results
-        .filter((r) => r.statusCode !== null && r.statusCode >= 400)
-        .slice(0, 30)
-      const changedUrls = results.filter((r) => r.contentChanged).slice(0, 30)
+      const brokenUrls = brokenResults
+      const changedUrls = changedResults
       await opts.notifier.notify("onCrawlComplete", {
         event: "onCrawlComplete",
         title: `Crawl complete — ${healthScore}% health score`,
@@ -230,9 +251,9 @@ export async function runCrawlWithPersistence(
           totalFound: finalState.urlsTotal,
           brokenCount: finalState.urlsBroken,
           changedCount: finalState.urlsChanged,
-          sslCount: expiringSoon.length,
-          mojibakeCount: mojibakeFlagged.length,
-          llmGarbageCount: llmGarbageFlagged.length,
+          sslCount: expiringSslCount,
+          mojibakeCount,
+          llmGarbageCount,
           brokenUrls: brokenUrls.map((r) => ({ url: r.url, detail: r.error ?? `HTTP ${r.statusCode}` })),
           changedUrls: changedUrls.map((r) => ({ url: r.url })),
           sslUrls: expiringSoon.slice(0, 30)
@@ -244,30 +265,30 @@ export async function runCrawlWithPersistence(
 
     if (opts.config.crawl.detectMojibake !== false) {
       if (
-        mojibakeFlagged.length > 0 &&
+        mojibakeCount > 0 &&
         opts.notifier.isEventEnabled("onMojibakeDetected")
       ) {
         await opts.notifier.notify("onMojibakeDetected", {
           event: "onMojibakeDetected",
-          title: `${mojibakeFlagged.length} URL(s) with mojibake detected`,
-          message: `Crawl ${crawlId} found ${mojibakeFlagged.length} URLs with garbled text: ${mojibakeFlagged.slice(0, 5).join(", ")}${mojibakeFlagged.length > 5 ? "..." : ""}`,
+          title: `${mojibakeCount} URL(s) with mojibake detected`,
+          message: `Crawl ${crawlId} found ${mojibakeCount} URLs with garbled text: ${mojibakeFlagged.slice(0, 5).join(", ")}${mojibakeCount > 5 ? "..." : ""}`,
           crawlId,
-          meta: { mojibakeCount: mojibakeFlagged.length }
+          meta: { mojibakeCount }
         })
       }
     }
 
     if (opts.config.crawl.detectLlmGarbage !== false) {
       if (
-        llmGarbageFlagged.length > 0 &&
+        llmGarbageCount > 0 &&
         opts.notifier.isEventEnabled("onLlmGarbageDetected")
       ) {
         await opts.notifier.notify("onLlmGarbageDetected", {
           event: "onLlmGarbageDetected",
-          title: `${llmGarbageFlagged.length} URL(s) with LLM garbage detected`,
-          message: `Crawl ${crawlId} found ${llmGarbageFlagged.length} URLs with AI-generated artifacts: ${llmGarbageFlagged.slice(0, 5).join(", ")}${llmGarbageFlagged.length > 5 ? "..." : ""}`,
+          title: `${llmGarbageCount} URL(s) with LLM garbage detected`,
+          message: `Crawl ${crawlId} found ${llmGarbageCount} URLs with AI-generated artifacts: ${llmGarbageFlagged.slice(0, 5).join(", ")}${llmGarbageCount > 5 ? "..." : ""}`,
           crawlId,
-          meta: { llmGarbageCount: llmGarbageFlagged.length }
+          meta: { llmGarbageCount }
         })
       }
     }

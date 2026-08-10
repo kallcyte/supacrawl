@@ -21,6 +21,12 @@ const ARABIC = /[\u0600-\u06FF]/u
 const DEVANAGARI = /[\u0900-\u097F]/u
 const THAI = /[\u0E00-\u0E7F]/u
 
+// Charset models only need a prefix of the document; they don't need the whole
+// (capped) body. Sampling keeps chardet's heavy multi-model scan off most of
+// the bytes, cutting peak heap on large pages with no accuracy loss for the
+// charset verdict (which is a global property of a page).
+const CHARDET_SAMPLE_BYTES = 16 * 1024
+
 function countReplacementChars(text: string): number {
   let count = 0
   for (let i = 0; i < text.length; i++) {
@@ -44,12 +50,17 @@ function visibleLength(text: string): number {
   return len
 }
 
+/** Count matches without materializing a match array (text.match(/g) does). */
+function countRegExpMatches(s: string, re: RegExp): number {
+  re.lastIndex = 0
+  let n = 0
+  while (re.exec(s) !== null) n++
+  return n
+}
+
 function mojibakePatternDensity(text: string): number {
   let matches = 0
-  for (const pat of MOJIBAKE_PATTERNS) {
-    const m = text.match(pat)
-    if (m) matches += m.length
-  }
+  for (const pat of MOJIBAKE_PATTERNS) matches += countRegExpMatches(text, pat)
   const vl = visibleLength(text)
   if (vl === 0) return 0
   return matches / vl
@@ -91,18 +102,36 @@ function utf8HeuristicScore(text: string): number {
 
 const NON_UTF8_CONFIDENCE_THRESHOLD = 70
 
-export function detectMojibake(body: Uint8Array): MojibakeResult {
-  const results = chardet.analyse(body)
+function hasNonAscii(body: Uint8Array): boolean {
+  for (let i = 0; i < body.length; i++) {
+    if (body[i]! >= 0x80) return true
+  }
+  return false
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000
+}
+
+/**
+ * Detect UTF-8 mojibake in a (possibly capped) HTML body.
+ *
+ * `decodedText`, when provided, is the caller's already-decoded string so the
+ * heuristic doesn't re-decode the body a second time.
+ */
+export function detectMojibake(body: Uint8Array, decodedText?: string): MojibakeResult {
+  // Pure-ASCII bytes decode byte-for-byte under any single-byte charset, so
+  // they can never be mojibake. Skip chardet + heuristic + decode entirely.
+  if (!hasNonAscii(body)) return { score: 0, flagged: false }
+
+  const sample =
+    body.length > CHARDET_SAMPLE_BYTES ? body.subarray(0, CHARDET_SAMPLE_BYTES) : body
+  const results = chardet.analyse(sample)
   const top = results[0]
 
   if (!top) {
-    let text: string
-    try {
-      text = new TextDecoder("utf-8", { fatal: false }).decode(body)
-    } catch {
-      return { score: 1, flagged: true }
-    }
-    const score = Math.round(utf8HeuristicScore(text) * 1000) / 1000
+    const text = decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)
+    const score = round3(utf8HeuristicScore(text))
     return { score, flagged: score > 0.5 }
   }
 
@@ -113,13 +142,7 @@ export function detectMojibake(body: Uint8Array): MojibakeResult {
     return { score, flagged: score > 0.5 }
   }
 
-  let text: string
-  try {
-    text = new TextDecoder("utf-8", { fatal: false }).decode(body)
-  } catch {
-    return { score: 1, flagged: true }
-  }
-
-  const score = Math.round(utf8HeuristicScore(text) * 1000) / 1000
+  const text = decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)
+  const score = round3(utf8HeuristicScore(text))
   return { score, flagged: score > 0.5 }
 }

@@ -11,8 +11,12 @@ export const CrawlConfigSchema = z.object({
   maxRetries: z.number().int().nonnegative().default(2),
   detectMojibake: z.boolean().default(true),
   detectLlmGarbage: z.boolean().default(true),
-  maxBodyBytes: z.number().int().positive().default(5 * 1024 * 1024),
-  maxGlobalConcurrency: z.number().int().positive().default(100)
+  // SEO/mojibake/LLM analysis only needs the start of the page; 5MB per URL
+  // multiplied by concurrency was the dominant memory driver on large crawls.
+  maxBodyBytes: z.number().int().positive().default(256 * 1024),
+  // 32 bounds worst-case in-flight memory (bodies + decoded strings) on
+  // multi-host crawls; single-host crawls are gated by maxConcurrency anyway.
+  maxGlobalConcurrency: z.number().int().positive().default(32)
 })
 export type CrawlConfig = z.infer<typeof CrawlConfigSchema>
 
@@ -349,7 +353,7 @@ export const CrawlJobSchema = z.object({
   userAgent: z.string().min(1).default("supacrawl/0.1"),
   respectRobotsTxt: z.boolean().default(true),
   maxUrls: z.number().int().positive().default(999999),
-  maxBodyBytes: z.number().int().positive().default(5 * 1024 * 1024),
+  maxBodyBytes: z.number().int().positive().default(256 * 1024),
   notificationProviders: JobNotificationProvidersSchema.nullable().optional()
 })
 

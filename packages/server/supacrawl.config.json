@@ -40,9 +40,7 @@
         "enabled": false
       },
       "telegram": {
-        "enabled": true,
-        "botToken": "8991162021:AAEGJf2YhpufXGzMyJG1p8CIWfT3VCvP4O4",
-        "chatId": "5729122342"
+        "enabled": false
       },
       "email": {
         "enabled": false,

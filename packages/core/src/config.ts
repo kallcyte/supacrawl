@@ -28,8 +28,8 @@ export function defaultConfig(): Partial<Config> {
       maxRetries: 2,
       detectMojibake: true,
       detectLlmGarbage: true,
-      maxBodyBytes: 5 * 1024 * 1024,
-      maxGlobalConcurrency: 100
+      maxBodyBytes: 256 * 1024,
+      maxGlobalConcurrency: 32
     }
   }
 }
