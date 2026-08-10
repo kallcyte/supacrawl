@@ -3,10 +3,7 @@ import type { Config, CrawlJob, CrawlProgress, CrawlConfig, CrawlRecord, Storage
 import {
   runCrawlWithPersistence,
   Notifier as NotifierClass,
-  buildCrawlReportHtml,
-  RustCrawler,
-  getDefaultDaemonBin,
-  isRustBackend
+  buildCrawlReportHtml
 } from "@supacrawl/core"
 
 export interface StartCrawlOptions {
@@ -271,102 +268,7 @@ export class CrawlManager {
 
     tryGc()
 
-    if (isRustBackend()) {
-      const startedAt = new Date().toISOString()
-      this.storage.createCrawl(
-        {
-          id,
-          jobId: opts?.job?.id ?? null,
-          startedAt,
-          finishedAt: null,
-          status: "running",
-          urlsTotal: 0,
-          urlsChecked: 0,
-          urlsChanged: 0,
-          urlsBroken: 0,
-          urlsSkipped: 0,
-          errorMessage: null,
-        },
-        opts?.job?.id ?? undefined
-      )
-      const rustCrawler = new RustCrawler(id, {
-        daemonBin: getDefaultDaemonBin(),
-        config: {
-          crawl: crawlConfig,
-          checks: { ...this.config.checks },
-        },
-        sitemaps: opts?.job
-          ? (opts.job.sitemapUrls ?? [opts.job.sitemapUrl])
-          : this.config.sitemaps.filter((s) => s.enabled).map((s) => s.url),
-        knownHashes: this.storage.getAllUrlStates().map((s) => ({
-          url: s.url,
-          hash: s.lastContentHash ?? "",
-          has_seo: s.hasSeo,
-          last_checked_at: s.lastCheckedAt ?? null,
-          sitemap_lastmod: s.sitemapLastmod ?? null,
-        })),
-        dbPath: process.env.CRAWLER_DB_PATH ?? this.storage.dbPath,
-        abortSignal: controller.signal,
-        onProgress: (p) => {
-          this.onProgress(p)
-          this.storage.updateCrawl(p.crawlId, {
-            status: p.status,
-            urlsChecked: p.checked,
-            urlsTotal: p.total,
-          })
-        },
-        onResult: (r) => {},
-        onComplete: (record) => {
-          const status = record.status === "failed" ? "failed" : "completed"
-          this.storage.updateCrawl(id, {
-            status,
-            urlsChecked: record.urlsChecked,
-            urlsChanged: record.urlsChanged,
-            urlsBroken: record.urlsBroken,
-            urlsSkipped: record.urlsSkipped,
-            urlsTotal: record.urlsTotal,
-            finishedAt: new Date().toISOString(),
-          })
-          if (opts?.job) {
-            this.storage.updateCrawlJob(opts.job.id, {
-              lastRunAt: new Date().toISOString(),
-              lastRunStatus: status,
-            })
-          }
-          this.sendUserNotifications(id, {
-            id,
-            jobId: opts?.job?.id ?? null,
-            startedAt: new Date().toISOString(),
-            finishedAt: new Date().toISOString(),
-            status,
-            urlsTotal: record.urlsTotal,
-            urlsChecked: record.urlsChecked,
-            urlsChanged: record.urlsChanged,
-            urlsBroken: record.urlsBroken,
-            urlsSkipped: record.urlsSkipped,
-            errorMessage: record.errorMessage ?? null,
-          }).catch((err) => console.error(`[user notifications] ${err}`))
-        },
-        onError: (error) => {
-          this.markCrawlFailed(id, error, opts?.job)
-        },
-      })
 
-      rustCrawler
-        .start()
-        .catch((err) => {
-          this.markCrawlFailed(id, err, opts?.job)
-        })
-        .finally(() => {
-          this.activeCrawls.delete(id)
-          if (opts?.job) {
-            this.jobCrawlMap.delete(opts.job.id)
-          }
-          tryGc()
-        })
-
-      return id
-    }
 
     runCrawlWithPersistence({
       crawlId: id,
@@ -420,32 +322,7 @@ export class CrawlManager {
     return true
   }
 
-  private markCrawlFailed(crawlId: string, error: unknown, job?: CrawlJob): void {
-    const message =
-      error instanceof Error ? error.message : typeof error === "string" ? error : "Crawl failed"
-    this.storage.updateCrawl(crawlId, {
-      status: "failed",
-      finishedAt: new Date().toISOString(),
-      errorMessage: message
-    })
-    if (job) {
-      this.storage.updateCrawlJob(job.id, {
-        lastRunAt: new Date().toISOString(),
-        lastRunStatus: "failed"
-      })
-    }
-    this.onProgress({
-      crawlId,
-      total: 0,
-      checked: 0,
-      changed: 0,
-      broken: 0,
-      skipped: 0,
-      status: "failed",
-      startedAt: new Date().toISOString(),
-    })
-    console.error(`[crawl ${crawlId}] failed:`, error)
-  }
+
 
   async cancelJobCrawl(jobId: string): Promise<boolean> {
     const crawlId = this.jobCrawlMap.get(jobId)

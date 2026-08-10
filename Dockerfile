@@ -37,16 +37,6 @@ RUN pnpm --filter @supacrawl/core build && \
     pnpm --filter @supacrawl/dashboard build && \
     pnpm --filter @supacrawl/server build
 
-FROM rust:1-slim AS rust-builder
-WORKDIR /rust
-
-COPY crawler/ ./
-
-# Runner is Debian glibc (node:22-slim), so build the default GNU target
-# instead of musl — musl-tools only ships an i386 musl-gcc, which breaks
-# aws-lc-sys's x86_64 assembly on this image.
-RUN cargo build --release && \
-    strip target/release/crawl-daemon
 
 # trixie (glibc 2.39) is required: better-sqlite3's arm64 prebuilt links
 # GLIBC 2.38, unavailable on the default bookworm base (2.36).
@@ -65,9 +55,6 @@ COPY --from=node-builder /app/packages/server/dist /app/packages/server/dist
 COPY --from=node-builder /app/packages/dashboard/dist /app/packages/dashboard/dist
 COPY --from=node-builder /app/packages/server/supacrawl.config.json /app/packages/server/
 
-COPY --from=rust-builder /rust/target/release/crawl-daemon /usr/local/bin/crawl-daemon
-
-RUN chmod +x /usr/local/bin/crawl-daemon
 
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod --ignore-scripts
@@ -80,7 +67,6 @@ ENV NODE_ENV=production
 ENV PORT=3456
 ENV HOST=0.0.0.0
 ENV NODE_OPTIONS="--max-old-space-size=512 --expose-gc"
-ENV CRAWLER_DAEMON_BIN=/usr/local/bin/crawl-daemon
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node -e "fetch('http://localhost:3456/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(e => process.exit(1))"

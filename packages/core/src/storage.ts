@@ -261,6 +261,32 @@ export class Storage {
     if (!this.hasColumn("resource_snapshots", "external_mb")) {
       this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN external_mb REAL NOT NULL DEFAULT 0`)
     }
+    if (!this.hasColumn("resource_snapshots", "cpu_percent")) {
+      this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN cpu_percent REAL NOT NULL DEFAULT 0`)
+    }
+    if (this.hasColumn("resource_snapshots", "timestamp") && !this.hasColumn("resource_snapshots", "recorded_at")) {
+      this.db.exec(`ALTER TABLE resource_snapshots RENAME COLUMN timestamp TO recorded_at`)
+    }
+    if (!this.hasColumn("resource_snapshots", "recorded_at")) {
+      this.db.exec(`ALTER TABLE resource_snapshots ADD COLUMN recorded_at TEXT NOT NULL DEFAULT ''`)
+    }
+    if (this.hasColumn("resource_snapshots", "timestamp") && this.hasColumn("resource_snapshots", "recorded_at")) {
+      this.db.exec(`DROP INDEX IF EXISTS idx_resource_snapshots_ts`)
+      this.db.exec(`UPDATE resource_snapshots SET recorded_at = timestamp WHERE recorded_at = ''`)
+      this.db.exec(`ALTER TABLE resource_snapshots DROP COLUMN timestamp`)
+    }
+
+    if (this.hasColumn("resource_snapshots", "event_loop_lag_ms")) {
+      this.db.exec(`ALTER TABLE resource_snapshots DROP COLUMN event_loop_lag_ms`)
+    }
+
+    const expectedColumns = new Set(["id", "rss_mb", "heap_total_mb", "heap_used_mb", "external_mb", "cpu_percent", "disk_used_mb", "recorded_at"])
+    const actualColumns = this.db.prepare("PRAGMA table_info('resource_snapshots')").all() as { name: string }[]
+    for (const col of actualColumns) {
+      if (!expectedColumns.has(col.name)) {
+        this.db.exec(`ALTER TABLE resource_snapshots DROP COLUMN "${col.name}"`)
+      }
+    }
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS user_notification_settings (
       user_id TEXT PRIMARY KEY,

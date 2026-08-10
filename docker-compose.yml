@@ -11,9 +11,7 @@ services:
       - BETTER_AUTH_URL=https://supacrawl.kall.dev
       - PORT=3456
       - HOST=0.0.0.0
-      - CRAWLER_BACKEND=rust
-      - CRAWLER_DAEMON_BIN=/usr/local/bin/crawl-daemon
-      - CRAWLER_DB_PATH=/app/data/supacrawl.db
+
     volumes:
       - supacrawl-data:/app/data
     networks:
