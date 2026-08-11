@@ -1,4 +1,4 @@
-import chardet from "chardet"
+import jschardet from "jschardet"
 
 interface MojibakeResult {
   score: number
@@ -22,8 +22,8 @@ const DEVANAGARI = /[\u0900-\u097F]/u
 const THAI = /[\u0E00-\u0E7F]/u
 
 // Charset models only need a prefix of the document; they don't need the whole
-// (capped) body. Sampling keeps chardet's heavy multi-model scan off most of
-// the bytes, cutting peak heap on large pages with no accuracy loss for the
+// (capped) body. Sampling keeps charset detection heavy multi-model scan off most
+// of the bytes, cutting peak heap on large pages with no accuracy loss for the
 // charset verdict (which is a global property of a page).
 const CHARDET_SAMPLE_BYTES = 16 * 1024
 
@@ -126,8 +126,10 @@ export function detectMojibake(body: Uint8Array, decodedText?: string): Mojibake
 
   const sample =
     body.length > CHARDET_SAMPLE_BYTES ? body.subarray(0, CHARDET_SAMPLE_BYTES) : body
-  const results = chardet.analyse(sample)
-  const top = results[0]
+  // jschardet.detect returns a single { encoding, confidence } result.
+  // Wrap in array shape to match the old chardet.analyse() contract.
+  const detected = jschardet.detect(Buffer.from(sample))
+  const top = detected.encoding ? { name: detected.encoding, confidence: detected.confidence } : null
 
   if (!top) {
     const text = decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)

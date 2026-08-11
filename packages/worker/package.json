@@ -1,0 +1,23 @@
+{
+  "name": "@supacrawl/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@supacrawl/core": "workspace:*",
+    "better-auth": "^1.2.5",
+    "hono": "^4.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250806.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.120.1"
+  }
+}

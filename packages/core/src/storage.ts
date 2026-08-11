@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 import BetterSqlite3 from "better-sqlite3"
@@ -294,9 +293,14 @@ export class Storage {
       telegram TEXT NOT NULL DEFAULT '{}',
       email TEXT NOT NULL DEFAULT '{}',
       webhook TEXT NOT NULL DEFAULT '{}',
+      teams TEXT NOT NULL DEFAULT '{}',
       enabled_events TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL
     )`)
+
+    if (!this.hasColumn("user_notification_settings", "teams")) {
+      this.db.exec(`ALTER TABLE user_notification_settings ADD COLUMN teams TEXT NOT NULL DEFAULT '{}'`)
+    }
   }
 
   close(): void {
@@ -653,7 +657,7 @@ export class Storage {
     const tx = this.db.transaction(() => {
       for (const job of jobs) {
         insert.run(
-          randomUUID(), job.name, job.sitemapUrl,
+          crypto.randomUUID(), job.name, job.sitemapUrl,
           job.sitemapUrls ? JSON.stringify(job.sitemapUrls) : null,
           job.enabled ? 1 : 0,
           job.intervalValue, job.intervalUnit,
@@ -832,7 +836,7 @@ export class Storage {
       source: "manual",
       jobId: null,
       ...patch,
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       createdAt: now,
       updatedAt: now
     }
@@ -1280,13 +1284,14 @@ export class Storage {
     this.db
       .prepare(
         `INSERT INTO user_notification_settings
-         (user_id, slack, telegram, email, webhook, enabled_events, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+         (user_id, slack, telegram, email, webhook, teams, enabled_events, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET
            slack = excluded.slack,
            telegram = excluded.telegram,
            email = excluded.email,
            webhook = excluded.webhook,
+           teams = excluded.teams,
            enabled_events = excluded.enabled_events,
            updated_at = excluded.updated_at`
       )
@@ -1296,6 +1301,7 @@ export class Storage {
         JSON.stringify(settings.telegram),
         JSON.stringify(settings.email),
         JSON.stringify(settings.webhook),
+        JSON.stringify(settings.teams),
         JSON.stringify(settings.enabledEvents),
         now
       )
@@ -1315,7 +1321,7 @@ export class Storage {
   }
 
   insertResourceSnapshot(snapshot: Omit<ResourceSnapshot, "id">): void {
-    const id = randomUUID()
+    const id = crypto.randomUUID()
     this.db
       .prepare(
         `INSERT INTO resource_snapshots (id, rss_mb, heap_total_mb, heap_used_mb, external_mb, cpu_percent, disk_used_mb, recorded_at)
@@ -1472,6 +1478,7 @@ function mapUserNotificationSettings(row: Record<string, unknown>): UserNotifica
     telegram: parseJson(row.telegram, { enabled: false }) as UserNotificationSettings["telegram"],
     email: parseJson(row.email, { enabled: false }) as UserNotificationSettings["email"],
     webhook: parseJson(row.webhook, { enabled: false }) as UserNotificationSettings["webhook"],
+    teams: parseJson(row.teams, { enabled: false }) as UserNotificationSettings["teams"],
     enabledEvents: parseJson(row.enabled_events, {
       onCrawlFailure: false,
       onContentChange: false,

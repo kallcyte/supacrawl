@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
-import { authClient, signIn } from "@/lib/auth-client"
+import { signIn } from "@/lib/auth-client"
 import { api } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -41,15 +41,12 @@ export default function LoginPage() {
         setError((result as { error: { message?: string } }).error.message ?? "Login failed")
         return
       }
-      // Wait for the session cookie to propagate before navigating.
-      // If we navigate immediately, the target page's session check may fail
-      // because the browser hasn't attached the cookie to the next request yet.
-      const { data } = await authClient.getSession()
-      if (data) {
-        navigate(from, { replace: true })
-      } else {
-        setError("Session could not be established. Please try again.")
-      }
+      // The session cookie is set by the Set-Cookie header in the signIn
+      // response. Navigate immediately — RequireAuth's useSession() will
+      // validate on the next render and the browser will attach the cookie
+      // to that request. An extra getSession() round-trip here causes a race
+      // where the dashboard sometimes fails to detect the session.
+      navigate(from, { replace: true })
     } catch (err) {
       setError((err as Error).message)
     } finally {

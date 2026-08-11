@@ -1,5 +1,4 @@
 import robotsParser from "robots-parser"
-import { URL } from "node:url"
 
 export interface RobotsResult {
   allowed: (url: string) => boolean

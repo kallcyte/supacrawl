@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto"
 import { NotificationProvider, NotificationError } from "./types.js"
 import type { NotificationPayload, WebhookConfig } from "../types.js"
 
@@ -18,7 +17,7 @@ export class WebhookProvider implements NotificationProvider {
       "User-Agent": "supacrawl/0.1"
     }
     if (this.config.secret) {
-      const sig = createHmac("sha256", this.config.secret).update(body).digest("hex")
+      const sig = await hmacSha256Hex(this.config.secret, body)
       headers["X-Supacrawl-Signature"] = `sha256=${sig}`
     }
     const res = await fetch(this.url, { method: "POST", headers, body })
@@ -39,4 +38,22 @@ export class WebhookProvider implements NotificationProvider {
       return { ok: false, error: (err as Error).message }
     }
   }
+}
+
+/**
+ * HMAC-SHA256 using Web Crypto API.
+ */
+async function hmacSha256Hex(secret: string, data: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  )
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(data))
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
 }

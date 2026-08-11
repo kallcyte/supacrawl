@@ -1,5 +1,3 @@
-import { URL } from "node:url"
-import { createHash } from "node:crypto"
 import { checkSsl } from "./ssl.js"
 import { detectMojibake } from "./mojibake.js"
 import { detectLlmGarbage } from "./llm-garbage.js"
@@ -24,13 +22,11 @@ async function readBodyCapped(
   res: Response,
   maxBytes: number
 ): Promise<BodyRead> {
-  const hash = createHash("sha256")
   const chunks: Uint8Array[] = []
   let total = 0
   let truncated = false
 
   const pushChunk = (value: Uint8Array): void => {
-    hash.update(value)
     const remaining = maxBytes - total
     if (remaining <= 0) {
       truncated = true
@@ -73,7 +69,11 @@ async function readBodyCapped(
     out.set(c, off)
     off += c.length
   }
-  return { body: out, hash: hash.digest("hex"), truncated }
+
+  const hashBuffer = await crypto.subtle.digest("SHA-256", out)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  return { body: out, hash, truncated }
 }
 
 function effectiveMethod(

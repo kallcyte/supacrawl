@@ -66,12 +66,19 @@ export const WebhookConfigSchema = z.object({
 })
 export type WebhookConfig = z.infer<typeof WebhookConfigSchema>
 
+export const TeamsConfigSchema = z.object({
+  enabled: z.boolean(),
+  webhookUrl: z.string().optional()
+})
+export type TeamsConfig = z.infer<typeof TeamsConfigSchema>
+
 export const NotificationsConfigSchema = z.object({
   providers: z.object({
     slack: SlackConfigSchema,
     telegram: TelegramConfigSchema,
     email: EmailConfigSchema,
-    webhook: WebhookConfigSchema
+    webhook: WebhookConfigSchema,
+    teams: TeamsConfigSchema.default({ enabled: false })
   }),
   events: z.object({
     onCrawlFailure: z.boolean().default(true),
@@ -325,6 +332,10 @@ export const JobNotificationProvidersSchema = z.object({
     enabled: z.boolean(),
     url: z.string().optional(),
     secret: z.string().optional()
+  }).optional(),
+  teams: z.object({
+    enabled: z.boolean(),
+    webhookUrl: z.string().optional()
   }).optional()
 })
 
@@ -425,6 +436,7 @@ export interface UserNotificationSettings {
   telegram: { enabled: boolean; botToken?: string; chatId?: string }
   email: { enabled: boolean; smtp?: { host?: string; port?: number; secure?: boolean; user?: string; pass?: string }; from?: string; to?: string[] }
   webhook: { enabled: boolean; url?: string; secret?: string }
+  teams: { enabled: boolean; webhookUrl?: string }
   enabledEvents: {
     onCrawlFailure: boolean
     onContentChange: boolean

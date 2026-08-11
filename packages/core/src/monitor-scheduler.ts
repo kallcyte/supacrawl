@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import { checkMonitor } from "./monitor.js"
 import type { Storage } from "./storage.js"
 import { Notifier } from "./notifier/index.js"
@@ -67,7 +66,7 @@ export class MonitorScheduler {
       const previous = this.opts.storage.getLatestHeartbeat(m.id)
       const result = await checkMonitor(m, { fetchImpl: this.opts.fetchImpl })
       const heartbeat: Heartbeat = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         monitorId: m.id,
         status: result.status,
         responseTimeMs: result.responseTimeMs,

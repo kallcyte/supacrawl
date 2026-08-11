@@ -9,5 +9,5 @@ export default defineConfig({
   target: "node22",
   splitting: false,
   shims: false,
-  external: ["better-sqlite3", "nodemailer"]
+  external: ["better-sqlite3"]
 })

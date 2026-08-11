@@ -253,7 +253,7 @@ function chartRelsXml(): string {
 </Relationships>`
 }
 
-function drawingXml(barAnchor: DrawingAnchor, donutAnchor: DrawingAnchor | null): string {
+function drawingXml(barAnchor: DrawingAnchor | null, donutAnchor: DrawingAnchor | null): string {
   const frame = (id: number, name: string, anchor: DrawingAnchor, rId: string): string =>
     `<xdr:twoCellAnchor>
       <xdr:from>
@@ -286,7 +286,7 @@ function drawingXml(barAnchor: DrawingAnchor, donutAnchor: DrawingAnchor | null)
       <xdr:clientData/>
     </xdr:twoCellAnchor>`
 
-  const bar = frame(2, "Chart 1", barAnchor, "rId1")
+  const bar = barAnchor ? frame(2, "Chart 1", barAnchor, "rId1") : ""
   const donut = donutAnchor ? frame(3, "Chart 2", donutAnchor, "rId2") : ""
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -296,13 +296,15 @@ function drawingXml(barAnchor: DrawingAnchor, donutAnchor: DrawingAnchor | null)
 </xdr:wsDr>`
 }
 
-function drawingRelsXml(hasDonut: boolean): string {
+function drawingRelsXml(hasBar: boolean, hasDonut: boolean): string {
+  const bar = hasBar
+    ? `\n  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>`
+    : ""
   const donut = hasDonut
     ? `\n  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart2.xml"/>`
     : ""
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="${NS.rel}">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>${donut}
+<Relationships xmlns="${NS.rel}">${bar}${donut}
 </Relationships>`
 }
 
@@ -334,6 +336,13 @@ async function injectNativeCharts(
     hasDonut: boolean
   }
 ): Promise<ArrayBuffer> {
+  // Nothing to inject if neither chart has data — skip the drawing part
+  // entirely. Emitting an empty drawing with dangling chart references
+  // produces a ZIP that Excel refuses to open ("file is corrupt").
+  if (!spec.hasBar && !spec.hasDonut) {
+    return buffer
+  }
+
   const zip = new JSZip()
   await zip.loadAsync(buffer)
 
@@ -347,14 +356,17 @@ async function injectNativeCharts(
     zip.file("xl/charts/_rels/chart2.xml.rels", chartRelsXml())
   }
 
-  // 2. Drawing part (anchors both charts)
+  // 2. Drawing part (anchors whichever charts exist)
   const barAnchor: DrawingAnchor = { fromCol: 0, fromRow: 37, toCol: 5, toRow: 55 }
   const donutAnchor: DrawingAnchor = { fromCol: 0, fromRow: 56, toCol: 5, toRow: 76 }
   zip.file(
     "xl/drawings/drawing1.xml",
-    drawingXml(barAnchor, spec.hasDonut ? donutAnchor : null)
+    drawingXml(
+      spec.hasBar ? barAnchor : null,
+      spec.hasDonut ? donutAnchor : null
+    )
   )
-  zip.file("xl/drawings/_rels/drawing1.xml.rels", drawingRelsXml(spec.hasDonut))
+  zip.file("xl/drawings/_rels/drawing1.xml.rels", drawingRelsXml(spec.hasBar, spec.hasDonut))
 
   // 3. Sheet drawing reference
   const sheet1 = await zip.file("xl/worksheets/sheet1.xml")!.async("string")
@@ -633,7 +645,23 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
   const hasDonut = issueChart.length > 0
 
   const raw = await wb.xlsx.writeBuffer()
-  const buffer = raw instanceof ArrayBuffer ? raw : await new Blob([raw as Blob]).arrayBuffer()
+  // ExcelJS returns:
+  //   - ArrayBuffer in the browser bundle
+  //   - Node Buffer (a Uint8Array subclass) when bundled via esbuild for SSR
+  // Normalize both to an ArrayBuffer for downstream consumers (FileSaver,
+  // fetch POSTs, etc). The previous Blob([raw]) fallback silently produced
+  // a 0-byte file when raw was a Node Buffer in the browser.
+  // ExcelJS's ambient type declares Buffer extends ArrayBuffer, so TS narrows
+  // raw to `never` after the ArrayBuffer check. Cast through unknown first.
+  const rawBytes = raw as unknown
+  let buffer: ArrayBuffer
+  if (rawBytes instanceof ArrayBuffer && !(rawBytes instanceof SharedArrayBuffer)) {
+    buffer = rawBytes
+  } else if (rawBytes instanceof Uint8Array) {
+    buffer = rawBytes.buffer.slice(rawBytes.byteOffset, rawBytes.byteOffset + rawBytes.byteLength) as ArrayBuffer
+  } else {
+    buffer = await new Response(rawBytes as BodyInit).arrayBuffer()
+  }
 
   return await injectNativeCharts(buffer, {
     distStart: distStart + 2,

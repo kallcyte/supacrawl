@@ -1,5 +1,4 @@
 import pLimit from "p-limit"
-import { URL } from "node:url"
 import { fetchAndParseSitemap } from "./sitemap.js"
 import { fetchAndParseRobots, type RobotsResult } from "./robots.js"
 import { checkUrl, buildLastmodMap } from "./checker.js"

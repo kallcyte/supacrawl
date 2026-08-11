@@ -1,5 +1,4 @@
 import { connect as tlsConnect } from "node:tls"
-import { URL } from "node:url"
 
 export interface SslInfo {
   validUntil: string

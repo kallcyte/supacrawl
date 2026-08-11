@@ -5,6 +5,8 @@ dist
 .DS_Store
 .env
 .env.local
+.env.dev.vars
+.env.production.vars
 data/
 *.db
 *.db-journal
@@ -13,5 +15,7 @@ coverage/
 .idea/
 *.tsbuildinfo
 supacrawl.config.json
+.wrangler/
+worker-configuration.d.ts
 
 crawler/target/

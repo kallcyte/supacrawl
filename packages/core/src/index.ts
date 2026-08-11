@@ -23,7 +23,7 @@ export {
   NotificationError,
   SlackProvider,
   TelegramProvider,
-  EmailProvider,
+  TeamsProvider,
   WebhookProvider
 } from "./notifier/index.js"
 export type { NotificationProvider } from "./notifier/index.js"

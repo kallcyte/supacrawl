@@ -8,9 +8,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm -r build",
-    "dev": "pnpm --filter @supacrawl/core build && concurrently --raw -n server,dashboard -c blue,green \"pnpm --filter @supacrawl/server dev\" \"pnpm --filter @supacrawl/dashboard dev\"",
-    "dev:server": "pnpm --filter @supacrawl/core build && pnpm --filter @supacrawl/server dev",
+    "build": "pnpm --filter @supacrawl/core build && pnpm --filter @supacrawl/dashboard build",
+    "dev": "pnpm --filter @supacrawl/core build && concurrently --raw -n worker,dashboard -c blue,green \"pnpm --filter @supacrawl/worker dev\" \"pnpm --filter @supacrawl/dashboard dev\"",
+    "dev:worker": "pnpm --filter @supacrawl/core build && pnpm --filter @supacrawl/worker dev",
     "dev:dashboard": "pnpm --filter @supacrawl/dashboard dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import { Storage } from "./storage.js"
 import { runCrawl } from "./crawler.js"
 import { Notifier } from "./notifier/index.js"
@@ -21,7 +20,7 @@ export interface OrchestratorOptions {
 export async function runCrawlWithPersistence(
   opts: OrchestratorOptions
 ): Promise<{ crawlId: string; record: CrawlRecord }> {
-  const crawlId = opts.crawlId ?? randomUUID()
+  const crawlId = opts.crawlId ?? crypto.randomUUID()
   const startedAt = new Date().toISOString()
   const initialRecord: CrawlRecord = {
     id: crawlId,
@@ -136,7 +135,7 @@ export async function runCrawlWithPersistence(
           llmGarbageCount++
           if (llmGarbageFlaggedUrls.length < SSL_CAP) llmGarbageFlaggedUrls.push(r.url)
         }
-        const id = randomUUID()
+        const id = crypto.randomUUID()
         opts.storage.insertResult({
           id,
           crawlId,

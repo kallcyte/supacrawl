@@ -5,7 +5,6 @@ import { admin } from "better-auth/plugins"
 export interface AuthOptions {
   databasePath: string
   github?: { clientId: string; clientSecret: string }
-  smtp?: { host: string; port: number; user: string; pass: string; from: string }
   secret?: string
   baseUrl?: string
   trustedOrigins?: string[]
@@ -46,22 +45,7 @@ export function createAuth(opts: AuthOptions): ReturnType<typeof betterAuth> {
       enabled: true,
       requireEmailVerification: false,
       sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-        if (opts.smtp) {
-          const nodemailer = await import("nodemailer")
-          const transport = nodemailer.default.createTransport({
-            host: opts.smtp.host,
-            port: opts.smtp.port,
-            auth: { user: opts.smtp.user, pass: opts.smtp.pass }
-          })
-          await transport.sendMail({
-            from: opts.smtp.from,
-            to: user.email,
-            subject: "Reset your supacrawl password",
-            text: `Click to reset your password: ${url}`
-          })
-        } else {
-          console.log(`[supacrawl] Password reset for ${user.email}: ${url}`)
-        }
+        console.log(`[supacrawl] Password reset for ${user.email}: ${url}`)
       }
     },
     socialProviders: opts.github

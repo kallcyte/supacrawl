@@ -1,0 +1,55 @@
+name = "supacrawl"
+main = "src/index.ts"
+compatibility_date = "2025-08-06"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "supacrawl"
+database_id = "eafcfd50-33f8-4726-ae8d-7ad9d8f2af93"
+
+[[queues.producers]]
+binding = "CRAWL_QUEUE"
+queue = "supacrawl-crawl"
+
+[[queues.consumers]]
+queue = "supacrawl-crawl"
+handler = "queue"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 5
+max_retries = 3
+dead_letter_queue = "supacrawl-crawl-dlq"
+
+[[queues.producers]]
+binding = "CRAWL_DLQ"
+queue = "supacrawl-crawl-dlq"
+
+# Cron trigger — runs every 60s for job scheduling + monitor probes
+[triggers]
+crons = ["* * * * *"]
+
+# Static assets for the SPA dashboard
+[assets]
+directory = "../dashboard/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[durable_objects.bindings]]
+name = "CRAWL_SESSION"
+class_name = "CrawlSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CrawlSession"]
+
+[vars]
+BETTER_AUTH_URL = "https://supacrawl.tawakalisme.workers.dev"
+BETTER_AUTH_TRUSTED_ORIGINS = "https://supacrawl.tawakalisme.workers.dev"
+
+[env.production.vars]
+BETTER_AUTH_URL = "https://supacrawl.tawakalisme.workers.dev"
+BETTER_AUTH_TRUSTED_ORIGINS = "https://supacrawl.tawakalisme.workers.dev"
