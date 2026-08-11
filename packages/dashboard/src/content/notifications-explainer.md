@@ -13,7 +13,7 @@ Turn on or off which events produce a notification:
 - **Crawl completed** — a crawl run finished.
 - **Mojibake (encoding issues)** — garbled, encoding-corrupted text was found.
 - **LLM Garbage (AI artifacts)** — placeholder tokens, AI refusal text, or prompt leaks detected.
-- **Crawl progress** — periodic updates during a crawl.
+- **Crawl progress** — legacy toggle that no longer sends notifications; it's kept in the UI for compatibility but nothing is fired for it.
 - **Monitor went down** — an uptime monitor failed its check.
 - **Monitor recovered** — an uptime monitor is back up.
 

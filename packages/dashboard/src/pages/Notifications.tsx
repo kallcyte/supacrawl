@@ -84,7 +84,10 @@ export default function NotificationsPage() {
   async function test(name: string) {
     setTestResult((p) => ({ ...p, [name]: null }))
     try {
-      const r = await api.testNotifier(name)
+      // Send the current (possibly unsaved) draft config so the server tests
+      // with the credentials the user just entered, not the last saved ones.
+      const provider = draft?.providers[name as keyof typeof draft.providers]
+      const r = await api.testNotifier(name, provider)
       setTestResult((p) => ({ ...p, [name]: r }))
     } catch (err) {
       setTestResult((p) => ({ ...p, [name]: { ok: false, error: (err as Error).message } }))

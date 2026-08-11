@@ -41,3 +41,16 @@ export function formatLocalTime(iso: string | null | undefined): string {
 export function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s
 }
+
+/**
+ * Build a favicon URL for a site URL using Google's favicon service.
+ * Falls back to the domain's /favicon.ico if the URL is invalid.
+ */
+export function faviconUrl(url: string): string {
+  try {
+    const domain = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+  } catch {
+    return ""
+  }
+}

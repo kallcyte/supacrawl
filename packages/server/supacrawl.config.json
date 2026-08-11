@@ -22,7 +22,10 @@
     "maxUrls": 999999,
     "retryOnTransientError": true,
     "maxRetries": 2,
-    "detectMojibake": true
+    "detectMojibake": true,
+    "detectLlmGarbage": true,
+    "maxBodyBytes": 262144,
+    "maxGlobalConcurrency": 32
   },
   "checks": {
     "ssl": {
@@ -40,14 +43,19 @@
         "enabled": false
       },
       "telegram": {
-        "enabled": false
+        "enabled": true,
+        "botToken": "8991162021:AAEGJf2YhpufXGzMyJG1p8CIWfT3VCvP4O4",
+        "chatId": "5729122342"
       },
       "email": {
-        "enabled": false,
+        "enabled": true,
         "smtp": {
-          "user": "tawakalisme@gmail.com",
-          "pass": "1n1p455w0rd"
+          "host": "smtp.resend.com",
+          "port": 587,
+          "user": "resend",
+          "pass": "re_L6fnT2jP_PTPV3yR5kXPDHkycALWQTDKg"
         },
+        "from": "no-reply@kall.dev",
         "to": []
       },
       "webhook": {
@@ -60,7 +68,10 @@
       "onSslExpiring": true,
       "onCrawlComplete": true,
       "onMojibakeDetected": true,
-      "onCrawlProgress": true
+      "onLlmGarbageDetected": false,
+      "onCrawlProgress": true,
+      "onMonitorDown": true,
+      "onMonitorRecovery": true
     }
   }
 }

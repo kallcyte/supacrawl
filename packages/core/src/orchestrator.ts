@@ -12,10 +12,13 @@ export interface OrchestratorOptions {
   crawlId?: string
   sitemaps?: string[]
   jobId?: string
+  jobName?: string
   onProgress?: (progress: import("./types.js").CrawlProgress) => void
   onResult?: (result: CheckResult) => void
   fetchImpl?: typeof fetch
   abortSignal?: AbortSignal
+  /** Public base URL of the app (e.g. BETTER_AUTH_URL). Used to build crawl detail links in notifications. */
+  baseUrl?: string
 }
 
 export async function runCrawlWithPersistence(
@@ -46,6 +49,9 @@ export async function runCrawlWithPersistence(
   }
 
   try {
+    const crawlUrl = opts.baseUrl
+      ? `${opts.baseUrl.replace(/\/$/, "")}/crawls/${crawlId}`
+      : undefined
     const enabledSitemaps = opts.sitemaps ?? opts.config.sitemaps
       .filter((s) => s.enabled)
       .map((s) => s.url)
@@ -67,10 +73,6 @@ export async function runCrawlWithPersistence(
     let mojibakeCount = 0
     let llmGarbageCount = 0
 
-    // Progress milestones: fire onCrawlProgress at 25%, 50%, 75%
-    const progressMilestones = new Set([25, 50, 75])
-    const progressFired = new Set<number>()
-
     const { errors: crawlErrors } = await runCrawl({
       crawlId,
       config: opts.config.crawl,
@@ -85,28 +87,6 @@ export async function runCrawlWithPersistence(
           urlsSkipped: p.skipped
         })
         opts.onProgress?.(p)
-
-        // Check milestones
-        if (p.total > 0 && opts.notifier.isEventEnabled("onCrawlProgress")) {
-          const pct = Math.floor((p.checked / p.total) * 100)
-          for (const m of progressMilestones) {
-            if (pct >= m && !progressFired.has(m)) {
-              progressFired.add(m)
-              const barLen = 20
-              const filled = Math.round((pct / 100) * barLen)
-              const bar = "█".repeat(filled) + "░".repeat(barLen - filled)
-              const elapsed = Date.now() - Date.parse(startedAt)
-              const eta = pct > 0 ? Math.round((elapsed / pct) * (100 - pct)) : 0
-              opts.notifier.notify("onCrawlProgress", {
-                event: "onCrawlProgress",
-                title: `Crawl ${pct}% complete`,
-                message: `\`\`\`\n${bar}\n\`\`\`\n${p.checked}/${p.total} URLs checked · ${p.broken} broken · ${p.changed} changed\nRemaining: ~${formatDuration(eta)}`,
-                crawlId,
-                meta: { percent: m, checked: p.checked, total: p.total, broken: p.broken, changed: p.changed }
-              })
-            }
-          }
-        }
       },
       onEntries: (entries) => {
         lastmodMap = new Map(entries.map((e) => [e.loc, e.lastmod]))
@@ -194,6 +174,8 @@ export async function runCrawlWithPersistence(
         title: `Crawl found ${finalState.urlsBroken} broken URL(s)`,
         message: `Crawl ${crawlId} completed with ${finalState.urlsBroken} broken links out of ${finalState.urlsChecked} checked.`,
         crawlId,
+        crawlName: opts.jobName,
+        crawlUrl,
         meta: { broken: finalState.urlsBroken, checked: finalState.urlsChecked }
       })
     }
@@ -204,6 +186,8 @@ export async function runCrawlWithPersistence(
         title: `Crawl detected ${finalState.urlsChanged} content change(s)`,
         message: `Crawl ${crawlId} detected ${finalState.urlsChanged} URLs with content changes.`,
         crawlId,
+        crawlName: opts.jobName,
+        crawlUrl,
         meta: { changed: finalState.urlsChanged }
       })
     }
@@ -221,6 +205,8 @@ export async function runCrawlWithPersistence(
         title: `${expiringSslCount} SSL cert(s) expiring soon`,
         message: `URLs with expiring certificates: ${expiringSoon.slice(0, 5).join(", ")}${expiringSslCount > 5 ? "..." : ""}`,
         crawlId,
+        crawlName: opts.jobName,
+        crawlUrl,
         meta: { count: expiringSslCount }
       })
     }
@@ -259,6 +245,8 @@ export async function runCrawlWithPersistence(
           sslUrls: expiringSoon.slice(0, 30)
         }),
         crawlId,
+        crawlName: opts.jobName,
+        crawlUrl,
         meta: { healthScore, broken: finalState.urlsBroken, changed: finalState.urlsChanged, skipped: finalState.urlsSkipped }
       })
     }
@@ -273,6 +261,8 @@ export async function runCrawlWithPersistence(
           title: `${mojibakeCount} URL(s) with mojibake detected`,
           message: `Crawl ${crawlId} found ${mojibakeCount} URLs with garbled text: ${mojibakeFlagged.slice(0, 5).join(", ")}${mojibakeCount > 5 ? "..." : ""}`,
           crawlId,
+          crawlName: opts.jobName,
+          crawlUrl,
           meta: { mojibakeCount }
         })
       }
@@ -288,6 +278,8 @@ export async function runCrawlWithPersistence(
           title: `${llmGarbageCount} URL(s) with LLM garbage detected`,
           message: `Crawl ${crawlId} found ${llmGarbageCount} URLs with AI-generated artifacts: ${llmGarbageFlagged.slice(0, 5).join(", ")}${llmGarbageCount > 5 ? "..." : ""}`,
           crawlId,
+          crawlName: opts.jobName,
+          crawlUrl,
           meta: { llmGarbageCount }
         })
       }
@@ -305,13 +297,4 @@ export async function runCrawlWithPersistence(
     })
     throw err
   }
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  const s = Math.floor(ms / 1000)
-  if (s < 60) return `${s}s`
-  const m = Math.floor(s / 60)
-  const rs = s % 60
-  return `${m}m${rs}s`
 }

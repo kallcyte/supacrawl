@@ -284,8 +284,11 @@ export const api = {
   getNotifiers: () => request<{ enabled: string[]; config: unknown }>("/api/notifiers"),
   updateNotifiers: (body: unknown) =>
     request<{ ok: boolean; error?: string }>("/api/notifiers", { method: "PUT", body: JSON.stringify(body) }),
-  testNotifier: (name: string) =>
-    request<{ ok: boolean; error?: string }>(`/api/notifiers/${name}/test`, { method: "POST" }),
+  testNotifier: (name: string, config?: unknown) =>
+    request<{ ok: boolean; error?: string }>(`/api/notifiers/${name}/test`, {
+      method: "POST",
+      body: config ? JSON.stringify({ config }) : undefined
+    }),
   listUsers: () => request<{ users: User[] } | User[]>("/api/admin/users"),
   createUser: (body: { email: string; password: string; name?: string; role: "admin" | "user" }) =>
     request<{ user: User }>("/api/admin/users", { method: "POST", body: JSON.stringify(body) }),

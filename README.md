@@ -1,7 +1,7 @@
 # SupaCrawl
 
 Sitemap-based website monitoring with DDoS-safe crawling, uptime monitoring, and
-change detection. Monorepo with core, server, dashboard, and CLI packages.
+change detection. Monorepo with core, server, and dashboard packages.
 
 ## Features
 
@@ -12,8 +12,7 @@ change detection. Monorepo with core, server, dashboard, and CLI packages.
 - **Notifications** — Slack, Telegram, Email, and Webhook alerts on crawl
   failures, content changes, SSL expiry, and monitor down/recovery.
 - **Dashboard** — web UI for managing jobs and monitors, browsing URL history,
-  and reviewing per-crawl reports (PDF export).
-- **CLI** — one-off crawls, scheduled runs, config management, and admin setup.
+  and reviewing per-crawl reports (Excel .xlsx export).
 
 ## Requirements
 
@@ -36,23 +35,6 @@ For hot-reload dashboard development on port 5173 (proxying to the server on 345
 
 ```bash
 pnpm dev:dashboard
-```
-
-## CLI
-
-Build the CLI first, then run commands directly:
-
-```bash
-pnpm --filter @supacrawl/cli build
-node packages/cli/dist/index.js <command>
-
-Commands:
-  bootstrap   Create the first admin user
-  crawl       Run a one-off crawl
-  schedule    Run scheduled crawls from a cron expression
-  serve       Start the API + dashboard server
-  config      Show or edit configuration
-  user        Manage users
 ```
 
 ## Configuration
@@ -97,5 +79,4 @@ packages/
   core/        Shared types, storage (SQLite), crawler, notifier, monitor scheduler
   server/      Fastify HTTP server, auth, API routes, dashboard hosting
   dashboard/   React + Vite web app
-  cli/         CLI entry point
 ```

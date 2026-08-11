@@ -20,7 +20,7 @@ const BUCKET_COLORS: Record<string, string> = {
 }
 const BUCKET_ORDER = ["1xx", "2xx", "3xx", "4xx", "5xx", "error"]
 
-const ISSUE_COLORS = ["DC2626", "EA580C", "D97706", "9333EA", "0891B2"]
+const ISSUE_COLORS = ["DC2626", "EA580C", "D97706", "0014CC", "0891B2"]
 
 // ---- Worksheet helpers ----------------------------------------------------
 function addHeaderRow(
@@ -173,13 +173,13 @@ function barChartXml(
         <c:scaling><c:orientation val="minMax"/></c:scaling>
         <c:delete val="0"/>
         <c:axPos val="l"/>
-        <c:crossAx val="1601547776"/>
-        <c:crosses val="autoZero"/>
         <c:majorGridlines/>
         <c:numFmt formatCode="General" sourceLinked="1"/>
         <c:majorTickMark val="out"/>
         <c:minorTickMark val="none"/>
         <c:tickLblPos val="nextTo"/>
+        <c:crossAx val="1601547776"/>
+        <c:crosses val="autoZero"/>
         <c:crossBetween val="between"/>
       </c:valAx>
     </c:plotArea>
@@ -253,7 +253,7 @@ function chartRelsXml(): string {
 </Relationships>`
 }
 
-function drawingXml(barAnchor: DrawingAnchor, donutAnchor: DrawingAnchor | null): string {
+function drawingXml(barAnchor: DrawingAnchor | null, donutAnchor: DrawingAnchor | null): string {
   const frame = (id: number, name: string, anchor: DrawingAnchor, rId: string): string =>
     `<xdr:twoCellAnchor>
       <xdr:from>
@@ -286,23 +286,27 @@ function drawingXml(barAnchor: DrawingAnchor, donutAnchor: DrawingAnchor | null)
       <xdr:clientData/>
     </xdr:twoCellAnchor>`
 
-  const bar = frame(2, "Chart 1", barAnchor, "rId1")
+  const bar = barAnchor ? frame(2, "Chart 1", barAnchor, "rId1") : ""
   const donut = donutAnchor ? frame(3, "Chart 2", donutAnchor, "rId2") : ""
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<xdr:wsDr xmlns:xdr="${NS.xdr}" xmlns:a="${NS.a}">
+<xdr:wsDr xmlns:xdr="${NS.xdr}" xmlns:a="${NS.a}" xmlns:r="${NS.r}">
   ${bar}
   ${donut}
 </xdr:wsDr>`
 }
 
-function drawingRelsXml(hasDonut: boolean): string {
-  const donut = hasDonut
-    ? `\n  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart2.xml"/>`
-    : ""
+function drawingRelsXml(hasBar: boolean, hasDonut: boolean): string {
+  const parts = []
+  if (hasBar) {
+    parts.push('<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>')
+  }
+  if (hasDonut) {
+    parts.push('<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart2.xml"/>')
+  }
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="${NS.rel}">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>${donut}
+  ${parts.join("\n  ")}
 </Relationships>`
 }
 
@@ -337,6 +341,9 @@ async function injectNativeCharts(
   const zip = new JSZip()
   await zip.loadAsync(buffer)
 
+  // No charts to show — leave the plain ExcelJS workbook untouched.
+  if (!spec.hasBar && !spec.hasDonut) return buffer
+
   // 1. Chart parts
   if (spec.hasBar) {
     zip.file("xl/charts/chart1.xml", barChartXml(spec.distStart, spec.distDataEnd, spec.distColors))
@@ -348,13 +355,17 @@ async function injectNativeCharts(
   }
 
   // 2. Drawing part (anchors both charts)
-  const barAnchor: DrawingAnchor = { fromCol: 0, fromRow: 37, toCol: 5, toRow: 55 }
-  const donutAnchor: DrawingAnchor = { fromCol: 0, fromRow: 56, toCol: 5, toRow: 76 }
+  const barAnchor: DrawingAnchor | null = spec.hasBar
+    ? { fromCol: 0, fromRow: 37, toCol: 5, toRow: 55 }
+    : null
+  const donutAnchor: DrawingAnchor | null = spec.hasDonut
+    ? { fromCol: 0, fromRow: 56, toCol: 5, toRow: 76 }
+    : null
   zip.file(
     "xl/drawings/drawing1.xml",
-    drawingXml(barAnchor, spec.hasDonut ? donutAnchor : null)
+    drawingXml(barAnchor, donutAnchor)
   )
-  zip.file("xl/drawings/_rels/drawing1.xml.rels", drawingRelsXml(spec.hasDonut))
+  zip.file("xl/drawings/_rels/drawing1.xml.rels", drawingRelsXml(spec.hasBar, spec.hasDonut))
 
   // 3. Sheet drawing reference
   const sheet1 = await zip.file("xl/worksheets/sheet1.xml")!.async("string")
@@ -380,19 +391,21 @@ async function injectNativeCharts(
   // 5. Content types
   const contentTypePath = "[Content_Types].xml"
   const contentTypes = await zip.file(contentTypePath)!.async("string")
-  let newContentTypes = contentTypes.replace(
-    "</Types>",
+  const withContentType = (xml: string, override: string): string =>
+    xml.replace("</Types>", `${override}</Types>`)
+  let newContentTypes = withContentType(
+    contentTypes,
     '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>'
   )
   if (spec.hasBar) {
-    newContentTypes = newContentTypes.replace(
-      "</Types>",
+    newContentTypes = withContentType(
+      newContentTypes,
       '<Override PartName="/xl/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
     )
   }
   if (spec.hasDonut) {
-    newContentTypes = newContentTypes.replace(
-      "</Types>",
+    newContentTypes = withContentType(
+      newContentTypes,
       '<Override PartName="/xl/charts/chart2.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
     )
   }

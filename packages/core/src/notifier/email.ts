@@ -39,7 +39,7 @@ export class EmailProvider implements NotificationProvider {
       : ""
 
     return `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-      <div style="background:#6366f1;color:#fff;border-radius:8px 8px 0 0;padding:20px 24px;">
+      <div style="background:#0014cc;color:#fff;border-radius:8px 8px 0 0;padding:20px 24px;">
         <h1 style="margin:0;font-size:18px;">supacrawl</h1>
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;padding:24px;color:#1e293b;">
@@ -48,6 +48,16 @@ export class EmailProvider implements NotificationProvider {
         ${
           items
             ? `<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">${items}</table>`
+            : ""
+        }
+        ${
+          payload.crawlName
+            ? `<p style="margin:0 0 4px;font-size:12px;color:#94a3b8;">${payload.crawlName}</p>`
+            : ""
+        }
+        ${
+          payload.crawlUrl
+            ? `<p style="margin:0 0 4px;font-size:12px;"><a href="${payload.crawlUrl}" style="color:#0014cc;">View crawl report</a></p>`
             : ""
         }
         ${
@@ -71,6 +81,10 @@ export class EmailProvider implements NotificationProvider {
       to: this.config.to.join(", "),
       subject: `[supacrawl] ${payload.title}`,
       text: `${payload.message}\n\n${
+        payload.crawlName ? `Crawl: ${payload.crawlName}\n` : ""
+      }${
+        payload.crawlUrl ? `View crawl report: ${payload.crawlUrl}\n\n` : ""
+      }${
         payload.meta ? JSON.stringify(payload.meta, null, 2) : ""
       }`,
       html: this.buildHtml(payload)

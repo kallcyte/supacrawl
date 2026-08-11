@@ -25,7 +25,7 @@ while the crawl is running.
 
 ## Report tab
 
-A human-readable summary you can download as a PDF:
+A human-readable summary you can download as an Excel workbook (.xlsx):
 
 - A big **Health %** score for the crawl.
 - Tiles for **Broken, Changed, SSL Expiring, Mojibake, LLM Garbage**.

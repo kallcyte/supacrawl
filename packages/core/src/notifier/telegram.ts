@@ -53,7 +53,7 @@ export class TelegramProvider implements NotificationProvider {
       const brokenColor = s.brokenCount > 0 ? "#dc2626" : "#059669"
       const changedColor = s.changedCount > 0 ? "#d97706" : "#059669"
       const sslColor = s.sslCount > 0 ? "#ea580c" : "#059669"
-      const mjColor = s.mojibakeCount > 0 ? "#9333ea" : "#059669"
+      const mjColor = s.mojibakeCount > 0 ? "#0014cc" : "#059669"
       const lgColor = s.llmGarbageCount > 0 ? "#0891b2" : "#059669"
 
       const stat = (emoji: string, label: string, count: number, color: string) =>
@@ -103,13 +103,22 @@ export class TelegramProvider implements NotificationProvider {
 
       // Footer
       if (payload.crawlId) {
-        text += `<i>supacrawl \u00B7 ID: ${payload.crawlId.slice(0, 8)}</i>`
+        const name = payload.crawlName ? ` · ${escapeHtml(payload.crawlName)}` : ""
+        text += payload.crawlUrl
+          ? `<i>supacrawl${name} · <a href="${payload.crawlUrl}">View crawl report</a> · ID: ${payload.crawlId.slice(0, 8)}</i>`
+          : `<i>supacrawl${name} · ID: ${payload.crawlId.slice(0, 8)}</i>`
       }
     }
 
     // Legacy fallback
     else {
       text = `<b>${escapeHtml(payload.title)}</b>\n${escapeHtml(payload.message)}`
+      if (payload.crawlId) {
+        const name = payload.crawlName ? ` · ${escapeHtml(payload.crawlName)}` : ""
+        text += payload.crawlUrl
+          ? `\n\n<i>supacrawl${name} · <a href="${payload.crawlUrl}">View crawl report</a> · ID: ${payload.crawlId.slice(0, 8)}</i>`
+          : `\n\n<i>supacrawl${name} · ID: ${payload.crawlId.slice(0, 8)}</i>`
+      }
     }
 
     const res = await fetch(this.apiUrl, {

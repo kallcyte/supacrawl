@@ -26,6 +26,19 @@ export function crawlJobsRoutes(app: Hono, deps: RouteDeps): void {
     return c.json({ jobs: jobs.map(withNextRunAt), running: [...running] })
   })
 
+  // Static routes must be registered before the parameterized /:id route,
+  // otherwise Hono matches "/export" against ":id" and returns 404.
+  app.get("/api/crawl-jobs/export", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const jobs = deps.storage.exportCrawlJobs()
+    return c.json({
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      jobs
+    })
+  })
+
   app.get("/api/crawl-jobs/:id", async (c) => {
     const session = await requireAuth(c, deps.auth)
     if (!session) return c.json({ error: "Unauthorized" }, 401)
@@ -96,17 +109,6 @@ export function crawlJobsRoutes(app: Hono, deps: RouteDeps): void {
     const ok = await deps.crawlManager.cancelJobCrawl(id)
     if (!ok) return c.json({ error: "No active crawl for this job" }, 404)
     return c.json({ ok: true })
-  })
-
-  app.get("/api/crawl-jobs/export", async (c) => {
-    const session = await requireAuth(c, deps.auth)
-    if (!session) return c.json({ error: "Unauthorized" }, 401)
-    const jobs = deps.storage.exportCrawlJobs()
-    return c.json({
-      version: 1 as const,
-      exportedAt: new Date().toISOString(),
-      jobs
-    })
   })
 
   app.post("/api/crawl-jobs/import", async (c) => {

@@ -277,6 +277,8 @@ export interface NotificationPayload {
   message: string
   htmlBody?: string
   crawlId?: string
+  crawlName?: string
+  crawlUrl?: string
   url?: string
   meta?: Record<string, unknown>
   reportStats?: CrawlReportStats

@@ -5,7 +5,8 @@ Your personal notification preferences and, for admins, the global server settin
 ## My notification preferences
 
 Choose which events notify you (crawl failure, content change, SSL expiring, crawl
-completed, mojibake, crawl progress, monitor down, monitor recovered). Alerts are sent
+completed, mojibake, monitor down, monitor recovered). A legacy **crawl progress**
+toggle is still shown but no longer sends notifications. Alerts are sent
 through the channels an admin has configured (Slack, Telegram, Email, Webhook) — you'll
 see which ones are available here. If none are enabled, ask an admin to set them up.
 

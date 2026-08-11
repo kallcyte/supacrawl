@@ -46,6 +46,8 @@ export default function Layout({ onSignOut }: LayoutProps) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return true
+    const stored = localStorage.getItem("sidebar-open")
+    if (stored !== null) return stored === "true"
     return window.innerWidth >= 768
   })
   const [dark, setDark] = useState(() => {
@@ -66,6 +68,15 @@ export default function Layout({ onSignOut }: LayoutProps) {
     localStorage.setItem("theme", dark ? "dark" : "light")
   }, [dark])
 
+  // Remember the sidebar open/close state across sessions. Only persist on
+  // desktop so the mobile drawer's auto-close doesn't overwrite the preference.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (window.innerWidth >= 768) {
+      localStorage.setItem("sidebar-open", sidebarOpen ? "true" : "false")
+    }
+  }, [sidebarOpen])
+
   // Close sidebar on mobile when navigating
   useEffect(() => {
     if (window.innerWidth < 768) {
@@ -77,7 +88,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
     <div className="flex min-h-screen bg-muted/30">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:static md:w-16 md:transition-[width]",
+          "max-h-dvh fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:static md:w-16 md:transition-[width]",
           sidebarOpen
             ? "translate-x-0 md:w-60"
             : "-translate-x-full md:w-16 md:translate-x-0"

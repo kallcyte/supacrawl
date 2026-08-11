@@ -103,6 +103,14 @@ export default function SettingsPage() {
   // Map UserNotificationSettings events to our editable state
   const [enabledEvents, setEnabledEvents] = useState<UserNotificationSettings["enabledEvents"]>(DEFAULT_EVENTS)
 
+  // Helper to toggle a provider on/off
+  function toggleProvider(name: "slack" | "telegram" | "email" | "webhook", enabled: boolean) {
+    setNotifSettings((prev) => {
+      if (!prev) return prev
+      return { ...prev, [name]: { ...prev[name], enabled } }
+    })
+  }
+
   useEffect(() => {
     loadNotifSettings()
     loadGlobalNotifiers()
@@ -252,6 +260,37 @@ export default function SettingsPage() {
                     />
                   </div>
                 ))}
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="mb-2 text-sm font-medium text-foreground">Channels</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Choose which notification channels to receive alerts on. The admin must have
+                  configured the channel first for it to work.
+                </p>
+                <div className="space-y-2">
+                  {Object.keys(PROVIDER_LABELS).map((name) => {
+                    const key = name as keyof UserNotificationSettings
+                    const provider = notifSettings?.[key] as { enabled?: boolean } | undefined
+                    const isEnabled = provider?.enabled ?? false
+                    const isEmail = name === "email"
+                    const userEmail = sessionData?.user?.email
+                    return (
+                      <div key={name} className="flex items-center justify-between rounded border p-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{PROVIDER_LABELS[name]}</span>
+                          {isEmail && isEnabled && userEmail && (
+                            <span className="text-xs text-muted-foreground">{userEmail}</span>
+                          )}
+                        </div>
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(v) => toggleProvider(key as "slack" | "telegram" | "email" | "webhook", v)}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {notifiersInfo && notifiersInfo.enabled.length > 0 && (

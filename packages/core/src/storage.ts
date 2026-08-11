@@ -1272,6 +1272,13 @@ export class Storage {
     return mapUserNotificationSettings(row)
   }
 
+  getUserEmail(userId: string): string | null {
+    const row = this.db
+      .prepare(`SELECT email FROM user WHERE id = ?`)
+      .get(userId) as { email?: string } | undefined
+    return row?.email ?? null
+  }
+
   upsertUserNotificationSettings(
     userId: string,
     settings: Omit<UserNotificationSettings, "userId" | "updatedAt">

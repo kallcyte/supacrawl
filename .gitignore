@@ -13,5 +13,7 @@ coverage/
 .idea/
 *.tsbuildinfo
 supacrawl.config.json
+.commandcode/
+*.xlsx
 
 crawler/target/

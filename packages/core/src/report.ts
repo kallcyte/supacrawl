@@ -45,7 +45,7 @@ export function buildCrawlReportHtml(opts: {
 
   return `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:580px;margin:0 auto;">
-  <div style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);color:#fff;border-radius:10px;padding:22px 28px;margin-bottom:16px;">
+  <div style="background:linear-gradient(135deg,#0014cc 0%,#0014cc 100%);color:#fff;border-radius:10px;padding:22px 28px;margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
       <div>
         <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;opacity:0.8;margin-bottom:4px;">supacrawl</div>
@@ -64,7 +64,7 @@ export function buildCrawlReportHtml(opts: {
       ${statCard(opts.brokenCount, "Broken", "&#x1F6A8;", "#dc2626", "#fef2f2", "#fecaca")}
       ${statCard(opts.changedCount, "Changed", "&#x1F504;", "#d97706", "#fffbeb", "#fde68a")}
       ${statCard(opts.sslCount, "SSL Expiring", "&#x1F512;", "#ea580c", "#fff7ed", "#fed7aa")}
-      ${statCard(opts.mojibakeCount, "Mojibake", "&#x1F524;", "#9333ea", "#faf5ff", "#e9d5ff")}
+      ${statCard(opts.mojibakeCount, "Mojibake", "&#x1F524;", "#0014cc", "#eef2ff", "#c7d2fe")}
       ${statCard(opts.llmGarbageCount, "LLM Garbage", "&#x1F916;", "#0891b2", "#ecfeff", "#a5f3fc")}
     </tr>
   </table>

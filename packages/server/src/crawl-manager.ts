@@ -37,7 +37,8 @@ export class CrawlManager {
 
   private async sendUserNotifications(
     crawlId: string,
-    record: CrawlRecord
+    record: CrawlRecord,
+    jobName?: string
   ): Promise<void> {
     const results = this.storage.listResults(crawlId, undefined, { includeSeo: false })
 
@@ -194,6 +195,9 @@ export class CrawlManager {
     })
 
     const users = this.storage.listUserNotificationSettings()
+    const crawlUrl = process.env.BETTER_AUTH_URL
+      ? `${process.env.BETTER_AUTH_URL.replace(/\/$/, "")}/crawls/${crawlId}`
+      : undefined
     for (const user of users) {
       const hasAnyProvider =
         user.slack.enabled ||
@@ -203,6 +207,28 @@ export class CrawlManager {
       if (!hasAnyProvider) continue
 
       const cfg = NotifierClass.configFromUserSettings(user)
+
+      // If the user has email enabled, inject the global SMTP config and
+      // the user's own email address as the recipient.
+      if (user.email.enabled) {
+        const userEmail = this.storage.getUserEmail(user.userId)
+        if (userEmail) {
+          const globalEmail = this.config.notifications.providers.email
+          cfg.providers.email = {
+            enabled: true,
+            smtp: {
+              host: globalEmail.smtp?.host,
+              port: globalEmail.smtp?.port,
+              secure: globalEmail.smtp?.secure,
+              user: globalEmail.smtp?.user,
+              pass: globalEmail.smtp?.pass
+            },
+            from: globalEmail.from,
+            to: [userEmail]
+          }
+        }
+      }
+
       const notifier = new NotifierClass(cfg)
 
       for (const ev of events) {
@@ -213,6 +239,8 @@ export class CrawlManager {
             message: ev.message,
             htmlBody: ev.htmlBody,
             crawlId,
+            crawlName: jobName,
+            crawlUrl,
             reportStats,
             reportUrls,
             meta: {
@@ -275,9 +303,11 @@ export class CrawlManager {
       config: { ...this.config, crawl: crawlConfig },
       sitemaps: opts?.job ? (opts.job.sitemapUrls ?? [opts.job.sitemapUrl]) : undefined,
       jobId: opts?.job?.id,
+      jobName: opts?.job?.name,
       storage: this.storage,
       notifier: jobNotifier,
       abortSignal: controller.signal,
+      baseUrl: process.env.BETTER_AUTH_URL,
       onProgress: (p) => this.onProgress(p)
     })
       .then(({ record }) => {
@@ -287,7 +317,7 @@ export class CrawlManager {
             lastRunStatus: record.status
           })
         }
-        this.sendUserNotifications(id, record).catch((err) =>
+        this.sendUserNotifications(id, record, opts?.job?.name).catch((err) =>
           console.error(`[user notifications] ${err}`)
         )
       })
@@ -341,7 +371,7 @@ function tryGc(): void {
 function buildSummaryHtml(emojiTitle: string, intro: string, tableHtml: string, total: number): string {
   return `
 <div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:560px;margin:0 auto;">
-  <div style="background:#6366f1;color:#fff;border-radius:8px 8px 0 0;padding:16px 20px;">
+  <div style="background:#0014cc;color:#fff;border-radius:8px 8px 0 0;padding:16px 20px;">
     <h1 style="margin:0;font-size:16px;">supacrawl · ${emojiTitle}</h1>
   </div>
   <div style="background:#fff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;padding:20px;color:#1e293b;">

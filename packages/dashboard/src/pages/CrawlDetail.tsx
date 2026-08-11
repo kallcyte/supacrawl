@@ -57,10 +57,14 @@ export default function CrawlDetailPage() {
   const [excelGenerating, setExcelGenerating] = useState(false)
 
   async function handleStop() {
-    if (!crawl?.jobId) return
+    if (!crawl) return
     setStopping(true)
     try {
-      await api.stopCrawlJob(crawl.jobId)
+      if (crawl.jobId) {
+        await api.stopCrawlJob(crawl.jobId)
+      } else {
+        await api.cancelCrawl(crawl.id)
+      }
       await load()
       toast({ title: "Crawl stopped", variant: "success" })
     } catch (err) {
@@ -201,7 +205,7 @@ export default function CrawlDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <PageInfo title="Crawl Detail" content={crawlDetailExplainer} className="h-8 w-8" />
-          {isAdmin && crawl.status === "running" && crawl.jobId && (
+          {isAdmin && crawl.status === "running" && (
             <Button variant="outline" size="sm" onClick={handleStop} disabled={stopping} className="text-destructive">
               {stopping ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -606,7 +610,7 @@ function IssueSection({
         ? "border-amber-200"
         : color === "orange"
           ? "border-orange-200"
-          : "border-purple-200"
+          : "border-blue-200"
   const bgColor =
     color === "red"
       ? "bg-red-50"
@@ -614,7 +618,7 @@ function IssueSection({
         ? "bg-amber-50"
         : color === "orange"
           ? "bg-orange-50"
-          : "bg-purple-50"
+          : "bg-blue-50"
   const textColor =
     color === "red"
       ? "text-red-700"
@@ -622,7 +626,7 @@ function IssueSection({
         ? "text-amber-700"
         : color === "orange"
           ? "text-orange-700"
-          : "text-purple-700"
+          : "text-[#0014cc]"
 
   const [expanded, setExpanded] = useState(false)
 

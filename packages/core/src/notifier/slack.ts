@@ -82,7 +82,7 @@ export class SlackProvider implements NotificationProvider {
       const headerColor =
         payload.event === "onCrawlFailure" ? "#dc2626"
         : payload.event === "onContentChange" ? "#d97706"
-        : "#6366f1"
+        : "#0014cc"
 
       // Header
       blocks.push({
@@ -105,7 +105,7 @@ export class SlackProvider implements NotificationProvider {
           statBlock("Broken", s.brokenCount, "#dc2626", "🚨"),
           statBlock("Changed", s.changedCount, "#d97706", "🔄"),
           statBlock("SSL Expiring", s.sslCount, "#ea580c", "🔒"),
-          statBlock("Mojibake", s.mojibakeCount, "#9333ea", "🔤"),
+          statBlock("Mojibake", s.mojibakeCount, "#0014cc", "🔤"),
           statBlock("LLM Garbage", s.llmGarbageCount, "#0891b2", "🤖")
         ]
       })
@@ -145,9 +145,13 @@ export class SlackProvider implements NotificationProvider {
 
       // Footer
       if (payload.crawlId) {
+        const name = payload.crawlName ? ` · *${payload.crawlName}*` : ""
+        const footerText = payload.crawlUrl
+          ? `supacrawl${name} · <${payload.crawlUrl}|View crawl report> · ID: \`${payload.crawlId.slice(0, 8)}\``
+          : `supacrawl${name} · ID: \`${payload.crawlId.slice(0, 8)}\``
         blocks.push({
           type: "context",
-          elements: [{ type: "mrkdwn", text: `supacrawl · ID: \`${payload.crawlId.slice(0, 8)}\`` }]
+          elements: [{ type: "mrkdwn", text: footerText }]
         })
       }
 
@@ -164,6 +168,18 @@ export class SlackProvider implements NotificationProvider {
         : payload.event === "onLlmGarbageDetected" ? "warning"
         : "good"
 
+      const footerParts: string[] = []
+      if (payload.crawlName) {
+        footerParts.push(`*${payload.crawlName}*`)
+      }
+      if (payload.crawlUrl) {
+        footerParts.push(`<${payload.crawlUrl}|View crawl report>`)
+      }
+      if (payload.crawlId) {
+        footerParts.push(`ID: \`${payload.crawlId.slice(0, 8)}\``)
+      }
+      const footerText = footerParts.length > 0 ? `supacrawl · ${footerParts.join(" · ")}` : ""
+
       const body = {
         attachments: [
           {
@@ -176,7 +192,8 @@ export class SlackProvider implements NotificationProvider {
                   value: String(value),
                   short: true
                 }))
-              : []
+              : [],
+            ...(footerText ? { footer: footerText } : {})
           }
         ]
       }

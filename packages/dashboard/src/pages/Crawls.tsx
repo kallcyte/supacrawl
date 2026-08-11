@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { formatDate } from "@/lib/utils"
+import { formatDate, faviconUrl } from "@/lib/utils"
 import { Plus, Play, Pencil, Trash2, Loader2, History, Square, ExternalLink, Download, Upload } from "lucide-react"
 import { useCrawlNotifications } from "@/lib/useCrawlNotifications"
 import AddCrawlJobDialog from "@/components/AddCrawlJobDialog"
@@ -256,8 +256,16 @@ export default function CrawlsPage() {
                   <div key={job.id} className="rounded-lg border p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{job.name}</span>
+                        <div className="flex items-start gap-3">
+                          <img
+                            src={faviconUrl(job.sitemapUrl)}
+                            alt=""
+                            className="mt-1 h-5 w-5 shrink-0 rounded"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{job.name}</span>
                           <Badge variant={job.enabled ? "default" : "secondary"}>
                             {job.enabled ? "Run on Schedule" : "Not Scheduled"}
                           </Badge>
@@ -294,7 +302,9 @@ export default function CrawlsPage() {
                           )}
                         </p>
                       </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-1">
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-1">
                         {isAdmin && (isRunning ? (
                           <Button
                             variant="outline"
