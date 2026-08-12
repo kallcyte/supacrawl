@@ -195,8 +195,10 @@ export interface CrawlResultRecord {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  mojibakeSample: string | null
   llmGarbageScore: number | null
   llmGarbageFlagged: boolean
+  llmGarbageSample: string | null
   seo: SeoInfo | null
 }
 
@@ -418,8 +420,10 @@ export interface CheckResult {
   checkMethod: CheckMethod
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  mojibakeSample: string | null
   llmGarbageScore: number | null
   llmGarbageFlagged: boolean
+  llmGarbageSample: string | null
   seo: SeoInfo | null
 }
 

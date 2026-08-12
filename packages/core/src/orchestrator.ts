@@ -134,8 +134,10 @@ export async function runCrawlWithPersistence(
           checkMethod: r.checkMethod,
           mojibakeScore: r.mojibakeScore,
           mojibakeFlagged: r.mojibakeFlagged,
+          mojibakeSample: r.mojibakeSample,
           llmGarbageScore: r.llmGarbageScore,
           llmGarbageFlagged: r.llmGarbageFlagged,
+          llmGarbageSample: r.llmGarbageSample,
           seo: r.seo
         })
 

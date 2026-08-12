@@ -3,6 +3,7 @@ import chardet from "chardet"
 interface MojibakeResult {
   score: number
   flagged: boolean
+  sample: string | null
 }
 
 const REPLACEMENT_CHAR = "\uFFFD"
@@ -113,6 +114,37 @@ function round3(n: number): number {
   return Math.round(n * 1000) / 1000
 }
 
+const SAMPLE_SPAN = 60
+
+function findMojibakeOffset(text: string): number {
+  const rep = text.indexOf("\uFFFD")
+  if (rep >= 0) return rep
+  for (const pat of MOJIBAKE_PATTERNS) {
+    pat.lastIndex = 0
+    const m = pat.exec(text)
+    if (m) return m.index
+  }
+  return -1
+}
+
+function extractSample(text: string, center: number, span = SAMPLE_SPAN): string | null {
+  const vt = text.replace(/\s+/g, " ")
+  const c = Math.min(center, vt.length)
+  const start = Math.max(0, c - span)
+  const end = Math.min(vt.length, c + span)
+  let s = vt.slice(start, end)
+  if (start > 0) s = "…" + s
+  if (end < vt.length) s = s + "…"
+  return s
+}
+
+function extractMojibakeSample(text: string): string | null {
+  const offset = findMojibakeOffset(text)
+  if (offset >= 0) return extractSample(text, offset)
+  if (text.length === 0) return null
+  return extractSample(text, 0)
+}
+
 /**
  * Detect UTF-8 mojibake in a (possibly capped) HTML body.
  *
@@ -122,27 +154,29 @@ function round3(n: number): number {
 export function detectMojibake(body: Uint8Array, decodedText?: string): MojibakeResult {
   // Pure-ASCII bytes decode byte-for-byte under any single-byte charset, so
   // they can never be mojibake. Skip chardet + heuristic + decode entirely.
-  if (!hasNonAscii(body)) return { score: 0, flagged: false }
+  if (!hasNonAscii(body)) return { score: 0, flagged: false, sample: null }
 
   const sample =
     body.length > CHARDET_SAMPLE_BYTES ? body.subarray(0, CHARDET_SAMPLE_BYTES) : body
   const results = chardet.analyse(sample)
   const top = results[0]
+  const decode = (): string => decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)
 
   if (!top) {
-    const text = decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)
+    const text = decode()
     const score = round3(utf8HeuristicScore(text))
-    return { score, flagged: score > 0.5 }
+    return { score, flagged: score > 0.5, sample: score > 0.5 ? extractMojibakeSample(text) : null }
   }
 
   const isUtf8 = top.name === "UTF-8" || top.name === "ASCII"
 
   if (!isUtf8 && top.confidence >= NON_UTF8_CONFIDENCE_THRESHOLD) {
     const score = Math.round((top.confidence / 100) * 1000) / 1000
-    return { score, flagged: score > 0.5 }
+    if (score <= 0.5) return { score, flagged: false, sample: null }
+    return { score, flagged: true, sample: extractMojibakeSample(decode()) }
   }
 
-  const text = decodedText ?? new TextDecoder("utf-8", { fatal: false }).decode(body)
+  const text = decode()
   const score = round3(utf8HeuristicScore(text))
-  return { score, flagged: score > 0.5 }
+  return { score, flagged: score > 0.5, sample: score > 0.5 ? extractMojibakeSample(text) : null }
 }

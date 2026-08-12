@@ -114,8 +114,10 @@ export async function checkUrl(
     checkMethod: method,
     mojibakeScore: null,
     mojibakeFlagged: false,
+    mojibakeSample: null,
     llmGarbageScore: null,
     llmGarbageFlagged: false,
+    llmGarbageSample: null,
     seo: null
   }
   let attempt = 0
@@ -177,11 +179,13 @@ export async function checkUrl(
             const mojibake = detectMojibake(body, html)
             result.mojibakeScore = mojibake.score
             result.mojibakeFlagged = mojibake.flagged
+            result.mojibakeSample = mojibake.sample
           }
           if (ctx.config.detectLlmGarbage !== false) {
             const llmGarbage = detectLlmGarbage(html)
             result.llmGarbageScore = llmGarbage.score
             result.llmGarbageFlagged = llmGarbage.flagged
+            result.llmGarbageSample = llmGarbage.sample
           }
         }
       }

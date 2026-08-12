@@ -485,11 +485,21 @@ export default function CrawlDetailPage() {
                                   {r.mojibakeScore !== null && ` (${Math.round(r.mojibakeScore * 100)}%)`}
                                 </div>
                               )}
+                              {r.mojibakeFlagged && r.mojibakeSample && (
+                                <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={r.mojibakeSample}>
+                                  {r.mojibakeSample}
+                                </div>
+                              )}
                               {r.llmGarbageFlagged && (
                                 <div className="mt-1 flex items-center gap-1 text-xs text-cyan-600">
                                   <Bug className="h-3 w-3" />
                                   LLM garbage
                                   {r.llmGarbageScore !== null && ` (${Math.round(r.llmGarbageScore * 100)}%)`}
+                                </div>
+                              )}
+                              {r.llmGarbageFlagged && r.llmGarbageSample && (
+                                <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={r.llmGarbageSample}>
+                                  {r.llmGarbageSample}
                                 </div>
                               )}
                             </TableCell>

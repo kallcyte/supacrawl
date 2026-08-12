@@ -79,8 +79,10 @@ export class Storage {
         check_method TEXT NOT NULL,
         mojibake_score REAL,
         mojibake_flagged INTEGER DEFAULT 0,
+        mojibake_sample TEXT,
         llm_garbage_score REAL,
         llm_garbage_flagged INTEGER DEFAULT 0,
+        llm_garbage_sample TEXT,
         seo TEXT
       );
 
@@ -207,6 +209,12 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_results", "llm_garbage_flagged")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN llm_garbage_flagged INTEGER DEFAULT 0`)
+    }
+    if (!this.hasColumn("crawl_results", "mojibake_sample")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_sample TEXT`)
+    }
+    if (!this.hasColumn("crawl_results", "llm_garbage_sample")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN llm_garbage_sample TEXT`)
     }
     if (!this.hasColumn("crawl_results", "seo")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo TEXT`)
@@ -406,8 +414,8 @@ export class Storage {
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
           content_changed, error, redirect_chain, final_url, ssl_valid_until,
-          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -426,8 +434,10 @@ export class Storage {
         r.checkMethod,
         r.mojibakeScore,
         r.mojibakeFlagged ? 1 : 0,
+        r.mojibakeSample ?? null,
         r.llmGarbageScore,
         r.llmGarbageFlagged ? 1 : 0,
+        r.llmGarbageSample ?? null,
         r.seo ? JSON.stringify(r.seo) : null
       )
   }
@@ -440,7 +450,7 @@ export class Storage {
     const includeSeo = opts?.includeSeo !== false
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, final_url, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged${includeSeo ? ", seo" : ""}
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample${includeSeo ? ", seo" : ""}
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -465,7 +475,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, final_url, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo
          FROM crawl_results WHERE id = ?`
       )
       .get(id) as Record<string, unknown> | undefined
@@ -528,7 +538,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, final_url, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo
          FROM crawl_results WHERE url = ?
          ORDER BY checked_at DESC LIMIT ?`
       )
@@ -1442,8 +1452,10 @@ function mapResult(row: Record<string, unknown>, opts?: { includeSeo?: boolean }
     checkMethod: row.check_method as CrawlResultRecord["checkMethod"],
     mojibakeScore: (row.mojibake_score as number | null) ?? null,
     mojibakeFlagged: row.mojibake_flagged === 1,
+    mojibakeSample: (row.mojibake_sample as string | null) ?? null,
     llmGarbageScore: (row.llm_garbage_score as number | null) ?? null,
     llmGarbageFlagged: row.llm_garbage_flagged === 1,
+    llmGarbageSample: (row.llm_garbage_sample as string | null) ?? null,
     seo: includeSeo ? parseSeo(row.seo) : null
   }
 }

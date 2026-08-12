@@ -621,22 +621,22 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
   writeIssueSheet(
     wb,
     "Mojibake",
-    ["URL", "Mojibake score", "Status", "Response time", "Checked at"],
+    ["URL", "Mojibake score", "Sample text", "Status", "Response time", "Checked at"],
     results
       .filter((r) => r.mojibakeFlagged)
-      .map((r) => [r.url, formatScore(r.mojibakeScore), r.statusCode, r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkedAt]),
-    [50, 16, 10, 14, 20],
+      .map((r) => [r.url, formatScore(r.mojibakeScore), r.mojibakeSample ?? null, r.statusCode, r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkedAt]),
+    [50, 16, 60, 10, 14, 20],
     "Mojibake (Garbled Text)"
   )
 
   writeIssueSheet(
     wb,
     "LLM Garbage",
-    ["URL", "LLM garbage score", "Status", "Response time", "Checked at"],
+    ["URL", "LLM garbage score", "Sample text", "Status", "Response time", "Checked at"],
     results
       .filter((r) => r.llmGarbageFlagged)
-      .map((r) => [r.url, formatScore(r.llmGarbageScore), r.statusCode, r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkedAt]),
-    [50, 18, 10, 14, 20],
+      .map((r) => [r.url, formatScore(r.llmGarbageScore), r.llmGarbageSample ?? null, r.statusCode, r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkedAt]),
+    [50, 18, 60, 10, 14, 20],
     "LLM Garbage (AI Artifacts)"
   )
 

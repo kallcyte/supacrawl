@@ -48,8 +48,10 @@ export interface CrawlResult {
   checkMethod: "GET" | "HEAD" | "skipped"
   mojibakeScore: number | null
   mojibakeFlagged: boolean
+  mojibakeSample: string | null
   llmGarbageScore: number | null
   llmGarbageFlagged: boolean
+  llmGarbageSample: string | null
   seo: SeoInfo | null
 }
 
