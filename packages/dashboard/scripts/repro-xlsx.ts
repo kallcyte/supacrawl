@@ -27,6 +27,7 @@ const baseResult = {
   contentChanged: false,
   error: null,
   redirectChain: null,
+  finalUrl: null,
   sslValidUntil: null,
   sitemapLastmod: null,
   checkedAt: "2026-08-01T10:00:00.000Z",
@@ -40,11 +41,11 @@ const baseResult = {
 
 const results = [
   { ...baseResult, url: "https://example.com/", statusCode: 200 },
-  { ...baseResult, url: "https://example.com/a", statusCode: 301, redirectChain: "https://example.com/a -> https://example.com/a-final" },
+  { ...baseResult, url: "https://example.com/a", statusCode: 301, redirectChain: '["https://example.com"]', finalUrl: "https://example.com/a-final" },
   { ...baseResult, url: "https://example.com/b", statusCode: 404, error: "Not found" },
   { ...baseResult, url: "https://example.com/c", statusCode: 500, error: "Server error" },
   { ...baseResult, url: "https://example.com/d", statusCode: 200, contentChanged: true, mojibakeFlagged: true, mojibakeScore: 0.9 },
-  { ...baseResult, url: "https://example.com/e", statusCode: 301, redirectChain: "https://example.com/e -> https://example.com/e2" },
+  { ...baseResult, url: "https://example.com/e", statusCode: 301, redirectChain: '["https://example.com"]', finalUrl: "https://example.com/e2" },
   { ...baseResult, url: "https://example.com/f", statusCode: 200, llmGarbageFlagged: true, llmGarbageScore: 0.8 }
 ]
 

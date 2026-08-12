@@ -188,6 +188,7 @@ export interface CrawlResultRecord {
   contentChanged: boolean
   error: string | null
   redirectChain: string | null
+  finalUrl: string | null
   sslValidUntil: string | null
   sitemapLastmod: string | null
   checkedAt: string
@@ -412,6 +413,7 @@ export interface CheckResult {
   contentChanged: boolean
   error: string | null
   redirectChain: string[]
+  finalUrl: string | null
   sslValidUntil: string | null
   checkMethod: CheckMethod
   mojibakeScore: number | null

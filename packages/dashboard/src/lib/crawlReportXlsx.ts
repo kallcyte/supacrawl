@@ -580,7 +580,7 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
     ["URL", "Status", "Redirect chain", "Response time", "Method", "Checked at"],
     results
       .filter((r) => (r.statusCode ?? 0) >= 300 && (r.statusCode ?? 0) < 400)
-      .map((r) => [r.url, r.statusCode, finalStr(r.redirectChain), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
+      .map((r) => [r.url, r.statusCode, formatRedirectChain(r), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
     [50, 10, 40, 14, 10, 20],
     "3xx Redirects"
   )
@@ -591,7 +591,7 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
     ["URL", "Status", "Error", "Response time", "Method", "Checked at"],
     results
       .filter((r) => (r.statusCode ?? 0) >= 400 && (r.statusCode ?? 0) < 500)
-      .map((r) => [r.url, r.statusCode, finalStr(r.error), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
+      .map((r) => [r.url, r.statusCode, formatError(r), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
     [50, 10, 40, 14, 10, 20],
     "4xx Client Errors"
   )
@@ -602,7 +602,7 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
     ["URL", "Status", "Error", "Response time", "Method", "Checked at"],
     results
       .filter((r) => (r.statusCode ?? 0) >= 500)
-      .map((r) => [r.url, r.statusCode, finalStr(r.error), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
+      .map((r) => [r.url, r.statusCode, formatError(r), r.responseTimeMs != null ? `${r.responseTimeMs} ms` : null, r.checkMethod, r.checkedAt]),
     [50, 10, 40, 14, 10, 20],
     "5xx Server Errors"
   )
@@ -660,6 +660,78 @@ export async function buildCrawlReportWorkbook(data: CrawlReportXlsxData): Promi
     hasBar,
     hasDonut
   })
+}
+
+function formatRedirectChain(r: CrawlResult): string {
+  if (r.error === "Redirect loop") return "Redirect loop"
+  let sources: string[] = []
+  if (r.redirectChain) {
+    try {
+      const parsed = JSON.parse(r.redirectChain)
+      if (Array.isArray(parsed)) sources = parsed.filter((x): x is string => typeof x === "string")
+    } catch {
+      sources = [r.redirectChain]
+    }
+  }
+  if (r.finalUrl && r.finalUrl !== r.url && sources[sources.length - 1] !== r.finalUrl) {
+    sources = [...sources, r.finalUrl]
+  }
+  if (!sources.length) return "—"
+  return sources.join(" → ")
+}
+
+function formatError(r: CrawlResult): string {
+  if (r.error) return r.error
+  const reason = httpStatusText(r.statusCode)
+  return reason ? `${r.statusCode} — ${reason}` : `${r.statusCode}`
+}
+
+const STATUS_TEXT: Record<number, string> = {
+  400: "Bad Request",
+  401: "Unauthorized",
+  402: "Payment Required",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  406: "Not Acceptable",
+  407: "Proxy Authentication Required",
+  408: "Request Timeout",
+  409: "Conflict",
+  410: "Gone",
+  411: "Length Required",
+  412: "Precondition Failed",
+  413: "Payload Too Large",
+  414: "URI Too Long",
+  415: "Unsupported Media Type",
+  416: "Range Not Satisfiable",
+  417: "Expectation Failed",
+  418: "I'm a teapot",
+  421: "Misdirected Request",
+  422: "Unprocessable Entity",
+  423: "Locked",
+  424: "Failed Dependency",
+  425: "Too Early",
+  426: "Upgrade Required",
+  428: "Precondition Required",
+  429: "Too Many Requests",
+  431: "Request Header Fields Too Large",
+  451: "Unavailable For Legal Reasons",
+  500: "Internal Server Error",
+  501: "Not Implemented",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+  504: "Gateway Timeout",
+  505: "HTTP Version Not Supported",
+  506: "Variant Also Negotiates",
+  507: "Insufficient Storage",
+  508: "Loop Detected",
+  510: "Not Extended",
+  511: "Network Authentication Required"
+}
+
+function httpStatusText(statusCode: number | null): string | null {
+  if (statusCode == null) return null
+  return STATUS_TEXT[statusCode] ?? null
 }
 
 function formatScore(score: number | null): string | number | null {

@@ -72,6 +72,7 @@ export class Storage {
         content_changed INTEGER DEFAULT 0,
         error TEXT,
         redirect_chain TEXT,
+        final_url TEXT,
         ssl_valid_until TEXT,
         sitemap_lastmod TEXT,
         checked_at TEXT NOT NULL,
@@ -194,6 +195,9 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_results", "mojibake_score")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_score REAL`)
+    }
+    if (!this.hasColumn("crawl_results", "final_url")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN final_url TEXT`)
     }
     if (!this.hasColumn("crawl_results", "mojibake_flagged")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN mojibake_flagged INTEGER DEFAULT 0`)
@@ -401,9 +405,9 @@ export class Storage {
       .prepare(
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
-          content_changed, error, redirect_chain, ssl_valid_until,
+          content_changed, error, redirect_chain, final_url, ssl_valid_until,
           sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -415,6 +419,7 @@ export class Storage {
         r.contentChanged ? 1 : 0,
         r.error,
         r.redirectChain,
+        r.finalUrl,
         r.sslValidUntil,
         r.sitemapLastmod,
         r.checkedAt,
@@ -434,7 +439,7 @@ export class Storage {
   ): CrawlResultRecord[] {
     const includeSeo = opts?.includeSeo !== false
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
-                      content_changed, error, redirect_chain, ssl_valid_until,
+                      content_changed, error, redirect_chain, final_url, ssl_valid_until,
                       sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged${includeSeo ? ", seo" : ""}
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
@@ -459,7 +464,7 @@ export class Storage {
     const row = this.db
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
-                content_changed, error, redirect_chain, ssl_valid_until,
+                content_changed, error, redirect_chain, final_url, ssl_valid_until,
                 sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
          FROM crawl_results WHERE id = ?`
       )
@@ -522,7 +527,7 @@ export class Storage {
     const rows = this.db
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
-                content_changed, error, redirect_chain, ssl_valid_until,
+                content_changed, error, redirect_chain, final_url, ssl_valid_until,
                 sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, llm_garbage_score, llm_garbage_flagged, seo
          FROM crawl_results WHERE url = ?
          ORDER BY checked_at DESC LIMIT ?`
@@ -1430,6 +1435,7 @@ function mapResult(row: Record<string, unknown>, opts?: { includeSeo?: boolean }
     contentChanged: row.content_changed === 1,
     error: (row.error as string | null) ?? null,
     redirectChain: (row.redirect_chain as string | null) ?? null,
+    finalUrl: (row.final_url as string | null) ?? null,
     sslValidUntil: (row.ssl_valid_until as string | null) ?? null,
     sitemapLastmod: (row.sitemap_lastmod as string | null) ?? null,
     checkedAt: row.checked_at as string,

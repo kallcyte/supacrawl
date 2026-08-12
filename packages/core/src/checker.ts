@@ -109,6 +109,7 @@ export async function checkUrl(
     contentChanged: false,
     error: null,
     redirectChain: [],
+    finalUrl: null,
     sslValidUntil: null,
     checkMethod: method,
     mojibakeScore: null,
@@ -140,6 +141,7 @@ export async function checkUrl(
             result.error = "Redirect loop"
             result.statusCode = res.status
             result.responseTimeMs = Math.round(performance.now() - start)
+            result.finalUrl = next
             return result
           }
           chain.push(currentUrl)
@@ -153,6 +155,7 @@ export async function checkUrl(
       result.statusCode = finalRes.status
       result.responseTimeMs = Math.round(performance.now() - start)
       result.redirectChain = chain
+      result.finalUrl = currentUrl
       if (finalRes.status >= 200 && finalRes.status < 300 && method === "GET") {
         const { body, hash, truncated } = await readBodyCapped(
           finalRes,

@@ -127,6 +127,7 @@ export async function runCrawlWithPersistence(
           contentChanged: r.contentChanged,
           error: r.error,
           redirectChain: r.redirectChain.length ? JSON.stringify(r.redirectChain) : null,
+          finalUrl: r.finalUrl,
           sslValidUntil: r.sslValidUntil,
           sitemapLastmod: lastmodMap.get(r.url) ?? null,
           checkedAt: new Date().toISOString(),

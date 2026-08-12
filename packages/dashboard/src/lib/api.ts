@@ -41,6 +41,7 @@ export interface CrawlResult {
   contentChanged: boolean
   error: string | null
   redirectChain: string | null
+  finalUrl: string | null
   sslValidUntil: string | null
   sitemapLastmod: string | null
   checkedAt: string
