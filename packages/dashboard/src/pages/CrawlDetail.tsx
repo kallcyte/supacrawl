@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Link, useParams } from "react-router-dom"
 import {
   api,
@@ -41,6 +42,7 @@ import crawlDetailExplainer from "@/content/crawl-detail-explainer.md?raw"
 type Filter = "all" | "broken" | "4xx" | "5xx" | "changed" | "mojibake" | "llmGarbage" | "redirect"
 
 export default function CrawlDetailPage() {
+  usePageTitle("Crawl Detail")
   const { id } = useParams<{ id: string }>()
   const { data: sessionData } = useSession()
   const role = (sessionData?.user as { role?: string } | undefined)?.role

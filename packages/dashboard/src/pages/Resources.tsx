@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { api, type ResourceSnapshot } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -26,6 +27,7 @@ function rangeLabel(r: string): string {
 }
 
 export default function ResourcesPage() {
+  usePageTitle("Resources")
   const [now, setNow] = useState<{
     rssMb: number; heapTotalMb: number; heapUsedMb: number
     externalMb: number; cpuUserMs: number; cpuSystemMs: number

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useSession } from "@/lib/auth-client"
 import { api, type UserNotificationSettings } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,6 +75,7 @@ const DEFAULT_EVENTS: UserNotificationSettings["enabledEvents"] = {
 }
 
 export default function SettingsPage() {
+  usePageTitle("Settings")
   const { data: sessionData } = useSession()
   const role = (sessionData?.user as { role?: string } | undefined)?.role
   const isAdmin = role === "admin"

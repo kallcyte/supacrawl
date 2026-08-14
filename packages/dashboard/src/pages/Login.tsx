@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { authClient, signIn } from "@/lib/auth-client"
 import { api } from "@/lib/api"
@@ -9,6 +10,7 @@ import AuthLayout from "@/components/AuthLayout"
 import { Loader2, Mail, Lock } from "lucide-react"
 
 export default function LoginPage() {
+  usePageTitle("Login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)

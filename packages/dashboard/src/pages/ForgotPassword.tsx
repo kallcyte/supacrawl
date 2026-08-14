@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Link } from "react-router-dom"
 import { forgetPassword } from "@/lib/auth-client"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import AuthLayout from "@/components/AuthLayout"
 import { Loader2, Mail, CheckCircle, ArrowLeft } from "lucide-react"
 
 export default function ForgotPasswordPage() {
+  usePageTitle("Forgot Password")
   const [email, setEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

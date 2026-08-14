@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Link, useNavigate } from "react-router-dom"
 import { api, type CrawlJob, type CrawlRecord } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
@@ -24,6 +25,7 @@ import PageInfo from "@/components/PageInfo"
 import crawlsExplainer from "@/content/crawls-explainer.md?raw"
 
 export default function CrawlsPage() {
+  usePageTitle("Crawls")
   const navigate = useNavigate()
   const { data: sessionData } = useSession()
   const role = (sessionData?.user as { role?: string } | undefined)?.role

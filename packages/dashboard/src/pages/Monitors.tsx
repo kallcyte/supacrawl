@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Link } from "react-router-dom"
 import { api, type Monitor, type MonitorWithStatus } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
@@ -61,6 +62,7 @@ function ResponseTime({ m }: { m: MonitorWithStatus }) {
 type View = "grid" | "table"
 
 export default function MonitorsPage() {
+  usePageTitle("Monitors")
   const { data: sessionData } = useSession()
   const role = (sessionData?.user as { role?: string } | undefined)?.role
   const isAdmin = role === "admin"

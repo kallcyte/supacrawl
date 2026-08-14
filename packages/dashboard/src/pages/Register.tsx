@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useNavigate, Link } from "react-router-dom"
 import { api, ApiError } from "@/lib/api"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import AuthLayout from "@/components/AuthLayout"
 import { Loader2, Mail, Lock, User } from "lucide-react"
 
 export default function RegisterPage() {
+  usePageTitle("Register")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")

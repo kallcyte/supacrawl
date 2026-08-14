@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { api, type User } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import PageInfo from "@/components/PageInfo"
 import usersExplainer from "@/content/users-explainer.md?raw"
 
 export default function UsersPage() {
+  usePageTitle("Users")
   const { data: me } = useSession()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useNavigate, useParams } from "react-router-dom"
 import { api, type Heartbeat, type Monitor, type MonitorStats } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
@@ -42,6 +43,7 @@ function UptimeCard({ label, value }: { label: string; value: number | null }) {
 }
 
 export default function MonitorDetailPage() {
+  usePageTitle("Monitor Detail")
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: sessionData } = useSession()

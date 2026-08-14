@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useSearchParams } from "react-router-dom"
 import { api, type SeoCheckResult, type UrlState } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +31,7 @@ function ResultSkeleton() {
 }
 
 export default function SeoCheckerPage() {
+  usePageTitle("SEO Checker")
   const [params, setParams] = useSearchParams()
   const initial = params.get("url") ?? ""
   const [url, setUrl] = useState(initial)

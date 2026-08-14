@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Link, useSearchParams } from "react-router-dom"
 import { resetPassword } from "@/lib/auth-client"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import AuthLayout from "@/components/AuthLayout"
 import { Loader2, Lock, CheckCircle, ArrowLeft } from "lucide-react"
 
 export default function ResetPasswordPage() {
+  usePageTitle("Reset Password")
   const [searchParams] = useSearchParams()
   const token = searchParams.get("token") ?? ""
   const [password, setPassword] = useState("")

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useSearchParams, Link } from "react-router-dom"
 import { api, type CrawlResult, type UrlState } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +28,7 @@ import PageInfo from "@/components/PageInfo"
 import urlHistoryExplainer from "@/content/url-history-explainer.md?raw"
 
 export default function UrlHistoryPage() {
+  usePageTitle("URL History")
   const [params, setParams] = useSearchParams()
   const initial = params.get("url") ?? ""
   const [url, setUrl] = useState(initial)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { api, type CrawlRecord, type OverviewStats, type TimelinePoint, type DurationPoint } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -38,6 +39,7 @@ function StatCard({
 }
 
 export default function OverviewPage() {
+  usePageTitle("Overview")
   const [overview, setOverview] = useState<OverviewStats | null>(null)
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [duration, setDuration] = useState<DurationPoint[]>([])

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { useNavigate } from "react-router-dom"
 import { api, ApiError } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Activity, CheckCircle2, Loader2 } from "lucide-react"
 
 export default function SetupPage() {
+  usePageTitle("Setup")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { usePageTitle } from "@/lib/usePageTitle"
 import { Info, Loader2, Save } from "lucide-react"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,6 +45,7 @@ function deepClone<T>(v: T): T {
 }
 
 export default function NotificationsPage() {
+  usePageTitle("Notifications")
   const [info, setInfo] = useState<NotifiersInfo | null>(null)
   const [draft, setDraft] = useState<NotifiersConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
