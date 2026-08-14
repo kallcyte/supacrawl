@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, Link } from "react-router-dom"
 import { api, type CrawlResult, type UrlState } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +15,6 @@ import {
   TableRow
 } from "@/components/ui/table"
 import ResponseTimeLine from "@/components/charts/ResponseTimeLine"
-import SeoSnapshot from "@/components/SeoSnapshot"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
 import {
   Tooltip,
@@ -23,26 +22,9 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Activity, ArrowRightLeft, Bug, Clock, Gauge, Info, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react"
+import { Activity, ArrowRightLeft, Bug, Clock, Gauge, Info, SearchCheck, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react"
 import PageInfo from "@/components/PageInfo"
 import urlHistoryExplainer from "@/content/url-history-explainer.md?raw"
-
-function seoChanges(curr: CrawlResult["seo"], prev: CrawlResult["seo"]): string[] {
-  if (!curr) return []
-  if (!prev) return ["captured"]
-  const changed: string[] = []
-  if (curr.title !== prev.title) changed.push("title")
-  if (curr.description !== prev.description) changed.push("description")
-  if (curr.canonical !== prev.canonical) changed.push("canonical")
-  if (curr.noindex !== prev.noindex) changed.push("noindex")
-  if (curr.nofollow !== prev.nofollow) changed.push("nofollow")
-  if (curr.h1Count !== prev.h1Count) changed.push("h1")
-  if (curr.wordCount !== prev.wordCount) changed.push("words")
-  if (curr.jsonLdTypes.join(",") !== prev.jsonLdTypes.join(",")) changed.push("json-ld")
-  if (curr.ogTitle !== prev.ogTitle || curr.ogDescription !== prev.ogDescription || curr.ogImage !== prev.ogImage) changed.push("og tags")
-  if (curr.publishedAt !== prev.publishedAt) changed.push("published date")
-  return changed
-}
 
 export default function UrlHistoryPage() {
   const [params, setParams] = useSearchParams()
@@ -123,7 +105,15 @@ export default function UrlHistoryPage() {
             Inspect how a single URL has changed across crawls
           </p>
         </div>
-        <PageInfo title="URL History" content={urlHistoryExplainer} className="ml-auto h-8 w-8" />
+        <PageInfo title="URL History" content={urlHistoryExplainer} />
+        {initial && (
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/seo?url=${encodeURIComponent(initial)}`}>
+              <SearchCheck className="mr-1.5 h-3.5 w-3.5" />
+              Check SEO on this URL
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -354,11 +344,7 @@ export default function UrlHistoryPage() {
         </TooltipProvider>
       )}
 
-      {initial && summary && summary.last.seo && (
-        <SeoSnapshot seo={summary.last.seo} checkedAt={summary.last.checkedAt} />
-      )}
-
-      {initial && (
+      {initial && summary && (
         <>
           <Card>
             <CardHeader>
@@ -405,7 +391,7 @@ export default function UrlHistoryPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((h, index) => (
+                    {history.map((h) => (
                       <TableRow key={h.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">
                           {formatDate(h.checkedAt)}
@@ -480,37 +466,13 @@ export default function UrlHistoryPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {h.seo ? (
-                            <div className="flex flex-wrap items-center gap-1">
-                              {h.seo.noindex && (
-                                <Badge variant="destructive" className="text-[10px]">noindex</Badge>
-                              )}
-                              {h.seo.canonical && h.seo.canonicalSelfReference === false && (
-                                <Badge variant="warning" className="text-[10px]" title={`Canonical: ${h.seo.canonical}`}>
-                                  canon
-                                </Badge>
-                              )}
-                              {!h.seo.title && (
-                                <Badge variant="warning" className="text-[10px]" title="Missing title tag">no title</Badge>
-                              )}
-                              {!h.seo.description && (
-                                <Badge variant="warning" className="text-[10px]" title="Missing meta description">no desc</Badge>
-                              )}
-                              {h.seo.h1Count === 0 && (
-                                <Badge variant="warning" className="text-[10px]" title="Missing H1">no h1</Badge>
-                              )}
-                              {h.seo.h1Count > 1 && (
-                                <Badge variant="warning" className="text-[10px]" title={`${h.seo.h1Count} H1 tags`}>h1 x{h.seo.h1Count}</Badge>
-                              )}
-                              {seoChanges(h.seo, history[index + 1]?.seo ?? null).map((c) => (
-                                <Badge key={c} variant="secondary" className="text-[10px]">
-                                  {c} changed
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
+                          <Link
+                            to={`/seo?url=${encodeURIComponent(h.url)}`}
+                            className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-primary hover:underline"
+                          >
+                            <SearchCheck className="h-3 w-3" />
+                            Check SEO
+                          </Link>
                         </TableCell>
                       </TableRow>
                     ))}

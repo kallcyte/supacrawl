@@ -16,6 +16,7 @@ import {
   Moon,
   PanelRightClose,
   PanelRightOpen,
+  SearchCheck,
   Settings,
   Sun,
   Users,
@@ -32,6 +33,7 @@ const nav = [
   { to: "/resources", label: "Resources", icon: Cpu },
   { to: "/crawls", label: "Crawls", icon: ListChecks },
   { to: "/urls/history", label: "URL History", icon: History },
+  { to: "/seo", label: "SEO Checker", icon: SearchCheck },
   { to: "/settings", label: "Settings", icon: Settings }
 ]
 
@@ -88,7 +90,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
     <div className="flex min-h-screen bg-muted/30">
       <aside
         className={cn(
-          "max-h-dvh fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:static md:w-16 md:transition-[width]",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:w-16 md:transition-[width]",
           sidebarOpen
             ? "translate-x-0 md:w-60"
             : "-translate-x-full md:w-16 md:translate-x-0"
@@ -223,7 +225,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
         />
       )}
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className={cn("flex min-w-0 flex-1 flex-col", sidebarOpen ? "md:pl-60" : "md:pl-16")}>
         <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:px-6">
           <button
             onClick={() => setSidebarOpen(true)}

@@ -9,6 +9,9 @@ change detection. Monorepo with core, server, and dashboard packages.
   (4xx/5xx), content changes, SSL expiry, and mojibake.
 - **Uptime monitors** — interval-based HTTP checks with retries, heartbeat
   history, uptime stats, and response-time graphs.
+- **SEO checker** — inspect any URL to preview how it renders on Google and
+  major social networks, review extracted meta/Open Graph/Twitter tags, get a
+  Lighthouse-style SEO score with fix recommendations, and check page weight.
 - **Notifications** — Slack, Telegram, Email, and Webhook alerts on crawl
   failures, content changes, SSL expiry, and monitor down/recovery.
 - **Dashboard** — web UI for managing jobs and monitors, browsing URL history,

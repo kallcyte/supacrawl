@@ -9,6 +9,7 @@ import OverviewPage from "@/pages/Overview"
 import CrawlsPage from "@/pages/Crawls"
 import CrawlDetailPage from "@/pages/CrawlDetail"
 import UrlHistoryPage from "@/pages/UrlHistory"
+import SeoCheckerPage from "@/pages/SeoChecker"
 import UsersPage from "@/pages/Users"
 import NotificationsPage from "@/pages/Notifications"
 import SettingsPage from "@/pages/Settings"
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="monitors/:id" element={<MonitorDetailPage />} />
         <Route path="resources" element={<ResourcesPage />} />
         <Route path="urls/history" element={<UrlHistoryPage />} />
+        <Route path="seo" element={<SeoCheckerPage />} />
         <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="notifications" element={<RequireAdmin><NotificationsPage /></RequireAdmin>} />
         <Route path="settings" element={<SettingsPage />} />

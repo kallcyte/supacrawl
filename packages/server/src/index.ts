@@ -20,6 +20,7 @@ import { crawlsRoutes } from "./routes/crawls.js"
 import { crawlJobsRoutes } from "./routes/crawl-jobs.js"
 import { resultsRoutes } from "./routes/results.js"
 import { urlsRoutes } from "./routes/urls.js"
+import { seoRoutes } from "./routes/seo.js"
 import { statsRoutes } from "./routes/stats.js"
 import { settingsRoutes } from "./routes/settings.js"
 import { usersRoutes } from "./routes/users.js"
@@ -126,6 +127,7 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   crawlJobsRoutes(app, deps)
   resultsRoutes(app, deps)
   urlsRoutes(app, deps)
+  seoRoutes(app, deps)
   statsRoutes(app, deps)
   settingsRoutes(app, deps)
   usersRoutes(app, deps)
@@ -143,12 +145,32 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   // Static + SPA fallback
   const dashboardRoot = opts.dashboardDist ?? resolve(__dirname, "../../dashboard/dist")
   if (dashboardRoot && existsSync(dashboardRoot)) {
+    const appUrl = (process.env.BETTER_AUTH_URL ?? `http://localhost:${opts.port}`).replace(/\/$/, "")
+    const renderIndex = () => {
+      const indexPath = join(dashboardRoot, "index.html")
+      if (!existsSync(indexPath)) return null
+      return readFileSync(indexPath, "utf-8").replaceAll("__APP_URL__", appUrl)
+    }
+    app.use("/*", async (c, next) => {
+      const path = c.req.path
+      if (path === "/" || path === "/index.html") {
+        c.header("Cache-Control", "no-cache")
+      } else if (/\.(?:js|css|woff2?|png|jpe?g|gif|webp|svg|ico)$/.test(path)) {
+        c.header("Cache-Control", "public, max-age=31536000, immutable")
+      }
+      await next()
+    })
+    app.on(["GET"], ["/", "/index.html"], (c) => {
+      const html = renderIndex()
+      if (html === null) return c.notFound()
+      return c.html(html)
+    })
     app.use("/*", serveStatic({ root: dashboardRoot }))
     app.notFound((c) => {
       if (c.req.path.startsWith("/api/")) return c.json({ error: "Not found" }, 404)
-      const indexPath = join(dashboardRoot!, "index.html")
-      if (existsSync(indexPath)) return c.html(readFileSync(indexPath, "utf-8"))
-      return c.text("Dashboard not built")
+      const html = renderIndex()
+      if (html === null) return c.text("Dashboard not built")
+      return c.html(html)
     })
   } else {
     app.notFound((c) => {

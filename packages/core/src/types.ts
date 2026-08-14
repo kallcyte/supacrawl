@@ -176,6 +176,31 @@ export interface SeoInfo {
   ogDescription: string | null
   ogImage: string | null
   publishedAt: string | null
+  ogSiteName: string | null
+  ogUrl: string | null
+  ogType: string | null
+  ogLocale: string | null
+  ogImageAlt: string | null
+  ogImageWidth: number | null
+  ogImageHeight: number | null
+  twitterCard: string | null
+  twitterTitle: string | null
+  twitterDescription: string | null
+  twitterImage: string | null
+  twitterImageAlt: string | null
+  twitterSite: string | null
+  twitterCreator: string | null
+  charset: string | null
+  viewport: string | null
+  lang: string | null
+  hreflangs: { href: string; hreflang: string }[]
+  favicon: string | null
+  themeColor: string | null
+  manifest: string | null
+  author: string | null
+  generator: string | null
+  robotsNoarchive: boolean
+  robotsMaxImagePreview: string | null
 }
 
 export interface CrawlResultRecord {

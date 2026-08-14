@@ -29,6 +29,79 @@ export interface SeoInfo {
   ogDescription: string | null
   ogImage: string | null
   publishedAt: string | null
+  ogSiteName: string | null
+  ogUrl: string | null
+  ogType: string | null
+  ogLocale: string | null
+  ogImageAlt: string | null
+  ogImageWidth: number | null
+  ogImageHeight: number | null
+  twitterCard: string | null
+  twitterTitle: string | null
+  twitterDescription: string | null
+  twitterImage: string | null
+  twitterImageAlt: string | null
+  twitterSite: string | null
+  twitterCreator: string | null
+  charset: string | null
+  viewport: string | null
+  lang: string | null
+  hreflangs: { href: string; hreflang: string }[]
+  favicon: string | null
+  themeColor: string | null
+  manifest: string | null
+  author: string | null
+  generator: string | null
+  robotsNoarchive: boolean
+  robotsMaxImagePreview: string | null
+}
+
+export interface SeoContentStats {
+  wordCount: number
+  imageCount: number
+  imagesMissingAlt: number
+  linkCount: number
+  internalLinkCount: number
+  h2Count: number
+}
+
+export type AuditSeverity = "pass" | "warn" | "fail"
+
+export interface SeoAudit {
+  id: string
+  title: string
+  severity: AuditSeverity
+  detail?: string
+  recommendation?: string
+}
+
+export interface SeoCategoryScore {
+  id: string
+  label: string
+  weight: number
+  score: number
+  pass: number
+  warn: number
+  fail: number
+}
+
+export interface SeoCheckResult {
+  analysis: {
+    url: string
+    finalUrl: string | null
+    statusCode: number | null
+    error: string | null
+    responseTimeMs: number | null
+    redirectChain: string[]
+    sslValidUntil: string | null
+    pageWeightBytes: number
+    gzippedBytes: number
+    seo: SeoInfo | null
+    content: SeoContentStats | null
+  }
+  score: number
+  categories: SeoCategoryScore[]
+  audits: SeoAudit[]
 }
 
 export interface CrawlResult {
@@ -278,6 +351,8 @@ export const api = {
     request<{ url: string; history: CrawlResult[] }>(
       `/api/urls/history?url=${encodeURIComponent(url)}&limit=${limit}`
     ),
+  seoCheck: (url: string) =>
+    request<SeoCheckResult>("/api/seo/check", { method: "POST", body: JSON.stringify({ url }) }),
   getOverview: () => request<OverviewStats>("/api/stats/overview"),
   getTimeline: () => request<{ timeline: TimelinePoint[] }>("/api/stats/timeline"),
   getDurationTrend: () => request<{ trend: DurationPoint[] }>("/api/stats/duration-trend"),
