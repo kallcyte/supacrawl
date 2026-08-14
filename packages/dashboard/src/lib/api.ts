@@ -246,7 +246,6 @@ export interface Monitor {
   timeoutMs: number
   acceptedResponseTimeMs: number
   enabled: boolean
-  notifyOnEveryDown: boolean
   source: MonitorSource
   jobId: string | null
   createdAt: string

@@ -144,7 +144,6 @@ export class Storage {
         timeout_ms INTEGER NOT NULL DEFAULT 10000,
         accepted_response_time_ms INTEGER DEFAULT 5000,
         enabled INTEGER DEFAULT 1,
-        notify_on_every_down INTEGER DEFAULT 0,
         source TEXT NOT NULL DEFAULT 'manual',
         job_id TEXT REFERENCES crawl_jobs(id) ON DELETE SET NULL,
         created_at TEXT NOT NULL,
@@ -255,10 +254,6 @@ export class Storage {
     }
     if (!this.hasColumn("crawl_jobs", "run_at")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN run_at TEXT`)
-    }
-
-    if (!this.hasColumn("monitors", "notify_on_every_down")) {
-      this.db.exec(`ALTER TABLE monitors ADD COLUMN notify_on_every_down INTEGER DEFAULT 0`)
     }
 
     this.db.exec(`CREATE TABLE IF NOT EXISTS resource_snapshots (
@@ -700,16 +695,15 @@ export class Storage {
         `INSERT INTO monitors
          (id, name, type, url, method, expected_status, expected_body,
           interval_seconds, retry_count, timeout_ms, accepted_response_time_ms,
-          enabled, notify_on_every_down, source, job_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          enabled, source, job_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         monitor.id, monitor.name, monitor.type, monitor.url, monitor.method,
         monitor.expectedStatus, monitor.expectedBody,
         monitor.intervalSeconds, monitor.retryCount, monitor.timeoutMs,
         monitor.acceptedResponseTimeMs,
-        monitor.enabled ? 1 : 0, monitor.notifyOnEveryDown ? 1 : 0,
-        monitor.source, monitor.jobId,
+        monitor.enabled ? 1 : 0, monitor.source, monitor.jobId,
         monitor.createdAt, monitor.updatedAt
       )
   }
@@ -850,7 +844,6 @@ export class Storage {
       timeoutMs: 10000,
       acceptedResponseTimeMs: 5000,
       enabled: true,
-      notifyOnEveryDown: false,
       source: "manual",
       jobId: null,
       ...patch,
@@ -1533,7 +1526,6 @@ function mapMonitor(row: Record<string, unknown>): MonitorRecord {
     timeoutMs: (row.timeout_ms as number) ?? 10000,
     acceptedResponseTimeMs: (row.accepted_response_time_ms as number) ?? 5000,
     enabled: row.enabled === 1,
-    notifyOnEveryDown: row.notify_on_every_down === 1,
     source: row.source as MonitorRecord["source"],
     jobId: (row.job_id as string | null) ?? null,
     createdAt: row.created_at as string,

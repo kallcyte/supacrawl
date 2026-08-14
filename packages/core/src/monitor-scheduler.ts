@@ -90,21 +90,15 @@ export class MonitorScheduler {
     result: HeartbeatResult
   ): Promise<void> {
     const inMaintenance = this.opts.storage.hasActiveMaintenanceWindow(m.id, result.checkedAt)
-    if (result.status === "down" && previous?.status === "up") {
+    if (result.status === "down") {
       if (inMaintenance) return
+      const repeated = previous?.status === "down"
       await this.opts.notifier.notify("onMonitorDown", {
         event: "onMonitorDown",
-        title: `Monitor "${m.name}" is DOWN`,
-        message: `Monitor "${m.name}" (${m.url}) is down: ${result.message ?? "Check failed"}`,
-        url: m.url,
-        meta: { monitorId: m.id, status: "down" }
-      })
-    } else if (result.status === "down" && m.notifyOnEveryDown) {
-      if (inMaintenance) return
-      await this.opts.notifier.notify("onMonitorDown", {
-        event: "onMonitorDown",
-        title: `Monitor "${m.name}" is still DOWN`,
-        message: `Monitor "${m.name}" (${m.url}) is still down: ${result.message ?? "Check failed"}`,
+        title: repeated ? `Monitor "${m.name}" is still DOWN` : `Monitor "${m.name}" is DOWN`,
+        message: repeated
+          ? `Monitor "${m.name}" (${m.url}) is still down: ${result.message ?? "Check failed"}`
+          : `Monitor "${m.name}" (${m.url}) is down: ${result.message ?? "Check failed"}`,
         url: m.url,
         meta: { monitorId: m.id, status: "down" }
       })
