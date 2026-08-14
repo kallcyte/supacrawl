@@ -99,6 +99,15 @@ export class MonitorScheduler {
         url: m.url,
         meta: { monitorId: m.id, status: "down" }
       })
+    } else if (result.status === "down" && m.notifyOnEveryDown) {
+      if (inMaintenance) return
+      await this.opts.notifier.notify("onMonitorDown", {
+        event: "onMonitorDown",
+        title: `Monitor "${m.name}" is still DOWN`,
+        message: `Monitor "${m.name}" (${m.url}) is still down: ${result.message ?? "Check failed"}`,
+        url: m.url,
+        meta: { monitorId: m.id, status: "down" }
+      })
     } else if (result.status === "up" && previous?.status === "down") {
       if (inMaintenance) return
       await this.opts.notifier.notify("onMonitorRecovery", {

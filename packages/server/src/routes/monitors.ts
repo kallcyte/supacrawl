@@ -18,7 +18,8 @@ const bulkPatchSchema = z.object({
   retryCount: z.number().int().nonnegative().optional(),
   timeoutMs: z.number().int().positive().optional(),
   acceptedResponseTimeMs: z.number().int().positive().optional(),
-  enabled: z.boolean().optional()
+  enabled: z.boolean().optional(),
+  notifyOnEveryDown: z.boolean().optional()
 })
 
 const bulkUpdateSchema = z.object({

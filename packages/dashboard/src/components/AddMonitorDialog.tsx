@@ -27,6 +27,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
     String(initial?.acceptedResponseTimeMs ?? 5000)
   )
   const [enabled, setEnabled] = useState(initial?.enabled ?? true)
+  const [notifyOnEveryDown, setNotifyOnEveryDown] = useState(initial?.notifyOnEveryDown ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,6 +43,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
       setTimeoutMs(String(initial?.timeoutMs ?? 10000))
       setAcceptedResponseTimeMs(String(initial?.acceptedResponseTimeMs ?? 5000))
       setEnabled(initial?.enabled ?? true)
+      setNotifyOnEveryDown(initial?.notifyOnEveryDown ?? false)
       setError(null)
       setSaving(false)
     }
@@ -63,7 +65,8 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
         retryCount: Number(retryCount) || 0,
         timeoutMs: Number(timeoutMs) || 10000,
         acceptedResponseTimeMs: Number(acceptedResponseTimeMs) || 5000,
-        enabled
+        enabled,
+        notifyOnEveryDown
       })
       onOpenChange(false)
     } catch (err) {
@@ -207,6 +210,16 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
               <div className="flex items-center gap-2">
                 <Switch checked={enabled} onCheckedChange={setEnabled} />
                 <Label>Monitoring enabled</Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Switch checked={notifyOnEveryDown} onCheckedChange={setNotifyOnEveryDown} />
+                <div className="space-y-0.5">
+                  <Label>Notify on every down check</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Send a down notification on each failed heartbeat instead of only the first one.
+                  </p>
+                </div>
               </div>
             </div>
 

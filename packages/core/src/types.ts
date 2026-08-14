@@ -490,6 +490,7 @@ export const MonitorSchema = z.object({
   timeoutMs: z.number().int().positive().default(10000),
   acceptedResponseTimeMs: z.number().int().positive().default(5000),
   enabled: z.boolean().default(true),
+  notifyOnEveryDown: z.boolean().default(false),
   source: MonitorSourceSchema.default("manual"),
   jobId: z.string().nullable().optional()
 })

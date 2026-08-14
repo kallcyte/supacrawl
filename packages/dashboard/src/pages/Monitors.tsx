@@ -69,7 +69,7 @@ export default function MonitorsPage() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>("grid")
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(5)
+  const [perPage, setPerPage] = useState(15)
   const [totalPages, setTotalPages] = useState(1)
   const [totalMonitors, setTotalMonitors] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -310,9 +310,9 @@ export default function MonitorsPage() {
               value={perPage}
               onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
             >
-              <option value={5}>5 monitors</option>
-              <option value={10}>10 monitors</option>
-              <option value={25}>25 monitors</option>
+              <option value={15}>15 monitors</option>
+              <option value={24}>24 monitors</option>
+              <option value={30}>30 monitors</option>
             </select>
             <Button
               size="sm"
