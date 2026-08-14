@@ -68,7 +68,7 @@
       "onSslExpiring": true,
       "onCrawlComplete": true,
       "onMojibakeDetected": true,
-      "onLlmGarbageDetected": false,
+      "onLlmGarbageDetected": true,
       "onCrawlProgress": true,
       "onMonitorDown": true,
       "onMonitorRecovery": true
