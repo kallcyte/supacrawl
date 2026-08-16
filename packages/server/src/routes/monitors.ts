@@ -11,6 +11,7 @@ const updateMonitorSchema = MonitorSchema.partial()
 
 const bulkPatchSchema = z.object({
   name: z.string().min(1).optional(),
+  group: z.string().optional(),
   method: z.string().optional(),
   expectedStatus: z.number().int().optional(),
   expectedBody: z.string().nullable().optional(),
@@ -51,6 +52,14 @@ export function monitorsRoutes(app: Hono, deps: RouteDeps): void {
     const pageDomains = domains.slice((page - 1) * perPage, page * perPage)
     const monitors = deps.storage.listMonitorsInDomains(pageDomains.map((d) => d.domain))
     return c.json({ monitors, page, perPage, totalPages, totalMonitors, totalDomains })
+  })
+
+  // Flat list of ALL monitors (no pagination) — used by the grouped Monitors page
+  app.get("/api/monitors/all", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const monitors = deps.storage.listMonitors()
+    return c.json({ monitors })
   })
 
   app.post("/api/monitors/bulk", async (c) => {

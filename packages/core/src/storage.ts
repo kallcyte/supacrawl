@@ -309,6 +309,13 @@ export class Storage {
       enabled_events TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL
     )`)
+
+    if (!this.hasColumn("status_page_monitors", "group_name")) {
+      this.db.exec(`ALTER TABLE status_page_monitors ADD COLUMN group_name TEXT DEFAULT ''`)
+    }
+    if (!this.hasColumn("monitors", "group")) {
+      this.db.exec(`ALTER TABLE monitors ADD COLUMN "group" TEXT DEFAULT ''`)
+    }
   }
 
   close(): void {
@@ -693,13 +700,14 @@ export class Storage {
     this.db
       .prepare(
         `INSERT INTO monitors
-         (id, name, type, url, method, expected_status, expected_body,
+         (id, name, type, url, "group", method, expected_status, expected_body,
           interval_seconds, retry_count, timeout_ms, accepted_response_time_ms,
           enabled, source, job_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
-        monitor.id, monitor.name, monitor.type, monitor.url, monitor.method,
+        monitor.id, monitor.name, monitor.type, monitor.url, monitor.group ?? "",
+        monitor.method,
         monitor.expectedStatus, monitor.expectedBody,
         monitor.intervalSeconds, monitor.retryCount, monitor.timeoutMs,
         monitor.acceptedResponseTimeMs,
@@ -742,7 +750,8 @@ export class Storage {
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue
       const col = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
-      clauses.push(`${col} = ?`)
+      const quotedCol = col === "group" ? `"${col}"` : col
+      clauses.push(`${quotedCol} = ?`)
       if (Array.isArray(value) || (value !== null && typeof value === "object")) {
         values.push(JSON.stringify(value))
       } else if (typeof value === "boolean") {
@@ -837,6 +846,7 @@ export class Storage {
       type: "http",
       url,
       method: "GET",
+      group: "",
       expectedStatus: 200,
       expectedBody: null,
       intervalSeconds: 60,
@@ -1019,21 +1029,21 @@ export class Storage {
     this.db.prepare(`DELETE FROM status_pages WHERE id = ?`).run(id)
   }
 
-  setStatusPageMonitors(statusPageId: string, monitorIds: string[]): void {
+  setStatusPageMonitors(statusPageId: string, monitors: { monitorId: string; groupName?: string }[]): void {
     const tx = this.db.transaction(() => {
       this.db.prepare(`DELETE FROM status_page_monitors WHERE status_page_id = ?`).run(statusPageId)
       const insert = this.db.prepare(
-        `INSERT INTO status_page_monitors (status_page_id, monitor_id, sort_order) VALUES (?, ?, ?)`
+        `INSERT INTO status_page_monitors (status_page_id, monitor_id, sort_order, group_name) VALUES (?, ?, ?, ?)`
       )
-      monitorIds.forEach((monitorId, i) => insert.run(statusPageId, monitorId, i))
+      monitors.forEach((m, i) => insert.run(statusPageId, m.monitorId, i, m.groupName ?? ""))
     })
     tx()
   }
 
-  getStatusPageMonitors(statusPageId: string): MonitorWithStatus[] {
+  getStatusPageMonitors(statusPageId: string): (MonitorWithStatus & { groupName: string })[] {
     const rows = this.db
       .prepare(
-        `SELECT m.* FROM status_page_monitors spm
+        `SELECT m.*, spm.group_name FROM status_page_monitors spm
          JOIN monitors m ON m.id = spm.monitor_id
          WHERE spm.status_page_id = ?
          ORDER BY spm.sort_order ASC`
@@ -1052,7 +1062,8 @@ export class Storage {
         recentHeartbeats: recent.get(monitor.id) ?? [],
         uptime24h: uptime24h.get(monitor.id) ?? null,
         uptime7d: null,
-        uptime30d: null
+        uptime30d: null,
+        groupName: (row.group_name as string) ?? ""
       }
     })
   }
@@ -1518,6 +1529,7 @@ function mapMonitor(row: Record<string, unknown>): MonitorRecord {
     name: row.name as string,
     type: row.type as MonitorRecord["type"],
     url: row.url as string,
+    group: (row.group as string) ?? "",
     method: row.method as string,
     expectedStatus: (row.expected_status as number) ?? 200,
     expectedBody: (row.expected_body as string | null) ?? null,

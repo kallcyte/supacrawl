@@ -238,6 +238,7 @@ export interface Monitor {
   name: string
   type: MonitorType
   url: string
+  group: string
   method: string
   expectedStatus: number
   expectedBody: string | null
@@ -454,6 +455,9 @@ export const api = {
       `/api/monitors${params ? `?page=${params.page ?? 1}&perPage=${params.perPage ?? 5}` : ""}`
     ),
 
+  listAllMonitors: () =>
+    request<{ monitors: MonitorWithStatus[] }>("/api/monitors/all"),
+
   getMonitor: (id: string) =>
     request<{ monitor: Monitor; stats: MonitorStats; running: boolean }>(`/api/monitors/${id}`),
 
@@ -504,6 +508,67 @@ export const api = {
 
   getResourceHistory: (range: "15m" | "1h" | "6h" | "24h" = "1h") =>
     request<{ snapshots: ResourceSnapshot[] }>(`/api/resources/history?range=${range}`),
+
+  listStatusPages: () =>
+    request<{ pages: StatusPageRecord[] }>("/api/status-pages"),
+
+  createStatusPage: (body: { slug: string; title: string; description?: string | null; showResponseTimes?: boolean; public?: boolean }) =>
+    request<StatusPageRecord>("/api/status-pages", { method: "POST", body: JSON.stringify(body) }),
+
+  getStatusPage: (id: string) =>
+    request<{ page: StatusPageRecord; monitors: (MonitorWithStatus & { groupName: string })[] }>(`/api/status-pages/${id}`),
+
+  updateStatusPage: (id: string, body: Partial<{ slug: string; title: string; description: string | null; showResponseTimes: boolean; public: boolean }>) =>
+    request<StatusPageRecord>(`/api/status-pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+
+  deleteStatusPage: (id: string) =>
+    request<{ ok: boolean }>(`/api/status-pages/${id}`, { method: "DELETE" }),
+
+  setStatusPageMonitors: (id: string, monitors: { id: string; groupName?: string }[]) =>
+    request<{ ok: boolean }>(`/api/status-pages/${id}/monitors`, { method: "PUT", body: JSON.stringify({ monitors }) }),
+
+  getAllMonitors: () =>
+    request<{ monitors: MonitorWithStatus[] }>("/api/status-pages/monitors/all"),
+
+  getPublicStatusPage: (slug: string) =>
+    request<PublicStatusPageData>(`/api/public/status/${encodeURIComponent(slug)}`),
+}
+
+export interface StatusPageRecord {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  showResponseTimes: boolean
+  public: boolean
+  createdAt: string
+  monitorCount?: number
+}
+
+export interface PublicStatusMonitor {
+  id: string
+  name: string
+  url: string
+  type: string
+  groupName: string
+  currentStatus: HeartbeatStatus | null
+  uptime24h: number | null
+  uptime7d: number | null
+  uptime30d: number | null
+  avgResponseTimeMs: number | null
+  maxResponseTimeMs: number | null
+  recentHeartbeats: Heartbeat[]
+}
+
+export interface PublicStatusPageData {
+  page: {
+    title: string
+    description: string | null
+    showResponseTimes: boolean
+  }
+  summary: "operational" | "degraded" | "outage"
+  monitors: PublicStatusMonitor[]
+  generatedAt: string
 }
 
 export interface ResourceSnapshot {

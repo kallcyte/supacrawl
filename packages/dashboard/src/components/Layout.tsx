@@ -39,6 +39,7 @@ const nav = [
 
 const adminNav = [
   { to: "/users", label: "Users", icon: Users },
+  { to: "/status-pages", label: "Status Pages", icon: Globe },
   { to: "/notifications", label: "Notifications", icon: Bell }
 ]
 

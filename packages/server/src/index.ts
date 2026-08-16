@@ -30,6 +30,7 @@ import { userNotificationsRoutes } from "./routes/user-notifications.js"
 import { monitorsRoutes } from "./routes/monitors.js"
 import { resourcesRoutes } from "./routes/resources.js"
 import { setupRoutes } from "./routes/setup.js"
+import { statusPagesRoutes } from "./routes/status-pages.js"
 import type { RouteDeps } from "./routes/index.js"
 
 export { createAuth }
@@ -137,6 +138,7 @@ export async function buildApp(opts: ServerOptions): Promise<AppContext> {
   monitorsRoutes(app, deps)
   resourcesRoutes(app, deps)
   setupRoutes(app, deps)
+  statusPagesRoutes(app, deps)
 
   monitorScheduler.startAll()
   jobScheduler.start()

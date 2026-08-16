@@ -16,6 +16,8 @@ import SettingsPage from "@/pages/Settings"
 import MonitorsPage from "@/pages/Monitors"
 import MonitorDetailPage from "@/pages/MonitorDetail"
 import ResourcesPage from "@/pages/Resources"
+import StatusPagesPage from "@/pages/StatusPages"
+import PublicStatusPage from "@/pages/PublicStatusPage"
 import Layout from "@/components/Layout"
 import { Loader2 } from "lucide-react"
 
@@ -47,6 +49,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/status/:slug" element={<PublicStatusPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<SetupPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -59,6 +62,7 @@ export default function App() {
         <Route path="monitors" element={<MonitorsPage />} />
         <Route path="monitors/:id" element={<MonitorDetailPage />} />
         <Route path="resources" element={<ResourcesPage />} />
+        <Route path="status-pages" element={<RequireAdmin><StatusPagesPage /></RequireAdmin>} />
         <Route path="urls/history" element={<UrlHistoryPage />} />
         <Route path="seo" element={<SeoCheckerPage />} />
         <Route path="users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />

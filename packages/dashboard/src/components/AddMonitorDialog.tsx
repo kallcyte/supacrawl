@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { X, Loader2 } from "lucide-react"
+import GroupCombobox from "@/components/GroupCombobox"
 import type { Monitor } from "@/lib/api"
 
 interface Props {
@@ -12,11 +13,13 @@ interface Props {
   onOpenChange: (open: boolean) => void
   onSubmit: (data: Partial<Monitor>) => Promise<void>
   initial?: Monitor | null
+  existingGroups?: string[]
 }
 
-export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial }: Props) {
+export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial, existingGroups = [] }: Props) {
   const [name, setName] = useState(initial?.name ?? "")
   const [url, setUrl] = useState(initial?.url ?? "")
+  const [group, setGroup] = useState(initial?.group ?? "")
   const [method, setMethod] = useState(initial?.method ?? "GET")
   const [expectedStatus, setExpectedStatus] = useState(String(initial?.expectedStatus ?? 200))
   const [expectedBody, setExpectedBody] = useState(initial?.expectedBody ?? "")
@@ -31,9 +34,9 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) {
-      setName(initial?.name ?? "")
+    if (open) {      setName(initial?.name ?? "")
       setUrl(initial?.url ?? "")
+      setGroup(initial?.group ?? "")
       setMethod(initial?.method ?? "GET")
       setExpectedStatus(String(initial?.expectedStatus ?? 200))
       setExpectedBody(initial?.expectedBody ?? "")
@@ -56,6 +59,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
         name,
         url,
         type: "http",
+        group,
         method,
         expectedStatus: Number(expectedStatus) || 200,
         expectedBody: expectedBody.trim() ? expectedBody.trim() : null,
@@ -114,6 +118,19 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
                 />
                 <p className="text-xs text-muted-foreground">
                   Monitored every {intervalSeconds || 60}s. Checks for HTTP {expectedStatus || 200}.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="group">Group (optional)</Label>
+                <GroupCombobox
+                  value={group}
+                  onChange={setGroup}
+                  options={existingGroups}
+                  placeholder="e.g. API, Web, Database"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Monitors are grouped under this label on the Monitors page and status pages.
                 </p>
               </div>
 

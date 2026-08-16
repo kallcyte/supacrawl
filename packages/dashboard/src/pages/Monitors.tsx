@@ -70,9 +70,7 @@ export default function MonitorsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>("grid")
-  const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(15)
-  const [totalPages, setTotalPages] = useState(1)
+  const [groupFilter, setGroupFilter] = useState("all")
   const [totalMonitors, setTotalMonitors] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<MonitorWithStatus | null>(null)
@@ -81,10 +79,9 @@ export default function MonitorsPage() {
 
   async function load() {
     try {
-      const r = await api.listMonitors({ page, perPage })
+      const r = await api.listAllMonitors()
       setMonitors(r.monitors)
-      setTotalPages(r.totalPages)
-      setTotalMonitors(r.totalMonitors)
+      setTotalMonitors(r.monitors.length)
       setError(null)
     } catch (err) {
       setError((err as Error).message)
@@ -97,7 +94,7 @@ export default function MonitorsPage() {
     load()
     const i = setInterval(load, 10000)
     return () => clearInterval(i)
-  }, [page, perPage])
+  }, [])
 
   async function handleCreate(data: Partial<Monitor>) {
     try {
@@ -139,6 +136,16 @@ export default function MonitorsPage() {
     }
   }
 
+  const groupNames = [...new Set(monitors.map((m) => m.group?.trim() ?? "").filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  const filteredMonitors = groupFilter === "all" ? monitors : monitors.filter((m) => (m.group?.trim() ?? "") === groupFilter)
+  const grouped = new Map<string, MonitorWithStatus[]>()
+  for (const m of filteredMonitors) {
+    const key = m.group?.trim() || "__ungrouped__"
+    const list = grouped.get(key) ?? []
+    list.push(m)
+    grouped.set(key, list)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,6 +157,16 @@ export default function MonitorsPage() {
         </div>
         <div className="flex items-center gap-2">
           <PageInfo title="Monitors" content={monitorExplainer} className="h-8 w-8" />
+          <select
+            className="h-8 rounded-md border bg-background px-2 text-xs"
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+          >
+            <option value="all">All groups</option>
+            {groupNames.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
           <div className="flex items-center rounded-md border">
             <button
               type="button"
@@ -207,132 +224,127 @@ export default function MonitorsPage() {
           </CardContent>
         </Card>
       ) : view === "grid" ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {monitors.map((m) => (
-            <Card key={m.id} className="transition-colors hover:border-primary/40">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <MonitorName m={m} />
-                  </div>
-                  {isAdmin && (
-                    <div className="flex shrink-0 gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(m); setDialogOpen(true) }} title="Edit">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => setConfirmingDelete(m.id)}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+        <div className="space-y-6">
+          {[...grouped.entries()].map(([key, groupMonitors]) => {
+            const hasNamedGroups = groupNames.length > 0
+            const groupLabel = key === "__ungrouped__" ? (hasNamedGroups ? "Other" : "") : key
+            return (
+              <div key={key} className="space-y-3">
+                {groupLabel && (
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {groupLabel}
+                  </h2>
+                )}
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {groupMonitors.map((m) => (
+                    <Card key={m.id} className="transition-colors hover:border-primary/40">
+                      <CardContent className="space-y-3 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex min-w-0 items-start gap-2">
+                            <MonitorName m={m} />
+                          </div>
+                          {isAdmin && (
+                            <div className="flex shrink-0 gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(m); setDialogOpen(true) }} title="Edit">
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => setConfirmingDelete(m.id)}
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
 
-                <HeartbeatBar heartbeats={m.recentHeartbeats} />
+                        <HeartbeatBar heartbeats={m.recentHeartbeats} />
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    {m.currentStatus === "up" && <span className="font-medium text-emerald-600">UP</span>}
-                    {m.currentStatus === "down" && <span className="font-medium text-red-600">DOWN</span>}
-                    {m.currentStatus == null && <span>No checks yet</span>}
-                    <ResponseTime m={m} />
-                  </span>
-                  <span>
-                    Uptime 24h: <span className="font-medium text-foreground">{formatUptime(m.uptime24h)}</span>
-                    {m.latestHeartbeat && (
-                      <span className="ml-2">· {formatDate(m.latestHeartbeat.checkedAt)}</span>
-                    )}
-                  </span>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            {m.currentStatus === "up" && <span className="font-medium text-emerald-600">UP</span>}
+                            {m.currentStatus === "down" && <span className="font-medium text-red-600">DOWN</span>}
+                            {m.currentStatus == null && <span>No checks yet</span>}
+                            <ResponseTime m={m} />
+                          </span>
+                          <span>
+                            Uptime 24h: <span className="font-medium text-foreground">{formatUptime(m.uptime24h)}</span>
+                            {m.latestHeartbeat && (
+                              <span className="ml-2">· {formatDate(m.latestHeartbeat.checkedAt)}</span>
+                            )}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            )
+          })}
         </div>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Monitor</TableHead>
-                <TableHead className="w-40">Last 90 checks</TableHead>
-                <TableHead className="w-20 text-right">Response</TableHead>
-                <TableHead className="w-20 text-right">Uptime 24h</TableHead>
-                <TableHead className="w-32">Last checked</TableHead>
-                {isAdmin && <TableHead className="w-16 text-right">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {monitors.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell><MonitorName m={m} /></TableCell>
-                  <TableCell><HeartbeatBar heartbeats={m.recentHeartbeats} /></TableCell>
-                  <TableCell className="text-right"><ResponseTime m={m} /></TableCell>
-                  <TableCell className="text-right">{formatUptime(m.uptime24h)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {m.latestHeartbeat ? formatDate(m.latestHeartbeat.checkedAt) : "–"}
-                  </TableCell>
-                  {isAdmin && (
-                    <TableCell>
-                      <div className="flex justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(m); setDialogOpen(true) }} title="Edit">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => setConfirmingDelete(m.id)}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="h-8 rounded-md border bg-background px-2 text-xs"
-              value={perPage}
-              onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
-            >
-              <option value={15}>15 monitors</option>
-              <option value={24}>24 monitors</option>
-              <option value={30}>30 monitors</option>
-            </select>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Prev
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
+        <div className="space-y-6">
+          {[...grouped.entries()].map(([key, groupMonitors]) => {
+            const hasNamedGroups = groupNames.length > 0
+            const groupLabel = key === "__ungrouped__" ? (hasNamedGroups ? "Other" : "") : key
+            return (
+              <div key={key} className="space-y-3">
+                {groupLabel && (
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {groupLabel}
+                  </h2>
+                )}
+                <Card>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Monitor</TableHead>
+                        <TableHead className="w-40">Last 90 checks</TableHead>
+                        <TableHead className="w-20 text-right">Response</TableHead>
+                        <TableHead className="w-20 text-right">Uptime 24h</TableHead>
+                        <TableHead className="w-32">Last checked</TableHead>
+                        {isAdmin && <TableHead className="w-16 text-right">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {groupMonitors.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell><MonitorName m={m} /></TableCell>
+                          <TableCell><HeartbeatBar heartbeats={m.recentHeartbeats} /></TableCell>
+                          <TableCell className="text-right"><ResponseTime m={m} /></TableCell>
+                          <TableCell className="text-right">{formatUptime(m.uptime24h)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {m.latestHeartbeat ? formatDate(m.latestHeartbeat.checkedAt) : "–"}
+                          </TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <div className="flex justify-end gap-0.5">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(m); setDialogOpen(true) }} title="Edit">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setConfirmingDelete(m.id)}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -341,6 +353,7 @@ export default function MonitorsPage() {
         onOpenChange={setDialogOpen}
         onSubmit={editing ? handleUpdate : handleCreate}
         initial={editing}
+        existingGroups={groupNames}
       />
 
       <ConfirmDialog

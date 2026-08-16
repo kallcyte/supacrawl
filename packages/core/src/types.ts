@@ -482,6 +482,7 @@ export const MonitorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: MonitorTypeSchema.default("http"),
   url: z.string().min(1, "Target URL is required"),
+  group: z.string().default(""),
   method: z.string().default("GET"),
   expectedStatus: z.number().int().default(200),
   expectedBody: z.string().nullable().optional(),
@@ -559,6 +560,7 @@ export interface StatusPageMonitor {
   statusPageId: string
   monitorId: string
   sortOrder: number
+  groupName?: string
 }
 
 export const MaintenanceWindowSchema = z.object({
