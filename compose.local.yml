@@ -36,7 +36,6 @@ services:
       - supacrawl-data:/app/data
       # Bind-mount your config so sitemap / notification edits apply without a
       # rebuild. Remove this line to use the config baked into the image.
-      - ./packages/server/supacrawl.config.json:/app/packages/server/supacrawl.config.json:ro
     restart: unless-stopped
 
 volumes:
