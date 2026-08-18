@@ -19,6 +19,7 @@ interface Props {
 export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial, existingGroups = [] }: Props) {
   const [name, setName] = useState(initial?.name ?? "")
   const [url, setUrl] = useState(initial?.url ?? "")
+  const [type, setType] = useState(initial?.type ?? "http")
   const [group, setGroup] = useState(initial?.group ?? "")
   const [method, setMethod] = useState(initial?.method ?? "GET")
   const [expectedStatus, setExpectedStatus] = useState(String(initial?.expectedStatus ?? 200))
@@ -36,6 +37,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
   useEffect(() => {
     if (open) {      setName(initial?.name ?? "")
       setUrl(initial?.url ?? "")
+      setType(initial?.type ?? "http")
       setGroup(initial?.group ?? "")
       setMethod(initial?.method ?? "GET")
       setExpectedStatus(String(initial?.expectedStatus ?? 200))
@@ -58,7 +60,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
       await onSubmit({
         name,
         url,
-        type: "http",
+        type: type as Monitor["type"],
         group,
         method,
         expectedStatus: Number(expectedStatus) || 200,
@@ -107,17 +109,32 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="url">Target URL</Label>
+                <Label htmlFor="type">Type</Label>
+                <select
+                  id="type"
+                  className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  value={type}
+                  onChange={(e) => setType(e.target.value as Monitor["type"])}
+                >
+                  <option value="http">HTTP(S)</option>
+                  <option value="tcp">TCP port</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="url">{type === "tcp" ? "Target host:port" : "Target URL"}</Label>
                 <Input
                   id="url"
-                  type="url"
+                  type={type === "tcp" ? "text" : "url"}
                   value={url}
-                  placeholder="https://example.com/api/health"
+                  placeholder={type === "tcp" ? "db.example.com:5432" : "https://example.com/api/health"}
                   onChange={(e) => setUrl(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Monitored every {intervalSeconds || 60}s. Checks for HTTP {expectedStatus || 200}.
+                  {type === "tcp"
+                    ? "Checks that a TCP connection can be established. Monitored every " + (intervalSeconds || 60) + "s."
+                    : "Monitored every " + (intervalSeconds || 60) + "s. Checks for HTTP " + (expectedStatus || 200) + "."}
                 </p>
               </div>
 
@@ -134,46 +151,50 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="method">Method</Label>
-                  <select
-                    id="method"
-                    className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    value={method}
-                    onChange={(e) => setMethod(e.target.value)}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="HEAD">HEAD</option>
-                    <option value="POST">POST</option>
-                    <option value="OPTIONS">OPTIONS</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expectedStatus">Expected status</Label>
-                  <Input
-                    id="expectedStatus"
-                    type="number"
-                    min={100}
-                    max={599}
-                    value={expectedStatus}
-                    onChange={(e) => setExpectedStatus(e.target.value)}
-                  />
-                </div>
-              </div>
+              {type === "http" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="method">Method</Label>
+                      <select
+                        id="method"
+                        className="h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                        value={method}
+                        onChange={(e) => setMethod(e.target.value)}
+                      >
+                        <option value="GET">GET</option>
+                        <option value="HEAD">HEAD</option>
+                        <option value="POST">POST</option>
+                        <option value="OPTIONS">OPTIONS</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="expectedStatus">Expected status</Label>
+                      <Input
+                        id="expectedStatus"
+                        type="number"
+                        min={100}
+                        max={599}
+                        value={expectedStatus}
+                        onChange={(e) => setExpectedStatus(e.target.value)}
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="expectedBody">Expected body keyword (optional)</Label>
-                <Input
-                  id="expectedBody"
-                  value={expectedBody}
-                  placeholder='e.g. {"status":"ok"}'
-                  onChange={(e) => setExpectedBody(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  If set, the monitor only counts as up when the response contains this text.
-                </p>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expectedBody">Expected body keyword (optional)</Label>
+                    <Input
+                      id="expectedBody"
+                      value={expectedBody}
+                      placeholder='e.g. {"status":"ok"}'
+                      onChange={(e) => setExpectedBody(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      If set, the monitor only counts as up when the response contains this text.
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
