@@ -161,10 +161,10 @@ export default function SeoCheckerPage() {
       {result && !loading && analysis && (
         <>
           {(failed || redirected || analysis.error) && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 p-3 text-sm">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <div>
-                <p className="font-medium text-amber-700 dark:text-amber-300">
+                <p className="font-medium text-warning">
                   {analysis.error
                     ? `Could not retrieve the page: ${analysis.error}`
                     : statusText(analysis.statusCode)}

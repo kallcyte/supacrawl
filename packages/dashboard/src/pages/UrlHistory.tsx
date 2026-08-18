@@ -324,7 +324,7 @@ export default function UrlHistoryPage() {
                 </Tooltip>
               </div>
               {summary.sslExpiring ? (
-                <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+                <ShieldAlert className="h-3.5 w-3.5 text-warning" />
               ) : (
                 <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" />
               )}
@@ -437,7 +437,7 @@ export default function UrlHistoryPage() {
                               </span>
                             )}
                             {h.mojibakeFlagged && (
-                              <span className="inline-flex items-center gap-0.5 text-amber-500" title={`Mojibake score: ${h.mojibakeScore !== null ? Math.round(h.mojibakeScore * 100) : "?"}%`}>
+                              <span className="inline-flex items-center gap-0.5 text-warning" title={`Mojibake score: ${h.mojibakeScore !== null ? Math.round(h.mojibakeScore * 100) : "?"}%`}>
                                 <Bug className="h-3 w-3" />
                                 {h.mojibakeScore !== null ? `${Math.round(h.mojibakeScore * 100)}%` : ""}
                               </span>

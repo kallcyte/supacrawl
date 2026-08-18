@@ -1,7 +1,11 @@
-import { readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { ConfigSchema, type Config } from "./types.js"
 
 export function loadConfigFromFile(path: string): Config {
+  if (!existsSync(path)) {
+    console.warn(`[config] ${path} not found — using defaults`)
+    return parseConfig(JSON.stringify(defaultConfig()))
+  }
   const raw = readFileSync(path, "utf-8")
   return parseConfig(raw)
 }
@@ -17,6 +21,7 @@ export function writeConfigToFile(path: string, config: Config): void {
 
 export function defaultConfig(): Partial<Config> {
   return {
+    sitemaps: [{ url: "https://example.com/sitemap.xml", enabled: false }],
     crawl: {
       delayMs: 2000,
       maxConcurrency: 2,
@@ -30,6 +35,11 @@ export function defaultConfig(): Partial<Config> {
       detectLlmGarbage: true,
       maxBodyBytes: 256 * 1024,
       maxGlobalConcurrency: 32
+    },
+    checks: {
+      ssl: { enabled: true, warnDays: 30 },
+      contentDiff: true,
+      responseTime: { warnMs: 3000 }
     }
   }
 }

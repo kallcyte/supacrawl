@@ -35,7 +35,7 @@ const RANGES: { value: Range; label: string }[] = [
 
 function UptimeCard({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-sm border p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-bold">{value === null ? "–" : `${value.toFixed(1)}%`}</p>
     </div>
@@ -218,7 +218,7 @@ export default function MonitorDetailPage() {
             <HeartbeatBar heartbeats={heartbeats} className="py-1" />
           </CardContent>
         </Card>
-        <div className="inline-flex rounded-md border">
+        <div className="inline-flex rounded-sm border">
           {RANGES.map((r) => (
             <button
               key={r.value}

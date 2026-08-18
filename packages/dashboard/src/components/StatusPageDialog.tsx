@@ -124,7 +124,7 @@ export default function StatusPageDialog({ open, onOpenChange, onSubmit, initial
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border bg-background shadow-lg">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-sm border bg-background shadow-lg">
           <div className="flex items-center justify-between border-b px-4 py-4 md:px-6">
             <Dialog.Title className="text-lg font-semibold">
               {initial ? "Edit Status Page" : "Create Status Page"}
@@ -219,9 +219,9 @@ export default function StatusPageDialog({ open, onOpenChange, onSubmit, initial
                             />
                             <span className="flex shrink-0 items-center gap-1.5 text-sm">
                               <span
-                                className={`inline-block h-2 w-2 rounded-full ${
-                                  m.currentStatus === "up" ? "bg-emerald-500" :
-                                  m.currentStatus === "down" ? "bg-red-500" :
+                                className={`inline-block h-2 w-2 rounded-sm ${
+                                  m.currentStatus === "up" ? "bg-success" :
+                                  m.currentStatus === "down" ? "bg-destructive" :
                                   "bg-muted-foreground/30"
                                 }`}
                               />

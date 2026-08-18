@@ -255,7 +255,7 @@ export default function CrawlsPage() {
               {jobs.map((job) => {
                 const isRunning = runningJobs.has(job.id)
                 return (
-                  <div key={job.id} className="rounded-lg border p-4">
+                  <div key={job.id} className="rounded-sm border p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex-1">
                         <div className="flex items-start gap-3">
@@ -421,8 +421,8 @@ export default function CrawlsPage() {
                                       </div>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-right">{c.urlsChecked}</TableCell>
-                                  <TableCell className="text-right text-destructive">
+                                  <TableCell className="text-right tabular-nums">{c.urlsChecked}</TableCell>
+                                  <TableCell className="text-right tabular-nums text-destructive">
                                     {c.urlsBroken || "-"}
                                   </TableCell>
                                   <TableCell className="text-right">

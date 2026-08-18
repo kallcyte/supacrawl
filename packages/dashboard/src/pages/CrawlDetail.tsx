@@ -244,7 +244,7 @@ export default function CrawlDetailPage() {
       )}
 
       {crawl.status !== "failed" && crawl.errorMessage && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+        <div className="rounded-sm border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
           <span className="font-medium">Crawl completed with errors:</span> {crawl.errorMessage}
         </div>
       )}
@@ -313,7 +313,7 @@ export default function CrawlDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Mojibake</CardDescription>
-            <CardTitle className="text-2xl text-amber-500">
+            <CardTitle className="text-2xl text-warning">
               {results.filter((r) => r.mojibakeFlagged).length}
             </CardTitle>
           </CardHeader>
@@ -482,7 +482,7 @@ export default function CrawlDetailPage() {
                                 </div>
                               )}
                               {r.mojibakeFlagged && (
-                                <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+                                <div className="mt-1 flex items-center gap-1 text-xs text-warning">
                                   <Bug className="h-3 w-3" />
                                   Mojibake detected
                                   {r.mojibakeScore !== null && ` (${Math.round(r.mojibakeScore * 100)}%)`}
@@ -540,7 +540,7 @@ export default function CrawlDetailPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="rounded-full bg-primary/10 p-4">
+              <div className="rounded-sm bg-primary/10 p-4">
                 <FileSpreadsheet className="h-8 w-8 text-primary" />
               </div>
               <div>
@@ -600,7 +600,7 @@ function StatBox({
   bgColor: string
 }) {
   return (
-    <div className={`${bgColor} rounded-lg p-3 text-center`}>
+    <div className={`${bgColor} rounded-sm p-3 text-center`}>
       <span className="text-lg">{icon}</span>
       <p className={`text-xl font-bold ${color}`}>{value}</p>
       <p className="text-xs text-slate-500">{label}</p>
@@ -621,33 +621,33 @@ function IssueSection({
 }) {
   const borderColor =
     color === "red"
-      ? "border-red-200"
+      ? "border-destructive/30"
       : color === "amber"
-        ? "border-amber-200"
+        ? "border-warning/30"
         : color === "orange"
-          ? "border-orange-200"
-          : "border-blue-200"
+          ? "border-chart-5/30"
+          : "border-primary/30"
   const bgColor =
     color === "red"
-      ? "bg-red-50"
+      ? "bg-destructive/10"
       : color === "amber"
-        ? "bg-amber-50"
+        ? "bg-warning/10"
         : color === "orange"
-          ? "bg-orange-50"
-          : "bg-blue-50"
+          ? "bg-chart-5/10"
+          : "bg-primary/10"
   const textColor =
     color === "red"
-      ? "text-red-700"
+      ? "text-destructive"
       : color === "amber"
-        ? "text-amber-700"
+        ? "text-warning"
         : color === "orange"
-          ? "text-orange-700"
-          : "text-[#0014cc]"
+          ? "text-chart-5"
+          : "text-primary"
 
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className={`border ${borderColor} rounded-lg overflow-hidden`}>
+    <div className={`border ${borderColor} rounded-sm overflow-hidden`}>
       <button
         className={`w-full flex items-center justify-between ${bgColor} px-4 py-3 text-sm font-medium ${textColor}`}
         onClick={() => setExpanded(!expanded)}

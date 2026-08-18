@@ -62,9 +62,9 @@ function DiffLine({ tokens }: { tokens: DiffToken[] }) {
           key={idx}
           className={
             t.type === "added"
-              ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+              ? "bg-success/20 text-success"
               : t.type === "removed"
-                ? "bg-red-500/20 text-red-700 dark:text-red-300 line-through"
+                ? "bg-destructive/20 text-destructive line-through"
                 : ""
           }
         >
@@ -94,8 +94,8 @@ export default function DiffView({ previous, current }: { previous: string | nul
         <GitCompare className="h-3.5 w-3.5" />
         Content diff
         <span className="ml-auto flex gap-2">
-          {removed > 0 && <span className="text-red-500">-{removed} removed</span>}
-          {added > 0 && <span className="text-emerald-600">+{added} added</span>}
+          {removed > 0 && <span className="text-destructive">-{removed} removed</span>}
+          {added > 0 && <span className="text-success">+{added} added</span>}
         </span>
       </button>
       {expanded && (

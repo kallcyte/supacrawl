@@ -27,7 +27,9 @@ COPY packages/dashboard/src packages/dashboard/src
 
 COPY packages/server/tsconfig.json packages/server/tsconfig.json
 COPY packages/server/tsup.config.ts packages/server/tsup.config.ts
-COPY packages/server/supacrawl.config.json packages/server/
+# The per-deployment config is gitignored, so bake the committed example into
+# the image. Production overrides it with a volume mount (see docker-compose).
+COPY supacrawl.config.example.json packages/server/supacrawl.config.json
 COPY packages/server/src packages/server/src
 
 COPY tsconfig.json ./

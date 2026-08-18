@@ -136,7 +136,7 @@ export default function StatusPagesPage() {
                     </TableCell>
                     <TableCell>
                       {p.public ? (
-                        <Badge variant="default" className="bg-emerald-600">Public</Badge>
+                        <Badge variant="default" className="bg-success">Public</Badge>
                       ) : (
                         <Badge variant="secondary">Private</Badge>
                       )}
@@ -161,7 +161,7 @@ export default function StatusPagesPage() {
                           onClick={() => copyLink(p.slug, p.id)}
                           title="Copy share link"
                         >
-                          {copiedId === p.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                          {copiedId === p.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                         </Button>
                         <Button
                           variant="ghost"

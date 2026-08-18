@@ -1,64 +1,264 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
-@import "@fontsource/plus-jakarta-sans/400.css";
-@import "@fontsource/plus-jakarta-sans/500.css";
-@import "@fontsource/plus-jakarta-sans/600.css";
-@import "@fontsource/plus-jakarta-sans/700.css";
+
+/* Mono fonts — selectable at runtime via [data-font] */
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
 @import "@fontsource/jetbrains-mono/700.css";
+@import "@fontsource/fira-code/400.css";
+@import "@fontsource/fira-code/500.css";
+@import "@fontsource/fira-code/600.css";
+@import "@fontsource/fira-code/700.css";
+@import "@fontsource/roboto-mono/400.css";
+@import "@fontsource/roboto-mono/500.css";
+@import "@fontsource/roboto-mono/600.css";
+@import "@fontsource/roboto-mono/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "@fontsource/source-code-pro/400.css";
+@import "@fontsource/source-code-pro/500.css";
+@import "@fontsource/source-code-pro/600.css";
+@import "@fontsource/source-code-pro/700.css";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where([data-theme="tokyo-night"], [data-theme="tokyo-night"] *, [data-theme="mocha"], [data-theme="mocha"] *, [data-theme="macchiato"], [data-theme="macchiato"] *, [data-theme="frappe"], [data-theme="frappe"] *, [data-theme="nord"], [data-theme="nord"] *));
 
-:root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --radius: 0.5rem;
+/* ============================================================
+   Theme palette blocks — each theme sets the full token set.
+   Values from the omarchy themes, tokyonight.org, catppuccin.com.
+   ============================================================ */
+
+:root,
+[data-theme="tokyo-night"] {
+  color-scheme: dark;
+  --background: 235 19% 13%;        /* #1a1b26 */
+  --foreground: 229 73% 86%;        /* #c0caf5 */
+  --card: 230 24% 19%;              /* #24283b */
+  --card-foreground: 229 73% 86%;
+  --primary: 221 89% 72%;           /* #7aa2f7 */
+  --primary-foreground: 235 19% 13%;
+  --secondary: 229 23% 25%;
+  --secondary-foreground: 229 73% 86%;
+  --muted: 229 23% 21%;             /* #292e42 */
+  --muted-foreground: 229 23% 58%;
+  --accent: 229 23% 21%;
+  --accent-foreground: 229 73% 86%;
+  --destructive: 349 89% 72%;       /* #f7768e */
+  --destructive-foreground: 235 19% 13%;
+  --border: 229 23% 33%;            /* #414868 */
+  --input: 229 23% 33%;
+  --ring: 221 89% 72%;              /* #7aa2f7 */
+  --popover: 240 18% 7%;            /* #0e0e14 */
+  --popover-foreground: 229 73% 86%;
+  --success: 89 51% 61%;            /* #9ece6a */
+  --warning: 36 66% 64%;            /* #e0af68 */
+  --info: 202 100% 75%;             /* #7dcfff */
+  --chart-1: 221 89% 72%;           /* blue */
+  --chart-2: 202 100% 75%;          /* cyan */
+  --chart-3: 261 85% 79%;           /* magenta */
+  --chart-4: 89 51% 61%;            /* green */
+  --chart-5: 22 100% 70%;           /* orange */
+  --chart-6: 349 89% 72%;           /* red */
 }
 
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
+[data-theme="tokyo-day"] {
+  color-scheme: light;
+  --background: 230 11% 89%;        /* #e1e2e7 */
+  --foreground: 222 55% 48%;        /* #3760bf */
+  --card: 240 10% 92%;              /* #e9e9ed */
+  --card-foreground: 222 55% 48%;
+  --primary: 215 81% 55%;           /* #2e7de9 */
+  --primary-foreground: 230 11% 96%;
+  --secondary: 228 4% 84%;
+  --secondary-foreground: 222 55% 48%;
+  --muted: 228 4% 84%;
+  --muted-foreground: 227 33% 54%;  /* #6172b0 */
+  --accent: 230 11% 84%;
+  --accent-foreground: 222 55% 48%;
+  --destructive: 343 91% 56%;       /* #f52a65 */
+  --destructive-foreground: 230 11% 96%;
+  --border: 228 3% 72%;             /* #b4b5b9 */
+  --input: 228 3% 72%;
+  --ring: 215 81% 55%;
+  --popover: 240 10% 92%;
+  --popover-foreground: 222 55% 48%;
+  --success: 89 34% 34%;            /* #587539 */
+  --warning: 35 39% 40%;            /* #8c6c3e */
+  --info: 195 100% 30%;             /* #007197 */
+  --chart-1: 215 81% 55%;
+  --chart-2: 195 100% 30%;
+  --chart-3: 266 85% 64%;
+  --chart-4: 89 34% 34%;
+  --chart-5: 24 100% 41%;
+  --chart-6: 343 91% 56%;
+}
+
+[data-theme="mocha"] {
+  color-scheme: dark;
+  --background: 240 21% 15%;        /* #1e1e2e */
+  --foreground: 226 64% 88%;        /* #cdd6f4 */
+  --card: 237 16% 23%;              /* #313244 */
+  --card-foreground: 226 64% 88%;
+  --primary: 217 92% 76%;           /* #89b4fa */
+  --primary-foreground: 240 21% 15%;
+  --secondary: 234 13% 28%;
+  --secondary-foreground: 226 64% 88%;
+  --muted: 237 16% 20%;
+  --muted-foreground: 228 24% 72%;  /* #a6adc8 */
+  --accent: 237 16% 20%;
+  --accent-foreground: 226 64% 88%;
+  --destructive: 343 81% 75%;       /* #f38ba8 */
+  --destructive-foreground: 240 21% 15%;
+  --border: 234 13% 31%;            /* #45475a */
+  --input: 234 13% 31%;
+  --ring: 217 92% 76%;
+  --popover: 240 23% 9%;            /* #11111b */
+  --popover-foreground: 226 64% 88%;
+  --success: 115 54% 76%;           /* #a6e3a1 */
+  --warning: 41 86% 83%;            /* #f9e2af */
+  --info: 170 57% 73%;              /* #94e2d5 */
+  --chart-1: 217 92% 76%;
+  --chart-2: 170 57% 73%;
+  --chart-3: 267 84% 81%;
+  --chart-4: 115 54% 76%;
+  --chart-5: 23 92% 75%;
+  --chart-6: 343 81% 75%;
+}
+
+[data-theme="macchiato"] {
+  color-scheme: dark;
+  --background: 232 23% 18%;        /* #24273a */
+  --foreground: 227 68% 88%;        /* #cad3f5 */
+  --card: 230 19% 26%;              /* #363a4f */
+  --card-foreground: 227 68% 88%;
+  --primary: 220 83% 75%;           /* #8aadf4 */
+  --primary-foreground: 232 23% 18%;
+  --secondary: 231 16% 30%;
+  --secondary-foreground: 227 68% 88%;
+  --muted: 230 19% 23%;
+  --muted-foreground: 227 27% 72%;  /* #a5adcb */
+  --accent: 230 19% 23%;
+  --accent-foreground: 227 68% 88%;
+  --destructive: 351 74% 73%;       /* #ed8796 */
+  --destructive-foreground: 232 23% 18%;
+  --border: 231 16% 34%;            /* #494d64 */
+  --input: 231 16% 34%;
+  --ring: 220 83% 75%;
+  --popover: 236 23% 12%;           /* #181926 */
+  --popover-foreground: 227 68% 88%;
+  --success: 105 48% 72%;           /* #a6da95 */
+  --warning: 40 70% 78%;            /* #eed49f */
+  --info: 171 47% 69%;              /* #8bd5ca */
+  --chart-1: 220 83% 75%;
+  --chart-2: 171 47% 69%;
+  --chart-3: 267 83% 80%;
+  --chart-4: 105 48% 72%;
+  --chart-5: 21 86% 73%;
+  --chart-6: 351 74% 73%;
+}
+
+[data-theme="frappe"] {
+  color-scheme: dark;
+  --background: 229 19% 23%;        /* #303446 */
+  --foreground: 227 70% 87%;        /* #c6d0f5 */
+  --card: 230 16% 30%;              /* #414559 */
+  --card-foreground: 227 70% 87%;
+  --primary: 222 74% 74%;           /* #8caaee */
+  --primary-foreground: 229 19% 23%;
+  --secondary: 227 15% 33%;
+  --secondary-foreground: 227 70% 87%;
+  --muted: 230 16% 27%;
+  --muted-foreground: 228 29% 73%;  /* #a5adce */
+  --accent: 230 16% 27%;
+  --accent-foreground: 227 70% 87%;
+  --destructive: 359 68% 71%;       /* #e78284 */
+  --destructive-foreground: 229 19% 23%;
+  --border: 227 15% 37%;            /* #51576d */
+  --input: 227 15% 37%;
+  --ring: 222 74% 74%;
+  --popover: 229 20% 17%;           /* #232634 */
+  --popover-foreground: 227 70% 87%;
+  --success: 96 44% 68%;            /* #a6d189 */
+  --warning: 40 62% 73%;            /* #e5c890 */
+  --info: 172 39% 65%;              /* #81c8be */
+  --chart-1: 222 74% 74%;
+  --chart-2: 172 39% 65%;
+  --chart-3: 277 59% 76%;
+  --chart-4: 96 44% 68%;
+  --chart-5: 20 79% 70%;
+  --chart-6: 359 68% 71%;
+}
+
+[data-theme="latte"] {
+  color-scheme: light;
+  --background: 220 23% 95%;        /* #eff1f5 */
+  --foreground: 234 16% 35%;        /* #4c4f69 */
+  --card: 0 0% 100%;                /* #ffffff */
+  --card-foreground: 234 16% 35%;
+  --primary: 220 91% 54%;           /* #1e66f5 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 223 16% 88%;
+  --secondary-foreground: 234 16% 35%;
+  --muted: 223 16% 88%;
+  --muted-foreground: 233 10% 47%;  /* #6c6f85 */
+  --accent: 223 16% 88%;
+  --accent-foreground: 234 16% 35%;
+  --destructive: 347 87% 44%;       /* #d20f39 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 223 16% 83%;            /* #ccd0da */
+  --input: 223 16% 83%;
+  --ring: 220 91% 54%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 234 16% 35%;
+  --success: 109 58% 40%;           /* #40a02b */
+  --warning: 35 77% 49%;            /* #df8e1d */
+  --info: 183 74% 35%;              /* #179299 */
+  --chart-1: 220 91% 54%;
+  --chart-2: 183 74% 35%;
+  --chart-3: 266 85% 58%;
+  --chart-4: 109 58% 40%;
+  --chart-5: 22 99% 52%;
+  --chart-6: 347 87% 44%;
+}
+
+[data-theme="nord"] {
+  color-scheme: dark;
+  --background: 220 16% 22%;        /* #2e3440 */
+  --foreground: 219 28% 88%;        /* #d8dee9 */
+  --card: 222 16% 28%;              /* #3b4252 */
+  --card-foreground: 219 28% 88%;
+  --primary: 210 34% 63%;           /* #81a1c1 */
+  --primary-foreground: 220 16% 22%;
+  --secondary: 222 16% 25%;
+  --secondary-foreground: 219 28% 88%;
+  --muted: 222 16% 24%;
+  --muted-foreground: 219 16% 72%;  /* #adb5c4 */
+  --accent: 222 16% 24%;
+  --accent-foreground: 219 28% 88%;
+  --destructive: 354 42% 56%;       /* #bf616a */
+  --destructive-foreground: 220 16% 22%;
+  --border: 220 17% 32%;            /* #434c5e */
+  --input: 220 17% 32%;
+  --ring: 210 34% 63%;
+  --popover: 222 17% 12%;           /* #191c23 */
+  --popover-foreground: 219 28% 88%;
+  --success: 92 28% 65%;            /* #a3be8c */
+  --warning: 40 71% 73%;            /* #ebcb8b */
+  --info: 193 43% 67%;              /* #88c0d0 */
+  --chart-1: 210 34% 63%;
+  --chart-2: 193 43% 67%;
+  --chart-3: 311 20% 63%;
+  --chart-4: 92 28% 65%;
+  --chart-5: 18 52% 66%;
+  --chart-6: 354 42% 56%;
 }
 
 @theme inline {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--ui-font-stack);
+  --font-mono: var(--ui-font-stack);
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -79,46 +279,114 @@
   --color-ring: hsl(var(--ring));
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
-  --radius: 0.5rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-info: hsl(var(--info));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-chart-6: hsl(var(--chart-6));
+
+  --radius: 0rem;
+  --radius-sm: calc(var(--radius) + 2px);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
 
-  --text-display: 36px;
-  --text-display--line-height: 1.10;
+  --text-display: 32px;
+  --text-display--line-height: 1.15;
   --text-display--font-weight: 700;
 
-  --text-h1: 24px;
-  --text-h1--line-height: 1.20;
+  --text-h1: 22px;
+  --text-h1--line-height: 1.25;
   --text-h1--font-weight: 700;
 
-  --text-h2: 18px;
-  --text-h2--line-height: 1.25;
-  --text-h2--font-weight: 600;
+  --text-h2: 17px;
+  --text-h2--line-height: 1.30;
+  --text-h2--font-weight: 700;
 
-  --text-h3: 15px;
-  --text-h3--line-height: 1.30;
-  --text-h3--font-weight: 600;
+  --text-h3: 14px;
+  --text-h3--line-height: 1.40;
+  --text-h3--font-weight: 700;
 
-  --text-body: 15px;
-  --text-body--line-height: 1.60;
+  --text-body: 14px;
+  --text-body--line-height: 1.55;
   --text-body--font-weight: 400;
 
-  --text-caption: 13px;
+  --text-caption: 12px;
   --text-caption--line-height: 1.45;
   --text-caption--font-weight: 400;
 
   --text-label: 11px;
   --text-label--line-height: 1.35;
-  --text-label--font-weight: 600;
+  --text-label--font-weight: 700;
+  --text-label--letter-spacing: 0.08em;
+  --text-label--text-transform: uppercase;
+}
+
+/* Runtime font selection — set on <html> via [data-font] */
+:root {
+  --ui-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="space-mono"] {
+  --ui-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="jetbrains-mono"] {
+  --ui-font-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="fira-code"] {
+  --ui-font-stack: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="roboto-mono"] {
+  --ui-font-stack: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="ibm-plex-mono"] {
+  --ui-font-stack: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-font="source-code-pro"] {
+  --ui-font-stack: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+  }
+
+  /* Slim TUI-style scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
   }
 
   select {
