@@ -5,6 +5,7 @@ import { api, type PublicStatusPageData, type PublicStatusMonitor } from "@/lib/
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import HeartbeatBar from "@/components/HeartbeatBar"
+import { getInitialTheme, applyTheme } from "@/lib/theme"
 import { Moon, Sun } from "lucide-react"
 
 function formatRt(ms: number | null): string {
@@ -18,15 +19,15 @@ function formatUptime(v: number | null): string {
 }
 
 function StatusDot({ status }: { status: string | null }) {
-  if (status === "up") return <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 shrink-0" />
-  if (status === "down") return <span className="inline-block h-3 w-3 rounded-full bg-red-500 shrink-0" />
-  if (status === "maintenance") return <span className="inline-block h-3 w-3 rounded-full bg-amber-500 shrink-0" />
-  return <span className="inline-block h-3 w-3 rounded-full bg-muted-foreground/20 shrink-0" />
+  if (status === "up") return <span className="inline-block h-3 w-3 rounded-sm bg-success shrink-0" />
+  if (status === "down") return <span className="inline-block h-3 w-3 rounded-sm bg-destructive shrink-0" />
+  if (status === "maintenance") return <span className="inline-block h-3 w-3 rounded-sm bg-warning shrink-0" />
+  return <span className="inline-block h-3 w-3 rounded-sm bg-muted-foreground/20 shrink-0" />
 }
 
 function MonitorRow({ monitor, showResponseTimes }: { monitor: PublicStatusMonitor; showResponseTimes: boolean }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-sm border bg-card p-4">
       <div className="flex items-start gap-3">
         <StatusDot status={monitor.currentStatus} />
         <div className="min-w-0 flex-1">
@@ -35,15 +36,15 @@ function MonitorRow({ monitor, showResponseTimes }: { monitor: PublicStatusMonit
               href={monitor.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="truncate text-sm font-medium hover:underline"
+              className="truncate font-mono text-sm font-medium hover:underline"
             >
               {monitor.name}
             </a>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">
               {formatUptime(monitor.uptime30d)} uptime
             </span>
           </div>
-          <p className="truncate text-xs text-muted-foreground">{monitor.url}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">{monitor.url}</p>
         </div>
       </div>
 
@@ -64,11 +65,11 @@ function MonitorRow({ monitor, showResponseTimes }: { monitor: PublicStatusMonit
 function SummaryBanner({ summary }: { summary: PublicStatusPageData["summary"] }) {
   if (summary === "operational") {
     return (
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
-        <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+      <div className="rounded-sm border border-success/40 border-l-4 border-l-success bg-success/10 p-4 text-center">
+        <p className="font-mono text-lg font-bold text-success">
           ✅ All Systems Operational
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 font-mono text-sm text-muted-foreground">
           All monitored services are running normally.
         </p>
       </div>
@@ -76,22 +77,22 @@ function SummaryBanner({ summary }: { summary: PublicStatusPageData["summary"] }
   }
   if (summary === "degraded") {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
-        <p className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+      <div className="rounded-sm border border-warning/40 border-l-4 border-l-warning bg-warning/10 p-4 text-center">
+        <p className="font-mono text-lg font-bold text-warning">
           ⚠️ Degraded Performance
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 font-mono text-sm text-muted-foreground">
           Some services are experiencing issues.
         </p>
       </div>
     )
   }
   return (
-    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-center">
-      <p className="text-lg font-semibold text-red-600 dark:text-red-400">
+    <div className="rounded-sm border border-destructive/40 border-l-4 border-l-destructive bg-destructive/10 p-4 text-center">
+      <p className="font-mono text-lg font-bold text-destructive">
         🔴 Major Outage
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 font-mono text-sm text-muted-foreground">
         All monitored services are currently down.
       </p>
     </div>
@@ -105,22 +106,12 @@ export default function PublicStatusPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState(30)
-  const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("status-page-theme")
-    if (stored) return stored === "dark"
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-  })
+  const [dark, setDark] = useState(() => getInitialTheme() === "dark")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Dark mode toggle
   useEffect(() => {
-    const root = document.documentElement
-    if (dark) {
-      root.classList.add("dark")
-    } else {
-      root.classList.remove("dark")
-    }
-    localStorage.setItem("status-page-theme", dark ? "dark" : "light")
+    applyTheme(dark ? "dark" : "light")
   }, [dark])
 
   const fetchData = useCallback(async () => {
@@ -192,7 +183,7 @@ export default function PublicStatusPage() {
         <Button
           variant="outline"
           size="icon"
-          className="h-9 w-9 rounded-full"
+          className="h-9 w-9 rounded-sm"
           onClick={() => setDark(!dark)}
           title={dark ? "Light mode" : "Dark mode"}
         >

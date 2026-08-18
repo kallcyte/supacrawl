@@ -421,8 +421,8 @@ export default function CrawlsPage() {
                                       </div>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-right">{c.urlsChecked}</TableCell>
-                                  <TableCell className="text-right text-destructive">
+                                  <TableCell className="text-right tabular-nums">{c.urlsChecked}</TableCell>
+                                  <TableCell className="text-right tabular-nums text-destructive">
                                     {c.urlsBroken || "-"}
                                   </TableCell>
                                   <TableCell className="text-right">

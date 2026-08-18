@@ -314,8 +314,8 @@ export default function MonitorsPage() {
                         <TableRow key={m.id}>
                           <TableCell><MonitorName m={m} /></TableCell>
                           <TableCell><HeartbeatBar heartbeats={m.recentHeartbeats} /></TableCell>
-                          <TableCell className="text-right"><ResponseTime m={m} /></TableCell>
-                          <TableCell className="text-right">{formatUptime(m.uptime24h)}</TableCell>
+                          <TableCell className="text-right tabular-nums"><ResponseTime m={m} /></TableCell>
+                          <TableCell className="text-right tabular-nums">{formatUptime(m.uptime24h)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {m.latestHeartbeat ? formatDate(m.latestHeartbeat.checkedAt) : "–"}
                           </TableCell>
