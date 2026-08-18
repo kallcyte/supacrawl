@@ -117,6 +117,7 @@ export async function runCrawlWithPersistence(
           if (llmGarbageFlaggedUrls.length < SSL_CAP) llmGarbageFlaggedUrls.push(r.url)
         }
         const id = randomUUID()
+        const previous = opts.storage.getUrlState(r.url)
         opts.storage.insertResult({
           id,
           crawlId,
@@ -138,15 +139,19 @@ export async function runCrawlWithPersistence(
           llmGarbageScore: r.llmGarbageScore,
           llmGarbageFlagged: r.llmGarbageFlagged,
           llmGarbageSample: r.llmGarbageSample,
-          seo: r.seo
+          seo: r.seo,
+          textExtract: r.textExtract,
+          prevText: previous?.prevText ?? null
         })
 
-        const previous = opts.storage.getUrlState(r.url)
         const consecutiveFailures =
           r.statusCode !== null && r.statusCode >= 400
             ? (previous?.consecutiveFailures ?? 0) + 1
             : 0
 
+        // prevText holds the extract from the previous crawl of this URL, used
+        // for content diffing. Only advance it when we actually fetched the page.
+        const newPrevText = r.textExtract ?? previous?.prevText ?? null
         opts.storage.upsertUrlState({
           url: r.url,
           lastStatusCode: r.statusCode,
@@ -155,7 +160,8 @@ export async function runCrawlWithPersistence(
           sitemapLastmod: lastmodMap.get(r.url) ?? null,
           lastCheckedAt: new Date().toISOString(),
           consecutiveFailures,
-          hasSeo: r.seo !== null
+          hasSeo: r.seo !== null,
+          prevText: newPrevText
         })
       },
       abortSignal: opts.abortSignal,

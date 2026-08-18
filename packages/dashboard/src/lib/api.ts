@@ -126,6 +126,8 @@ export interface CrawlResult {
   llmGarbageFlagged: boolean
   llmGarbageSample: string | null
   seo: SeoInfo | null
+  textExtract: string | null
+  prevText: string | null
 }
 
 export interface UrlState {

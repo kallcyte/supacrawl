@@ -33,6 +33,7 @@ import {
   FileSpreadsheet
 } from "lucide-react"
 import { formatDate, formatDuration, truncate } from "@/lib/utils"
+import DiffView from "@/components/DiffView"
 import { buildCrawlReportWorkbook } from "@/lib/crawlReportXlsx"
 import { toast } from "@/lib/use-toast"
 import { useSession } from "@/lib/auth-client"
@@ -503,6 +504,9 @@ export default function CrawlDetailPage() {
                                 <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground" title={r.llmGarbageSample}>
                                   {r.llmGarbageSample}
                                 </div>
+                              )}
+                              {r.contentChanged && (
+                                <DiffView previous={r.prevText} current={r.textExtract} />
                               )}
                             </TableCell>
                             <TableCell>

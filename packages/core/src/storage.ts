@@ -222,11 +222,17 @@ export class Storage {
     if (!this.hasColumn("crawl_results", "seo_diff")) {
       this.db.exec(`ALTER TABLE crawl_results ADD COLUMN seo_diff TEXT`)
     }
+    if (!this.hasColumn("crawl_results", "text_extract")) {
+      this.db.exec(`ALTER TABLE crawl_results ADD COLUMN text_extract TEXT`)
+    }
     if (!this.hasColumn("url_state", "has_seo")) {
       this.db.exec(`ALTER TABLE url_state ADD COLUMN has_seo INTEGER DEFAULT 0`)
     }
     if (!this.hasColumn("url_state", "prev_seo")) {
       this.db.exec(`ALTER TABLE url_state ADD COLUMN prev_seo TEXT`)
+    }
+    if (!this.hasColumn("url_state", "prev_text")) {
+      this.db.exec(`ALTER TABLE url_state ADD COLUMN prev_text TEXT`)
     }
     if (!this.hasColumn("crawl_jobs", "detect_mojibake")) {
       this.db.exec(`ALTER TABLE crawl_jobs ADD COLUMN detect_mojibake INTEGER DEFAULT 1`)
@@ -421,8 +427,8 @@ export class Storage {
         `INSERT INTO crawl_results
          (id, crawl_id, url, status_code, response_time_ms, content_hash,
           content_changed, error, redirect_chain, final_url, ssl_valid_until,
-          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo, text_extract, seo_diff)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         r.id,
@@ -445,7 +451,9 @@ export class Storage {
         r.llmGarbageScore,
         r.llmGarbageFlagged ? 1 : 0,
         r.llmGarbageSample ?? null,
-        r.seo ? JSON.stringify(r.seo) : null
+        r.seo ? JSON.stringify(r.seo) : null,
+        r.textExtract ?? null,
+        r.prevText ?? null
       )
   }
 
@@ -457,7 +465,7 @@ export class Storage {
     const includeSeo = opts?.includeSeo !== false
     let sql = `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                       content_changed, error, redirect_chain, final_url, ssl_valid_until,
-                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample${includeSeo ? ", seo" : ""}
+                      sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, text_extract, seo_diff${includeSeo ? ", seo" : ""}
                FROM crawl_results WHERE crawl_id = ?`
     const params: unknown[] = [crawlId]
     if (filter?.brokenOnly) {
@@ -482,7 +490,7 @@ export class Storage {
       .prepare(
         `SELECT id, crawl_id, url, status_code, response_time_ms, content_hash,
                 content_changed, error, redirect_chain, final_url, ssl_valid_until,
-                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, seo
+                sitemap_lastmod, checked_at, check_method, mojibake_score, mojibake_flagged, mojibake_sample, llm_garbage_score, llm_garbage_flagged, llm_garbage_sample, text_extract, seo_diff, seo
          FROM crawl_results WHERE id = ?`
       )
       .get(id) as Record<string, unknown> | undefined
@@ -495,8 +503,8 @@ export class Storage {
       .prepare(
         `INSERT INTO url_state
          (url, last_status_code, last_content_hash, last_response_time_ms,
-          sitemap_lastmod, last_checked_at, consecutive_failures, has_seo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          sitemap_lastmod, last_checked_at, consecutive_failures, has_seo, prev_text)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(url) DO UPDATE SET
            last_status_code = excluded.last_status_code,
            last_content_hash = excluded.last_content_hash,
@@ -504,7 +512,8 @@ export class Storage {
            sitemap_lastmod = excluded.sitemap_lastmod,
            last_checked_at = excluded.last_checked_at,
            consecutive_failures = excluded.consecutive_failures,
-           has_seo = excluded.has_seo`
+           has_seo = excluded.has_seo,
+           prev_text = excluded.prev_text`
       )
       .run(
         s.url,
@@ -514,7 +523,8 @@ export class Storage {
         s.sitemapLastmod,
         s.lastCheckedAt,
         s.consecutiveFailures,
-        s.hasSeo ? 1 : 0
+        s.hasSeo ? 1 : 0,
+        s.prevText ?? null
       )
   }
 
@@ -522,7 +532,7 @@ export class Storage {
     const row = this.db
       .prepare(
         `SELECT url, last_status_code, last_content_hash, last_response_time_ms,
-                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo
+                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo, prev_text
          FROM url_state WHERE url = ?`
       )
       .get(url) as Record<string, unknown> | undefined
@@ -533,7 +543,7 @@ export class Storage {
     const rows = this.db
       .prepare(
         `SELECT url, last_status_code, last_content_hash, last_response_time_ms,
-                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo
+                sitemap_lastmod, last_checked_at, consecutive_failures, has_seo, prev_text
          FROM url_state`
       )
       .all() as Record<string, unknown>[]
@@ -1481,6 +1491,8 @@ function mapResult(row: Record<string, unknown>, opts?: { includeSeo?: boolean }
     llmGarbageScore: (row.llm_garbage_score as number | null) ?? null,
     llmGarbageFlagged: row.llm_garbage_flagged === 1,
     llmGarbageSample: (row.llm_garbage_sample as string | null) ?? null,
+    textExtract: (row.text_extract as string | null) ?? null,
+    prevText: (row.seo_diff as string | null) ?? null,
     seo: includeSeo ? parseSeo(row.seo) : null
   }
 }
@@ -1505,7 +1517,8 @@ function mapUrlState(row: Record<string, unknown>): UrlStateRecord {
     sitemapLastmod: (row.sitemap_lastmod as string | null) ?? null,
     lastCheckedAt: row.last_checked_at as string,
     consecutiveFailures: (row.consecutive_failures as number) ?? 0,
-    hasSeo: row.has_seo === 1
+    hasSeo: row.has_seo === 1,
+    prevText: (row.prev_text as string | null) ?? null
   }
 }
 

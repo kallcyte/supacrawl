@@ -118,7 +118,8 @@ export async function checkUrl(
     llmGarbageScore: null,
     llmGarbageFlagged: false,
     llmGarbageSample: null,
-    seo: null
+    seo: null,
+    textExtract: null
   }
   let attempt = 0
   const maxAttempts = ctx.config.retryOnTransientError ? ctx.config.maxRetries + 1 : 1
@@ -175,6 +176,7 @@ export async function checkUrl(
           // Decode the body once and share it with both detectors instead of
           // each detector decoding a separate ~maxBodyBytes string per request.
           const html = new TextDecoder("utf-8", { fatal: false }).decode(body)
+          result.textExtract = extractPageText(html)
           if (ctx.config.detectMojibake !== false) {
             const mojibake = detectMojibake(body, html)
             result.mojibakeScore = mojibake.score
@@ -216,4 +218,21 @@ export function buildLastmodMap(entries: SitemapEntry[]): Map<string, string | u
   const m = new Map<string, string | undefined>()
   for (const e of entries) m.set(e.loc, e.lastmod)
   return m
+}
+
+const MAX_TEXT_EXTRACT = 16 * 1024
+
+/**
+ * Strip a page down to readable text for content-diff previews. Capped so the
+ * DB stays small; only used for changed-URL diffs.
+ */
+export function extractPageText(html: string): string {
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z#0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+  return text.length > MAX_TEXT_EXTRACT ? text.slice(0, MAX_TEXT_EXTRACT) : text
 }

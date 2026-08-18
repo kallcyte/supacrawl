@@ -227,6 +227,8 @@ export interface CrawlResultRecord {
   llmGarbageFlagged: boolean
   llmGarbageSample: string | null
   seo: SeoInfo | null
+  textExtract: string | null
+  prevText: string | null
 }
 
 export interface UrlStateRecord {
@@ -238,6 +240,7 @@ export interface UrlStateRecord {
   lastCheckedAt: string
   consecutiveFailures: number
   hasSeo: boolean
+  prevText: string | null
 }
 
 export type NotificationEvent =
@@ -453,6 +456,7 @@ export interface CheckResult {
   llmGarbageFlagged: boolean
   llmGarbageSample: string | null
   seo: SeoInfo | null
+  textExtract: string | null
 }
 
 export interface UserNotificationSettings {
