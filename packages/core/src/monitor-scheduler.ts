@@ -76,6 +76,7 @@ export class MonitorScheduler {
       }
       this.opts.storage.insertHeartbeat(heartbeat)
       await this.handleTransition(m, previous, result)
+      await this.handleSlowResponse(m, result)
       this.opts.onHeartbeat?.(heartbeat)
     } catch (err) {
       console.error(`[monitor ${id}] check failed:`, err)
@@ -112,5 +113,24 @@ export class MonitorScheduler {
         meta: { monitorId: m.id, status: "up" }
       })
     }
+  }
+
+  // Slow-response alerts are throttled: at most one per monitor per 30 minutes,
+  // so a persistently slow endpoint doesn't spam the channel on every tick.
+  private slowAlertedAt = new Map<string, number>()
+  private async handleSlowResponse(m: MonitorRecord, result: HeartbeatResult): Promise<void> {
+    if (result.status !== "up" || result.responseTimeMs === null) return
+    if (m.acceptedResponseTimeMs <= 0 || result.responseTimeMs <= m.acceptedResponseTimeMs) return
+    const now = Date.now()
+    const last = this.slowAlertedAt.get(m.id) ?? 0
+    if (now - last < 30 * 60 * 1000) return
+    this.slowAlertedAt.set(m.id, now)
+    await this.opts.notifier.notify("onMonitorSlow", {
+      event: "onMonitorSlow",
+      title: `Monitor "${m.name}" is slow`,
+      message: `Monitor "${m.name}" (${m.url}) responded in ${result.responseTimeMs}ms, exceeding the ${m.acceptedResponseTimeMs}ms threshold.`,
+      url: m.url,
+      meta: { monitorId: m.id, status: "slow", responseTimeMs: result.responseTimeMs, thresholdMs: m.acceptedResponseTimeMs }
+    })
   }
 }

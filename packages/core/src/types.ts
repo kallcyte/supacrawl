@@ -82,7 +82,8 @@ export const NotificationsConfigSchema = z.object({
     onLlmGarbageDetected: z.boolean().default(false),
     onCrawlProgress: z.boolean().default(false),
     onMonitorDown: z.boolean().default(true),
-    onMonitorRecovery: z.boolean().default(true)
+    onMonitorRecovery: z.boolean().default(true),
+    onMonitorSlow: z.boolean().default(false)
   })
 })
 export type NotificationsConfig = z.infer<typeof NotificationsConfigSchema>
@@ -123,7 +124,8 @@ export const ConfigSchema = z.object({
       onLlmGarbageDetected: false,
       onCrawlProgress: false,
       onMonitorDown: true,
-      onMonitorRecovery: true
+      onMonitorRecovery: true,
+      onMonitorSlow: false
     }
   }),
   schedule: z.string().optional()
@@ -248,6 +250,7 @@ export type NotificationEvent =
   | "onCrawlProgress"
   | "onMonitorDown"
   | "onMonitorRecovery"
+  | "onMonitorSlow"
 
 export interface CrawlSummaryIssue {
   url: string
@@ -468,6 +471,7 @@ export interface UserNotificationSettings {
     onCrawlProgress: boolean
     onMonitorDown: boolean
     onMonitorRecovery: boolean
+    onMonitorSlow: boolean
   }
   updatedAt: string
 }

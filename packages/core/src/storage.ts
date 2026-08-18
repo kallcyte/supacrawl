@@ -1531,7 +1531,8 @@ function mapUserNotificationSettings(row: Record<string, unknown>): UserNotifica
       onLlmGarbageDetected: false,
       onCrawlProgress: false,
       onMonitorDown: false,
-      onMonitorRecovery: false
+      onMonitorRecovery: false,
+      onMonitorSlow: false
     }) as UserNotificationSettings["enabledEvents"],
     updatedAt: row.updated_at as string
   }

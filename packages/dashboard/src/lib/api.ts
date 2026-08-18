@@ -620,6 +620,7 @@ export interface UserNotificationSettings {
     onCrawlProgress: boolean
     onMonitorDown?: boolean
     onMonitorRecovery?: boolean
+    onMonitorSlow?: boolean
   }
 }
 

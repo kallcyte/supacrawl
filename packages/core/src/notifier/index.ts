@@ -88,7 +88,8 @@ export class Notifier {
         onLlmGarbageDetected: settings.enabledEvents.onLlmGarbageDetected,
         onCrawlProgress: settings.enabledEvents.onCrawlProgress,
         onMonitorDown: settings.enabledEvents.onMonitorDown,
-        onMonitorRecovery: settings.enabledEvents.onMonitorRecovery
+        onMonitorRecovery: settings.enabledEvents.onMonitorRecovery,
+        onMonitorSlow: settings.enabledEvents.onMonitorSlow
       }
     }
   }
@@ -134,7 +135,8 @@ export class Notifier {
         onLlmGarbageDetected: job.notifyOnLlmGarbage,
         onCrawlProgress: job.notifyOnProgress,
         onMonitorDown: true,
-        onMonitorRecovery: true
+        onMonitorRecovery: true,
+        onMonitorSlow: true
       }
     }
   }

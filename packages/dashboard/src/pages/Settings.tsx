@@ -52,7 +52,8 @@ const EVENT_LABELS: Record<string, string> = {
   onLlmGarbageDetected: "LLM Garbage (AI prompt artifacts)",
   onCrawlProgress: "Crawl progress",
   onMonitorDown: "Monitor went down",
-  onMonitorRecovery: "Monitor recovered"
+  onMonitorRecovery: "Monitor recovered",
+  onMonitorSlow: "Monitor responded slowly"
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -71,7 +72,8 @@ const DEFAULT_EVENTS: UserNotificationSettings["enabledEvents"] = {
   onLlmGarbageDetected: false,
   onCrawlProgress: false,
   onMonitorDown: false,
-  onMonitorRecovery: false
+  onMonitorRecovery: false,
+  onMonitorSlow: false
 }
 
 export default function SettingsPage() {

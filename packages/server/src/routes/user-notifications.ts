@@ -39,7 +39,8 @@ const userNotifSchema = z.object({
     onLlmGarbageDetected: z.boolean(),
     onCrawlProgress: z.boolean(),
     onMonitorDown: z.boolean().optional(),
-    onMonitorRecovery: z.boolean().optional()
+    onMonitorRecovery: z.boolean().optional(),
+    onMonitorSlow: z.boolean().optional()
   })
 })
 
@@ -61,7 +62,10 @@ export function userNotificationsRoutes(app: Hono, deps: RouteDeps): void {
           onCrawlComplete: false,
           onMojibakeDetected: false,
           onLlmGarbageDetected: false,
-          onCrawlProgress: false
+          onCrawlProgress: false,
+          onMonitorDown: false,
+          onMonitorRecovery: false,
+          onMonitorSlow: false
         }
       })
     }
@@ -83,7 +87,8 @@ export function userNotificationsRoutes(app: Hono, deps: RouteDeps): void {
         onLlmGarbageDetected: body.enabledEvents.onLlmGarbageDetected ?? false,
         onCrawlProgress: body.enabledEvents.onCrawlProgress ?? false,
         onMonitorDown: body.enabledEvents.onMonitorDown ?? false,
-        onMonitorRecovery: body.enabledEvents.onMonitorRecovery ?? false
+        onMonitorRecovery: body.enabledEvents.onMonitorRecovery ?? false,
+        onMonitorSlow: body.enabledEvents.onMonitorSlow ?? false
       }
     }
     deps.storage.upsertUserNotificationSettings(session.user.id, full)
