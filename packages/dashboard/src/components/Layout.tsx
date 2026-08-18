@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom"
 import { useSession } from "@/lib/auth-client"
+import { getInitialTheme, applyTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Toaster from "@/components/Toaster"
@@ -55,22 +56,10 @@ export default function Layout({ onSignOut }: LayoutProps) {
     if (stored !== null) return stored === "true"
     return window.innerWidth >= 768
   })
-  const [dark, setDark] = useState(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem("theme")
-      if (stored) return stored === "dark"
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-  })
+  const [dark, setDark] = useState(() => getInitialTheme() === "dark")
 
   useEffect(() => {
-    const root = document.documentElement
-    if (dark) {
-      root.classList.add("dark")
-    } else {
-      root.classList.remove("dark")
-    }
-    localStorage.setItem("theme", dark ? "dark" : "light")
+    applyTheme(dark ? "dark" : "light")
   }, [dark])
 
   // Remember the sidebar open/close state across sessions. Only persist on
@@ -93,7 +82,7 @@ export default function Layout({ onSignOut }: LayoutProps) {
     <div className="flex min-h-screen bg-muted/30">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:w-16 md:transition-[width]",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r bg-card transition-transform duration-300 ease-in-out md:w-16 md:transition-[width] dark:bg-[#13141c]",
           sidebarOpen
             ? "translate-x-0 md:w-60"
             : "-translate-x-full md:w-16 md:translate-x-0"
@@ -125,10 +114,10 @@ export default function Layout({ onSignOut }: LayoutProps) {
               end={item.to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 border-l-2 px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   !sidebarOpen && "justify-center px-2"
                 )
               }
@@ -151,10 +140,10 @@ export default function Layout({ onSignOut }: LayoutProps) {
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-2 border-l-2 px-3 py-2 text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                       !sidebarOpen && "justify-center px-2"
                     )
                   }
