@@ -199,7 +199,7 @@ export default function NotificationsPage() {
                     Send test
                   </Button>
                   {result && (
-                    <span className={result.ok ? "text-xs text-emerald-600" : "text-xs text-destructive"}>
+                    <span className={result.ok ? "text-xs text-success" : "text-xs text-destructive"}>
                       {result.ok ? "OK" : `Failed: ${result.error}`}
                     </span>
                   )}

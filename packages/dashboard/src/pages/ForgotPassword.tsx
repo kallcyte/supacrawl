@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
     return (
       <AuthLayout title="Check your email" subtitle="We've sent a password reset link if the account exists.">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 rounded-sm border border-success/20 bg-success/10 p-3 text-sm text-success">
             <CheckCircle className="h-4 w-4 shrink-0" />
             Reset link sent. Check your email (or server logs if no SMTP is configured).
           </div>

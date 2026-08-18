@@ -3,12 +3,12 @@ import type { StatusBucket } from "@/lib/api"
 import ChartTooltip from "./ChartTooltip"
 
 const COLORS: Record<string, string> = {
-  "2xx": "hsl(142 71% 45%)",
-  "3xx": "hsl(48 96% 53%)",
-  "4xx": "hsl(0 84% 60%)",
-  "5xx": "hsl(0 72% 51%)",
-  "1xx": "hsl(220 14% 60%)",
-  error: "hsl(0 0% 30%)"
+  "2xx": "hsl(var(--success))",
+  "3xx": "hsl(var(--warning))",
+  "4xx": "hsl(var(--chart-5))",
+  "5xx": "hsl(var(--destructive))",
+  "1xx": "hsl(var(--info))",
+  error: "hsl(var(--destructive))"
 }
 
 export default function StatusDistribution({ data }: { data: StatusBucket[] }) {
@@ -56,7 +56,7 @@ export default function StatusDistribution({ data }: { data: StatusBucket[] }) {
           <div key={d.status} className="flex items-center gap-2">
             <span
               className="inline-block h-3 w-3 rounded-sm"
-              style={{ backgroundColor: COLORS[d.status] ?? "#999" }}
+              style={{ backgroundColor: COLORS[d.status] ?? "hsl(var(--muted-foreground))" }}
             />
             <span className="font-mono">{d.status}</span>
             <span className="ml-auto text-muted-foreground">{d.count}</span>

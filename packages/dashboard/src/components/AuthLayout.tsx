@@ -18,7 +18,7 @@ export default function AuthLayout({ title, subtitle, children, checking }: Auth
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between bg-[radial-gradient(900px_600px_at_12%_8%,rgba(255,255,255,0.06),transparent_60%),radial-gradient(700px_500px_at_90%_100%,rgba(99,168,255,0.18),transparent_65%),linear-gradient(180deg,#001C44_0%,#02142e_100%)] px-12 py-14">
+      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between bg-[radial-gradient(900px_600px_at_12%_8%,rgba(255,255,255,0.05),transparent_60%),radial-gradient(700px_500px_at_90%_100%,rgba(122,162,247,0.15),transparent_65%),linear-gradient(180deg,#1a1b26_0%,#13141c_100%)] px-12 py-14">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 text-white">

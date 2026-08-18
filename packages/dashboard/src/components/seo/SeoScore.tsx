@@ -10,9 +10,9 @@ interface Props {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "#10b981"
-  if (score >= 50) return "#f59e0b"
-  return "#ef4444"
+  if (score >= 80) return "hsl(var(--success))"
+  if (score >= 50) return "hsl(var(--warning))"
+  return "hsl(var(--destructive))"
 }
 
 function ScoreRing({ score }: { score: number }) {
@@ -21,7 +21,7 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div
       className="relative h-36 w-36 shrink-0 rounded-full"
-      style={{ background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(0,0,0,0.08) ${pct * 3.6}deg 360deg)` }}
+      style={{ background: `conic-gradient(${color} ${pct * 3.6}deg, hsl(var(--muted)) ${pct * 3.6}deg 360deg)` }}
     >
       <div className="absolute inset-[10px] flex flex-col items-center justify-center rounded-full bg-background">
         <span className="text-4xl font-bold" style={{ color }}>
@@ -85,8 +85,8 @@ export default function SeoScore({ score, categories, audits }: Props) {
             <div key={key}>
               <div className="mb-2 flex items-center gap-2">
                 {key === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
-                {key === "warn" && <AlertTriangle className="h-4 w-4 text-amber-500" />}
-                {key === "pass" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                {key === "warn" && <AlertTriangle className="h-4 w-4 text-warning" />}
+                {key === "pass" && <CheckCircle2 className="h-4 w-4 text-success" />}
                 <h3 className="text-sm font-semibold">
                   {SEVERITY_LABEL[key]}
                   <span className="ml-1.5 text-muted-foreground">({items.length})</span>

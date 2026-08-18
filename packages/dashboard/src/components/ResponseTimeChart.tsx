@@ -64,12 +64,12 @@ export default function ResponseTimeChart({
         <ReferenceArea
           y1={acceptedResponseTimeMs}
           y2={yMax}
-          fill="hsl(0 84% 60%)"
+          fill="hsl(var(--destructive))"
           fillOpacity={0.08}
         />
         <ReferenceLine
           y={acceptedResponseTimeMs}
-          stroke="hsl(0 84% 60%)"
+          stroke="hsl(var(--destructive))"
           strokeDasharray="4 4"
           label={{
             value: `${acceptedResponseTimeMs}ms`,

@@ -20,9 +20,9 @@ import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
 
 function StatusDot({ status }: { status: string | null }) {
-  if (status === "up") return <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" title="Up" />
-  if (status === "down") return <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" title="Down" />
-  return <span className="inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/30" title="No data" />
+  if (status === "up") return <span className="inline-block h-2.5 w-2.5 rounded-sm bg-success" title="Up" />
+  if (status === "down") return <span className="inline-block h-2.5 w-2.5 rounded-sm bg-destructive" title="Down" />
+  return <span className="inline-block h-2.5 w-2.5 rounded-sm bg-muted-foreground/30" title="No data" />
 }
 
 function formatUptime(v: number | null): string {
@@ -265,8 +265,8 @@ export default function MonitorsPage() {
 
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
-                            {m.currentStatus === "up" && <span className="font-medium text-emerald-600">UP</span>}
-                            {m.currentStatus === "down" && <span className="font-medium text-red-600">DOWN</span>}
+                            {m.currentStatus === "up" && <span className="font-medium text-success">UP</span>}
+                            {m.currentStatus === "down" && <span className="font-medium text-destructive">DOWN</span>}
                             {m.currentStatus == null && <span>No checks yet</span>}
                             <ResponseTime m={m} />
                           </span>

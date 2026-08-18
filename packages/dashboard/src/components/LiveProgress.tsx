@@ -138,7 +138,7 @@ export default function LiveProgress({ crawl }: { crawl?: CrawlRecord }) {
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Crawl in progress
             {connected && (
-              <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500" title="WebSocket connected" />
+              <span className="ml-2 h-2 w-2 rounded-sm bg-success" title="WebSocket connected" />
             )}
           </CardTitle>
           <span className="text-xs text-muted-foreground">
@@ -158,7 +158,7 @@ export default function LiveProgress({ crawl }: { crawl?: CrawlRecord }) {
           <span>Changed: {progress.changed}</span>
           <span>Skipped: {progress.skipped}</span>
           {etaMs !== null && (
-            <span className="text-emerald-600">
+            <span className="text-success">
               Est. finish in ~{formatDuration(etaMs)} (
               {new Date(Date.now() + etaMs).toLocaleTimeString([], {
                 hour: "2-digit",

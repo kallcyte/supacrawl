@@ -83,7 +83,7 @@ export default function AddMonitorDialog({ open, onOpenChange, onSubmit, initial
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border bg-background shadow-lg">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-sm border bg-background shadow-lg">
           <div className="flex items-center justify-between border-b px-4 py-4 md:px-6">
             <Dialog.Title className="text-lg font-semibold">
               {initial ? "Edit Monitor" : "Add Monitor"}

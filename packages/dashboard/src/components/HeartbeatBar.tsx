@@ -13,8 +13,8 @@ interface Tick {
 }
 
 function tickColor(status: HeartbeatStatus | null): string {
-  if (status === "up") return "bg-emerald-500"
-  if (status === "down") return "bg-red-500"
+  if (status === "up") return "bg-success"
+  if (status === "down") return "bg-destructive"
   return "bg-muted-foreground/15"
 }
 

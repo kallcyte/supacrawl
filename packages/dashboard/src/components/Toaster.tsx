@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 const variantStyles: Record<string, string> = {
   default: "border-border bg-background text-foreground",
-  success: "border-emerald-500/30 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
+  success: "border-success/30 bg-success/10 text-success",
   destructive: "border-destructive/30 bg-destructive/10 text-destructive"
 }
 
@@ -17,7 +17,7 @@ export default function Toaster() {
         <div
           key={t.id}
           className={cn(
-            "flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg text-sm animate-in slide-in-from-right-2 fade-in-0 duration-200",
+            "flex items-start gap-3 rounded-sm border px-4 py-3 text-sm animate-in slide-in-from-right-2 fade-in-0 duration-200",
             variantStyles[t.variant ?? "default"]
           )}
         >

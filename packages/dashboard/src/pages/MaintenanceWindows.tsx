@@ -173,7 +173,7 @@ export default function MaintenanceWindowsPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{w.title}</span>
-                      {active && <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400">Active</Badge>}
+                      {active && <Badge className="bg-warning/15 text-warning">Active</Badge>}
                       {upcoming && <Badge variant="outline">Upcoming</Badge>}
                       {!active && !upcoming && <Badge variant="secondary">Ended</Badge>}
                     </div>

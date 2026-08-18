@@ -26,16 +26,16 @@ export default function HealthRatioArea({ data }: { data: TimelinePoint[] }) {
           type="monotone"
           dataKey="healthy"
           stackId="1"
-          stroke="hsl(142 71% 45%)"
-          fill="hsl(142 71% 45% / 0.3)"
+          stroke="hsl(var(--success))"
+          fill="hsl(var(--success) / 0.3)"
           name="Healthy"
         />
         <Area
           type="monotone"
           dataKey="broken"
           stackId="1"
-          stroke="hsl(0 84% 60%)"
-          fill="hsl(0 84% 60% / 0.3)"
+          stroke="hsl(var(--destructive))"
+          fill="hsl(var(--destructive) / 0.3)"
           name="Broken"
         />
       </AreaChart>
