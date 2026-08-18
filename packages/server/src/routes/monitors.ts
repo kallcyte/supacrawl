@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto"
 import type { Hono } from "hono"
 import { z } from "zod"
-import { MonitorSchema } from "@supacrawl/core"
-import type { MonitorRecord } from "@supacrawl/core"
+import { MonitorSchema, MaintenanceWindowSchema } from "@supacrawl/core"
+import type { MonitorRecord, MaintenanceWindowRecord } from "@supacrawl/core"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
 
 const createMonitorSchema = MonitorSchema
 const updateMonitorSchema = MonitorSchema.partial()
+
+const createMaintenanceWindowSchema = MaintenanceWindowSchema
+const updateMaintenanceWindowSchema = MaintenanceWindowSchema.partial()
 
 const bulkPatchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -183,5 +186,52 @@ export function monitorsRoutes(app: Hono, deps: RouteDeps): void {
     const monitor = deps.storage.getMonitor(id)
     if (!monitor) return c.json({ error: "Monitor not found" }, 404)
     return c.json({ stats: deps.storage.getMonitorStats(id) })
+  })
+
+  // ─── Maintenance windows ───
+
+  app.get("/api/maintenance-windows", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    return c.json({ windows: deps.storage.listMaintenanceWindows() })
+  })
+
+  app.post("/api/maintenance-windows", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = createMaintenanceWindowSchema.parse(await c.req.json())
+    const monitor = deps.storage.getMonitor(body.monitorId)
+    if (!monitor) return c.json({ error: "Monitor not found" }, 404)
+    if (new Date(body.endAt) <= new Date(body.startAt)) {
+      return c.json({ error: "End time must be after start time" }, 400)
+    }
+    const window: MaintenanceWindowRecord = {
+      ...body,
+      description: body.description ?? null,
+      id: randomUUID(),
+      createdAt: new Date().toISOString()
+    }
+    deps.storage.createMaintenanceWindow(window)
+    return c.json(window)
+  })
+
+  app.delete("/api/maintenance-windows/:id", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const id = c.req.param("id")
+    const existing = deps.storage.listMaintenanceWindows().find((w) => w.id === id)
+    if (!existing) return c.json({ error: "Maintenance window not found" }, 404)
+    deps.storage.deleteMaintenanceWindow(id)
+    return c.json({ ok: true })
+  })
+
+  // Per-monitor maintenance windows (for MonitorDetail page)
+  app.get("/api/monitors/:id/maintenance-windows", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const id = c.req.param("id")
+    const monitor = deps.storage.getMonitor(id)
+    if (!monitor) return c.json({ error: "Monitor not found" }, 404)
+    return c.json({ windows: deps.storage.listMaintenanceWindowsForMonitor(id) })
   })
 }

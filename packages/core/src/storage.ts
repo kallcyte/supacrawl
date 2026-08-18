@@ -1087,6 +1087,18 @@ export class Storage {
     return rows.map(mapMaintenanceWindow)
   }
 
+  listMaintenanceWindows(): (MaintenanceWindowRecord & { monitorName: string })[] {
+    const rows = this.db
+      .prepare(
+        `SELECT mw.*, COALESCE(m.name, '') AS monitor_name
+         FROM maintenance_windows mw
+         LEFT JOIN monitors m ON m.id = mw.monitor_id
+         ORDER BY mw.start_at DESC`
+      )
+      .all() as Record<string, unknown>[]
+    return rows.map((row) => ({ ...mapMaintenanceWindow(row), monitorName: row.monitor_name as string }))
+  }
+
   hasActiveMaintenanceWindow(monitorId: string, atIso: string): boolean {
     const row = this.db
       .prepare(

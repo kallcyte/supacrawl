@@ -18,6 +18,7 @@ import MonitorDetailPage from "@/pages/MonitorDetail"
 import ResourcesPage from "@/pages/Resources"
 import StatusPagesPage from "@/pages/StatusPages"
 import PublicStatusPage from "@/pages/PublicStatusPage"
+import MaintenanceWindowsPage from "@/pages/MaintenanceWindows"
 import Layout from "@/components/Layout"
 import { Loader2 } from "lucide-react"
 
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="crawls/:id" element={<CrawlDetailPage />} />
         <Route path="monitors" element={<MonitorsPage />} />
         <Route path="monitors/:id" element={<MonitorDetailPage />} />
+        <Route path="maintenance" element={<MaintenanceWindowsPage />} />
         <Route path="resources" element={<ResourcesPage />} />
         <Route path="status-pages" element={<RequireAdmin><StatusPagesPage /></RequireAdmin>} />
         <Route path="urls/history" element={<UrlHistoryPage />} />

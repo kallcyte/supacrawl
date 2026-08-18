@@ -262,6 +262,17 @@ export interface Heartbeat {
   checkedAt: string
 }
 
+export interface MaintenanceWindow {
+  id: string
+  monitorId: string
+  monitorName?: string
+  title: string
+  description: string | null
+  startAt: string
+  endAt: string
+  createdAt: string
+}
+
 export interface MonitorWithStatus extends Monitor {
   latestHeartbeat: Heartbeat | null
   currentStatus: HeartbeatStatus | null
@@ -493,6 +504,18 @@ export const api = {
 
   getMonitorUptime: (id: string) =>
     request<{ stats: MonitorStats }>(`/api/monitors/${id}/uptime`),
+
+  listMaintenanceWindows: () =>
+    request<{ windows: MaintenanceWindow[] }>("/api/maintenance-windows"),
+
+  createMaintenanceWindow: (body: { monitorId: string; title: string; description?: string | null; startAt: string; endAt: string }) =>
+    request<MaintenanceWindow>("/api/maintenance-windows", { method: "POST", body: JSON.stringify(body) }),
+
+  deleteMaintenanceWindow: (id: string) =>
+    request<{ ok: boolean }>(`/api/maintenance-windows/${id}`, { method: "DELETE" }),
+
+  getMonitorMaintenanceWindows: (id: string) =>
+    request<{ windows: MaintenanceWindow[] }>(`/api/monitors/${id}/maintenance-windows`),
 
   getResourceNow: () =>
     request<{
