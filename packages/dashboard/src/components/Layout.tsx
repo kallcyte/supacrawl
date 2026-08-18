@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react"
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom"
 import { useSession } from "@/lib/auth-client"
-import { getInitialTheme, applyTheme } from "@/lib/theme"
+import {
+  getInitialTheme,
+  applyTheme,
+  themeCounterpart,
+  THEMES,
+  getInitialFont,
+  applyFont,
+  type Theme,
+  type UiFont
+} from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Toaster from "@/components/Toaster"
+import AppearanceDialog from "@/components/AppearanceDialog"
 import {
   Activity,
   CalendarClock,
@@ -15,6 +25,7 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  MonitorCog,
   Moon,
   PanelRightClose,
   PanelRightOpen,
@@ -56,11 +67,17 @@ export default function Layout({ onSignOut }: LayoutProps) {
     if (stored !== null) return stored === "true"
     return window.innerWidth >= 768
   })
-  const [dark, setDark] = useState(() => getInitialTheme() === "dark")
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
+  const [font, setFont] = useState<UiFont>(() => getInitialFont())
+  const [appearanceOpen, setAppearanceOpen] = useState(false)
 
   useEffect(() => {
-    applyTheme(dark ? "dark" : "light")
-  }, [dark])
+    applyTheme(theme)
+  }, [theme])
+
+  useEffect(() => {
+    applyFont(font)
+  }, [font])
 
   // Remember the sidebar open/close state across sessions. Only persist on
   // desktop so the mobile drawer's auto-close doesn't overwrite the preference.
@@ -168,10 +185,19 @@ export default function Layout({ onSignOut }: LayoutProps) {
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9"
-                  onClick={() => setDark(!dark)}
-                  title={dark ? "Light mode" : "Dark mode"}
+                  onClick={() => setTheme(themeCounterpart(theme))}
+                  title={THEMES.find((t) => t.id === theme)?.dark ? "Light mode" : "Dark mode"}
                 >
-                  {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {THEMES.find((t) => t.id === theme)?.dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setAppearanceOpen(true)}
+                  title="Appearance"
+                >
+                  <MonitorCog className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -190,10 +216,19 @@ export default function Layout({ onSignOut }: LayoutProps) {
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9"
-                onClick={() => setDark(!dark)}
-                title={dark ? "Light mode" : "Dark mode"}
+                onClick={() => setTheme(themeCounterpart(theme))}
+                title={THEMES.find((t) => t.id === theme)?.dark ? "Light mode" : "Dark mode"}
               >
-                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {THEMES.find((t) => t.id === theme)?.dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setAppearanceOpen(true)}
+                title="Appearance"
+              >
+                <MonitorCog className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -237,6 +272,14 @@ export default function Layout({ onSignOut }: LayoutProps) {
         </div>
       </main>
       <Toaster />
+      <AppearanceDialog
+        open={appearanceOpen}
+        onOpenChange={setAppearanceOpen}
+        theme={theme}
+        font={font}
+        onTheme={setTheme}
+        onFont={setFont}
+      />
     </div>
   )
 }

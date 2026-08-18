@@ -5,7 +5,7 @@ import { api, type PublicStatusPageData, type PublicStatusMonitor } from "@/lib/
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import HeartbeatBar from "@/components/HeartbeatBar"
-import { getInitialTheme, applyTheme } from "@/lib/theme"
+import { getInitialTheme, applyTheme, themeCounterpart, type Theme } from "@/lib/theme"
 import { Moon, Sun } from "lucide-react"
 
 function formatRt(ms: number | null): string {
@@ -106,13 +106,13 @@ export default function PublicStatusPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState(30)
-  const [dark, setDark] = useState(() => getInitialTheme() === "dark")
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Dark mode toggle
+  // Theme toggle
   useEffect(() => {
-    applyTheme(dark ? "dark" : "light")
-  }, [dark])
+    applyTheme(theme)
+  }, [theme])
 
   const fetchData = useCallback(async () => {
     if (!slug) return
@@ -184,10 +184,10 @@ export default function PublicStatusPage() {
           variant="outline"
           size="icon"
           className="h-9 w-9 rounded-sm"
-          onClick={() => setDark(!dark)}
-          title={dark ? "Light mode" : "Dark mode"}
+          onClick={() => setTheme(themeCounterpart(theme))}
+          title={themeCounterpart(theme).includes("day") || themeCounterpart(theme) === "latte" ? "Dark mode" : "Light mode"}
         >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === "tokyo-day" || theme === "latte" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </Button>
       </div>
 
