@@ -35,6 +35,37 @@ export class CrawlManager {
     return new NotifierClass(cfg)
   }
 
+  // Progress notifications are throttled to avoid flooding the channel:
+  // at most one per 30s per crawl, plus a final 100% ping.
+  private progressThrottle = new Map<string, number>()
+  private notifyProgress(notifier: Notifier, crawlId: string, jobName: string | undefined, p: CrawlProgress): void {
+    if (!notifier.isEventEnabled("onCrawlProgress")) return
+    const now = Date.now()
+    const last = this.progressThrottle.get(crawlId) ?? 0
+    const done = p.total > 0 && p.checked >= p.total
+    if (!done && now - last < 30_000) return
+    this.progressThrottle.set(crawlId, now)
+    const percent = p.total > 0 ? Math.min(100, Math.round((p.checked / p.total) * 100)) : 0
+    const crawlUrl = process.env.BETTER_AUTH_URL
+      ? `${process.env.BETTER_AUTH_URL.replace(/\/$/, "")}/crawls/${crawlId}`
+      : undefined
+    notifier.notify("onCrawlProgress", {
+      event: "onCrawlProgress",
+      title: done ? "✅ Crawl finished" : `🔄 Crawl in progress — ${percent}%`,
+      message: `Checked ${p.checked} of ${p.total} URLs (${percent}%). ${p.broken} broken, ${p.changed} changed.`,
+      crawlId,
+      crawlName: jobName,
+      crawlUrl,
+      meta: {
+        percent,
+        checked: p.checked,
+        total: p.total,
+        broken: p.broken,
+        changed: p.changed
+      }
+    }).catch((err) => console.error(`[progress notification] ${err}`))
+  }
+
   private async sendUserNotifications(
     crawlId: string,
     record: CrawlRecord,
@@ -308,7 +339,10 @@ export class CrawlManager {
       notifier: jobNotifier,
       abortSignal: controller.signal,
       baseUrl: process.env.BETTER_AUTH_URL,
-      onProgress: (p) => this.onProgress(p)
+      onProgress: (p) => {
+        this.onProgress(p)
+        this.notifyProgress(jobNotifier, id, opts?.job?.name, p)
+      }
     })
       .then(({ record }) => {
         if (opts?.job) {
@@ -336,6 +370,7 @@ export class CrawlManager {
       })
       .finally(() => {
         this.activeCrawls.delete(id)
+        this.progressThrottle.delete(id)
         if (opts?.job) {
           this.jobCrawlMap.delete(opts.job.id)
         }
