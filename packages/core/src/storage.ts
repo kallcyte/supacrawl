@@ -1052,6 +1052,8 @@ export class Storage {
     const latest = this.getLatestHeartbeatByMonitor()
     const recent = this.getRecentHeartbeatsByMonitor(90)
     const uptime24h = this.getUptimeByMonitor(new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+    const uptime7d = this.getUptimeByMonitor(new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
+    const uptime30d = this.getUptimeByMonitor(new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString())
     return rows.map((row) => {
       const monitor = mapMonitor(row)
       const hb = latest.get(monitor.id) ?? null
@@ -1061,8 +1063,8 @@ export class Storage {
         currentStatus: hb?.status ?? null,
         recentHeartbeats: recent.get(monitor.id) ?? [],
         uptime24h: uptime24h.get(monitor.id) ?? null,
-        uptime7d: null,
-        uptime30d: null,
+        uptime7d: uptime7d.get(monitor.id) ?? null,
+        uptime30d: uptime30d.get(monitor.id) ?? null,
         groupName: (row.group_name as string) ?? ""
       }
     })

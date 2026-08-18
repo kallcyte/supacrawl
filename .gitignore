@@ -13,6 +13,7 @@ coverage/
 .idea/
 *.tsbuildinfo
 supacrawl.config.json
+**/supacrawl.config.json
 .commandcode/
 *.xlsx
 

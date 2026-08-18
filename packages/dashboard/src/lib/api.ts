@@ -551,7 +551,7 @@ export interface PublicStatusMonitor {
   url: string
   type: string
   groupName: string
-  currentStatus: HeartbeatStatus | null
+  currentStatus: HeartbeatStatus | "maintenance" | null
   uptime24h: number | null
   uptime7d: number | null
   uptime30d: number | null

@@ -20,6 +20,7 @@ function formatUptime(v: number | null): string {
 function StatusDot({ status }: { status: string | null }) {
   if (status === "up") return <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 shrink-0" />
   if (status === "down") return <span className="inline-block h-3 w-3 rounded-full bg-red-500 shrink-0" />
+  if (status === "maintenance") return <span className="inline-block h-3 w-3 rounded-full bg-amber-500 shrink-0" />
   return <span className="inline-block h-3 w-3 rounded-full bg-muted-foreground/20 shrink-0" />
 }
 

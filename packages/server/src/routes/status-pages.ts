@@ -120,16 +120,19 @@ export function statusPagesRoutes(app: Hono, deps: RouteDeps): void {
 
     const monitors = deps.storage.getStatusPageMonitors(page.id)
 
-    // Enrich with stats (avg/max response time)
+    // Enrich with stats (avg/max response time) and maintenance status
+    const nowIso = new Date().toISOString()
     const enriched = monitors.map((m) => {
       const stats = deps.storage.getMonitorStats(m.id)
+      const inMaintenance = deps.storage.hasActiveMaintenanceWindow(m.id, nowIso)
       return {
         id: m.id,
         name: m.name,
         url: m.url,
         type: m.type,
         groupName: m.groupName ?? "",
-        currentStatus: m.currentStatus,
+        currentStatus: inMaintenance ? "maintenance" : m.currentStatus,
+        inMaintenance,
         uptime24h: m.uptime24h,
         uptime7d: m.uptime7d,
         uptime30d: m.uptime30d,
@@ -142,10 +145,10 @@ export function statusPagesRoutes(app: Hono, deps: RouteDeps): void {
     // Compute overall summary
     const statuses = enriched.map((m) => m.currentStatus)
     const hasDown = statuses.some((s) => s === "down")
-    const allDown = statuses.every((s) => s === "down" || s === null)
-    const allUp = statuses.every((s) => s === "up" || s === null)
+    const allDown = statuses.length > 0 && statuses.every((s) => s === "down")
+    const allUp = statuses.length > 0 && statuses.every((s) => s === "up" || s === "maintenance" || s === null)
     let summary: "operational" | "degraded" | "outage"
-    if (allDown && enriched.length > 0) {
+    if (allDown) {
       summary = "outage"
     } else if (hasDown) {
       summary = "degraded"
