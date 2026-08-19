@@ -34,6 +34,11 @@ COPY packages/server/src packages/server/src
 
 COPY tsconfig.json ./
 
+# Bound Node's heap so the build fits in the host's small RAM. Without this, V8
+# free-runs and gets kernel-OOM-killed (exit 137). 1536 is balanced for a ~2GB
+# host + swap: too low causes V8 heap OOM, too high trips the kernel OOM killer.
+ENV NODE_OPTIONS=--max-old-space-size=1536
+
 RUN pnpm --filter @supacrawl/core build && \
     pnpm --filter @supacrawl/dashboard build && \
     pnpm --filter @supacrawl/server build

@@ -30,6 +30,9 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true
+    sourcemap: process.env.BUILD_SOURCEMAP === "true" ? "hidden" : false,
+    rollupOptions: {
+      maxParallelFileOps: 20
+    }
   }
 })
