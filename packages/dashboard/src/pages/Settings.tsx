@@ -86,13 +86,17 @@ export default function SettingsPage() {
   const restoreFileRef = useRef<HTMLInputElement>(null)
   const [confirmRestore, setConfirmRestore] = useState<unknown>(null)
   const [restoring, setRestoring] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
 
   async function handleBackup() {
+    setBackingUp(true)
     try {
       await api.backupAll()
       toast({ title: "Backup downloaded", variant: "success" })
     } catch (err) {
       toast({ title: "Backup failed", description: (err as Error).message, variant: "destructive" })
+    } finally {
+      setBackingUp(false)
     }
   }
 
@@ -434,8 +438,8 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={handleBackup}>
-                <Download className="mr-1 h-4 w-4" /> Download backup
+              <Button variant="outline" onClick={handleBackup} disabled={backingUp}>
+                {backingUp ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />} Download backup
               </Button>
               <Button variant="outline" onClick={() => restoreFileRef.current?.click()}>
                 <Upload className="mr-1 h-4 w-4" /> Restore backup
