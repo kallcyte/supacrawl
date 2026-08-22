@@ -1333,11 +1333,45 @@ export class Storage {
     ]
   }
 
-  iterateBackupTable(table: string): IterableIterator<Record<string, unknown>> {
+  /**
+   * Rows of `table` in batches ordered by rowid. Each batch is fully
+   * materialized before it is returned, so no SQLite statement stays open
+   * across a batch boundary — callers may await or let other code run
+   * statements on this connection between batches (better-sqlite3 throws
+   * "connection is busy executing a query" if any statement is attempted
+   * while an iterator is open).
+   */
+  backupTableBatches(
+    table: string,
+    batchSize = 1000
+  ): Generator<Record<string, unknown>[]> {
     if (!this.getBackupTableNames().includes(table)) {
       throw new Error(`Unknown backup table: ${table}`)
     }
-    return this.db.prepare(`SELECT * FROM "${table}"`).iterate() as IterableIterator<Record<string, unknown>>
+    return this.backupBatches(table, batchSize)
+  }
+
+  private *backupBatches(
+    table: string,
+    batchSize: number
+  ): Generator<Record<string, unknown>[]> {
+    // Auth-owned tables (user/account) may not exist yet on a fresh instance
+    // before better-auth has initialized — back them up as empty.
+    const exists = this.db
+      .prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?")
+      .get(table)
+    if (!exists) return
+    let lastRowid = 0
+    for (;;) {
+      const rows = this.db
+        .prepare(
+          `SELECT rowid AS __rowid, * FROM "${table}" WHERE rowid > ? ORDER BY rowid LIMIT ?`
+        )
+        .all(lastRowid, batchSize) as (Record<string, unknown> & { __rowid: number })[]
+      if (rows.length === 0) return
+      lastRowid = rows[rows.length - 1]!.__rowid
+      yield rows.map(({ __rowid: _ignored, ...row }) => row)
+    }
   }
 
   /**

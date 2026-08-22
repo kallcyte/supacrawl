@@ -60,29 +60,57 @@ export function settingsRoutes(app: Hono, deps: RouteDeps): void {
     const exportedAt = new Date().toISOString()
     const filename = `supacrawl-backup-${exportedAt.slice(0, 10)}.json`
 
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const enc = new TextEncoder()
-        const write = (s: string) => controller.enqueue(enc.encode(s))
-        write(`{"version":1,"exportedAt":${JSON.stringify(exportedAt)},"app":"supacrawl","tables":{`)
-        let firstTable = true
-        for (const table of tableNames) {
-          if (!firstTable) write(",")
-          firstTable = false
-          write(`${JSON.stringify(table)}:[`)
-          let first = true
-          let count = 0
-          for (const row of storage.iterateBackupTable(table)) {
-            if (!first) write(",")
+    // Pull-based stream: one chunk per consumer pull (natural backpressure,
+    // bounded memory). Rows come in fully-materialized batches via
+    // backupTableBatches, and we only pause the event loop BETWEEN batches —
+    // never while a SQLite statement is open. Holding better-sqlite3's
+    // iterator across an await makes any interleaved statement on the shared
+    // connection (resource monitor, heartbeats) throw "connection is busy",
+    // which is what broke production backup downloads.
+    const enc = new TextEncoder()
+
+    async function* backupChunks(): AsyncGenerator<string> {
+      yield `{"version":1,"exportedAt":${JSON.stringify(exportedAt)},"app":"supacrawl","tables":{`
+      let firstTable = true
+      for (const table of tableNames) {
+        if (!firstTable) yield ","
+        firstTable = false
+        yield `${JSON.stringify(table)}:[`
+        let first = true
+        let count = 0
+        for (const batch of storage.backupTableBatches(table)) {
+          for (const row of batch) {
+            if (!first) yield ","
             first = false
-            write(JSON.stringify(row))
-            count++
-            if (count % 2000 === 0) await new Promise((r) => setTimeout(r)) // yield to the event loop
+            yield JSON.stringify(row)
           }
-          write("]")
+          count += batch.length
+          if (count % 2000 < batch.length) {
+            // Yield between statements so timers (resource monitor snapshots,
+            // heartbeat writes) can run without hitting an open query.
+            const { promise, resolve } = Promise.withResolvers<void>()
+            setImmediate(resolve)
+            await promise
+          }
         }
-        write("}}")
-        controller.close()
+        yield "]"
+      }
+      yield "}}"
+    }
+
+    const chunks = backupChunks()
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const { value, done } = await chunks.next()
+          if (done) controller.close()
+          else controller.enqueue(enc.encode(value))
+        } catch (err) {
+          controller.error(err)
+        }
+      },
+      cancel() {
+        chunks.return(undefined)
       }
     })
 

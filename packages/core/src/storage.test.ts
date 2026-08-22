@@ -917,16 +917,54 @@ describe("status page export/import", () => {
 })
 
 describe("backup tables", () => {
-  it("lists backupable table names and iterates rows", () => {
+  it("lists backupable table names and batches rows in order", () => {
     const names = storage.getBackupTableNames()
     for (const t of ["crawl_jobs", "crawls", "crawl_results", "url_state", "settings", "monitors", "heartbeats", "status_pages", "maintenance_windows"]) {
       expect(names).toContain(t)
     }
     expect(names).not.toContain("resource_snapshots")
-    storage.setSetting("iter-me", "1")
-    const rows = [...storage.iterateBackupTable("settings")]
-    expect(rows).toEqual([{ key: "iter-me", value: "1" }])
-    expect(() => [...storage.iterateBackupTable("sqlite_schema")]).toThrow(/Unknown backup table/)
+    storage.setSetting("iter-a", "1")
+    storage.setSetting("iter-b", "2")
+    const rows = [...storage.backupTableBatches("settings")].flat()
+    expect(rows).toEqual([
+      { key: "iter-a", value: "1" },
+      { key: "iter-b", value: "2" }
+    ])
+    expect(() => [...storage.backupTableBatches("sqlite_schema")]).toThrow(/Unknown backup table/)
+  })
+
+  it("respects batchSize and strips the internal rowid column", () => {
+    for (let i = 0; i < 5; i++) storage.setSetting(`batch-${i}`, `${i}`)
+    const batches = [...storage.backupTableBatches("settings", 2)]
+    expect(batches.length).toBeGreaterThanOrEqual(3)
+    for (const batch of batches) {
+      expect(batch.length).toBeLessThanOrEqual(2)
+      for (const row of batch) expect(row.__rowid).toBeUndefined()
+    }
+    expect(batches.flat()).toEqual([...storage.backupTableBatches("settings")].flat())
+  })
+
+  // Regression: production backup downloads died with
+  // "This database connection is busy executing a query" because the old
+  // iterateBackupTable held a live statement across event-loop yields while
+  // ResourceMonitor's interval wrote to the same connection. Batches must
+  // leave the connection free between pulls — and close() must not throw.
+  it("allows interleaved statements between batches (prod busy-connection regression)", () => {
+    storage.setSetting("busy-seed", "1")
+    const batches = storage.backupTableBatches("settings")
+    expect(batches.next().done).toBe(false) // one batch pulled, none open
+    expect(() =>
+      storage.insertResourceSnapshot({
+        rssMb: 1,
+        heapTotalMb: 1,
+        heapUsedMb: 1,
+        externalMb: 1,
+        cpuPercent: 1,
+        diskUsedMb: 1,
+        recordedAt: new Date().toISOString()
+      })
+    ).not.toThrow(/busy executing a query/)
+    expect(() => [...batches]).not.toThrow()
   })
 
   it("restoreFromBackup wipes prior data, restores rows and reports skips", () => {
