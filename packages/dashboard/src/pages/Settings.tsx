@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePageTitle } from "@/lib/usePageTitle"
 import { useSession } from "@/lib/auth-client"
 import { api, type UserNotificationSettings } from "@/lib/api"
@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { Bell, Loader2, Save, ShieldAlert } from "lucide-react"
+import { Bell, Loader2, Save, ShieldAlert, Download, Upload } from "lucide-react"
 import { isPushEnabled, setPushEnabled } from "@/lib/useCrawlNotifications"
 import { toast } from "@/lib/use-toast"
 import PageInfo from "@/components/PageInfo"
+import ConfirmDialog from "@/components/ConfirmDialog"
 import settingsExplainer from "@/content/settings-explainer.md?raw"
 
 interface Config {
@@ -81,6 +82,49 @@ export default function SettingsPage() {
   const { data: sessionData } = useSession()
   const role = (sessionData?.user as { role?: string } | undefined)?.role
   const isAdmin = role === "admin"
+
+  const restoreFileRef = useRef<HTMLInputElement>(null)
+  const [confirmRestore, setConfirmRestore] = useState<unknown>(null)
+  const [restoring, setRestoring] = useState(false)
+
+  async function handleBackup() {
+    try {
+      await api.backupAll()
+      toast({ title: "Backup downloaded", variant: "success" })
+    } catch (err) {
+      toast({ title: "Backup failed", description: (err as Error).message, variant: "destructive" })
+    }
+  }
+
+  function handleRestoreFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    file.text().then((text) => {
+      try {
+        setConfirmRestore(JSON.parse(text))
+      } catch (err) {
+        toast({ title: "Invalid backup file", description: (err as Error).message, variant: "destructive" })
+      }
+    })
+    e.target.value = ""
+  }
+
+  async function doRestore() {
+    if (!confirmRestore) return
+    setRestoring(true)
+    try {
+      const result = await api.restoreAll(confirmRestore)
+      toast({ title: "Backup restored", variant: "success" })
+      setConfirmRestore(null)
+      // Reload so config/registration/users reflect the restored data.
+      window.location.reload()
+      return
+    } catch (err) {
+      toast({ title: "Restore failed", description: (err as Error).message, variant: "destructive" })
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   // User notification preferences
   const [notifSettings, setNotifSettings] = useState<UserNotificationSettings | null>(null)
@@ -381,6 +425,25 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Backup &amp; Restore</CardTitle>
+              <CardDescription>
+                Download a full backup of all supacrawl data (monitors, status pages, crawl history, users) or
+                restore from a previous backup. The file may contain credentials from your settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={handleBackup}>
+                <Download className="mr-1 h-4 w-4" /> Download backup
+              </Button>
+              <Button variant="outline" onClick={() => restoreFileRef.current?.click()}>
+                <Upload className="mr-1 h-4 w-4" /> Restore backup
+              </Button>
+              <input ref={restoreFileRef} type="file" accept=".json" className="hidden" onChange={handleRestoreFile} />
+            </CardContent>
+          </Card>
+
           {config ? (
             <>
               <Card>
@@ -464,6 +527,16 @@ export default function SettingsPage() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmRestore !== null}
+        onOpenChange={(open) => { if (!open) setConfirmRestore(null) }}
+        title="Restore backup?"
+        description="This replaces ALL current supacrawl data with the contents of the backup file. This cannot be undone."
+        confirmLabel={restoring ? "Restoring..." : "Restore"}
+        loading={restoring}
+        onConfirm={doRestore}
+      />
     </div>
   )
 }

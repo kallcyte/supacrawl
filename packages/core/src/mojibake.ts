@@ -153,7 +153,10 @@ function extractMojibakeSample(text: string): string | null {
  */
 export function detectMojibake(body: Uint8Array, decodedText?: string): MojibakeResult {
   // Pure-ASCII bytes decode byte-for-byte under any single-byte charset, so
-  // they can never be mojibake. Skip chardet + heuristic + decode entirely.
+  // they can never be mojibake; skip chardet + heuristic + decode entirely.
+  // Safe to ignore `decodedText` here: every caller (checker.ts) passes the
+  // UTF-8 decode of this same body, which for pure-ASCII input is identical
+  // to the body's own bytes — no mojibake can appear only in that string.
   if (!hasNonAscii(body)) return { score: 0, flagged: false, sample: null }
 
   const sample =

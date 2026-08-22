@@ -15,12 +15,11 @@ function extractLlmSample(text: string): string | null {
     re.lastIndex = 0
     const m = re.exec(text)
     if (m) {
-      const vt = text.replace(/\s+/g, " ")
       const start = Math.max(0, m.index - 40)
-      const end = Math.min(vt.length, m.index + m[0].length + 40)
-      let s = vt.slice(start, end)
+      const end = Math.min(text.length, m.index + m[0].length + 40)
+      let s = text.slice(start, end)
       if (start > 0) s = "…" + s
-      if (end < vt.length) s = s + "…"
+      if (end < text.length) s = s + "…"
       return s
     }
   }

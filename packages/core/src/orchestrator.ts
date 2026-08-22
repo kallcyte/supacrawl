@@ -171,9 +171,21 @@ export async function runCrawlWithPersistence(
     const finalState = opts.storage.getCrawl(crawlId)
     if (!finalState) throw new Error("Crawl record vanished")
 
+    // A crawl that could not fetch a single URL (e.g. the sitemap is
+    // unreachable) is a failure, not an empty success. runCrawl swallows
+    // sitemap/robots errors into its errors array, so detect the
+    // nothing-fetched case here. A legitimately empty sitemap (zero URLs,
+    // zero errors) still completes.
+    const totalFetchFailure =
+      crawlErrors.length > 0 &&
+      finalState.urlsTotal === 0 &&
+      finalState.urlsChecked === 0
+    const crawlStatus = totalFetchFailure ? "failed" : "completed"
+    const finishedAtIso = new Date().toISOString()
+
     opts.storage.updateCrawl(crawlId, {
-      status: "completed",
-      finishedAt: new Date().toISOString(),
+      status: crawlStatus,
+      finishedAt: finishedAtIso,
       errorMessage: crawlErrors.length > 0 ? crawlErrors.join("; ") : null
     })
 
@@ -296,7 +308,7 @@ export async function runCrawlWithPersistence(
 
     return {
       crawlId,
-      record: { ...finalState, status: "completed", finishedAt: new Date().toISOString() }
+      record: { ...finalState, status: crawlStatus, finishedAt: finishedAtIso }
     }
   } catch (err) {
     opts.storage.updateCrawl(crawlId, {

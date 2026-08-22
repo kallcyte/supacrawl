@@ -33,12 +33,12 @@ export async function checkSsl(host: string, timeoutMs = 10000): Promise<SslInfo
       },
       () => {
         const cert = socket.getPeerCertificate()
-        if (!cert || !cert.valid_to) {
+        const validUntil = new Date(cert?.valid_to as string)
+        const validFrom = new Date(cert?.valid_from as string)
+        if (Number.isNaN(validUntil.getTime()) || Number.isNaN(validFrom.getTime())) {
           finish(null)
           return
         }
-        const validUntil = new Date(cert.valid_to)
-        const validFrom = new Date(cert.valid_from)
         const now = new Date()
         const daysRemaining = Math.floor((validUntil.getTime() - now.getTime()) / 86400000)
         finish({

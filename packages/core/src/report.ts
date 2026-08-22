@@ -1,3 +1,12 @@
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
 export interface ReportUrl {
   url: string
   detail?: string
@@ -37,8 +46,8 @@ export function buildCrawlReportHtml(opts: {
         ${title} (${count})
       </div>
       ${urls.map((r, i) => `<div style="padding:8px 16px;border-top:1px solid #f1f5f9;font-size:12px;${i > 0 ? "" : ""}">
-        <div style="color:#1e293b;word-break:break-all;">${r.url}</div>
-        ${r.detail ? `<div style="color:#64748b;font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:2px;">${r.detail}</div>` : ""}
+        <div style="color:#1e293b;word-break:break-all;">${escapeHtml(r.url)}</div>
+        ${r.detail ? `<div style="color:#64748b;font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:2px;">${escapeHtml(r.detail)}</div>` : ""}
       </div>`).join("")}
     </div>`
   }
@@ -50,7 +59,7 @@ export function buildCrawlReportHtml(opts: {
       <div>
         <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;opacity:0.8;margin-bottom:4px;">supacrawl</div>
         <h1 style="margin:0;font-size:20px;font-weight:700;line-height:1.2;">Crawl Report</h1>
-        <p style="margin:4px 0 0;font-size:11px;opacity:0.85;">ID: ${opts.crawlId.slice(0, 8)}</p>
+        <p style="margin:4px 0 0;font-size:11px;opacity:0.85;">ID: ${escapeHtml(opts.crawlId.slice(0, 8))}</p>
       </div>
       <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:10px 16px;text-align:center;min-width:64px;">
         <div style="font-size:8px;font-weight:600;text-transform:uppercase;opacity:0.75;margin-bottom:2px;">Health</div>

@@ -21,10 +21,19 @@ export async function fetchAndParseRobots(
     if (!res.ok) return noop
     const text = await res.text()
     const robot = robotsParser(url, text)
+    const sitemaps: string[] = []
+    for (const entry of robot.getSitemaps()) {
+      try {
+        const absolute = new URL(entry, url).toString()
+        if (!sitemaps.includes(absolute)) sitemaps.push(absolute)
+      } catch {
+        // drop sitemap entries that cannot be parsed as a URL
+      }
+    }
     return {
       allowed: (u: string) => robot.isAllowed(u, "*") ?? true,
       crawlDelay: robot.getCrawlDelay("*") ?? null,
-      sitemaps: robot.getSitemaps()
+      sitemaps
     }
   } catch {
     return noop

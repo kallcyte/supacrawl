@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { Hono } from "hono"
 import { z } from "zod"
-import { MonitorSchema, MaintenanceWindowSchema } from "@supacrawl/core"
+import { MonitorSchema, MaintenanceWindowSchema, MonitorsExportSchema, MaintenanceWindowsExportSchema } from "@supacrawl/core"
 import type { MonitorRecord, MaintenanceWindowRecord } from "@supacrawl/core"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin, requireAuth } from "../auth-helpers.js"
@@ -63,6 +63,42 @@ export function monitorsRoutes(app: Hono, deps: RouteDeps): void {
     if (!session) return c.json({ error: "Unauthorized" }, 401)
     const monitors = deps.storage.listMonitors()
     return c.json({ monitors })
+  })
+
+  app.get("/api/monitors/export", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const { monitors, heartbeats } = deps.storage.exportMonitors()
+    return c.json({
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      monitors,
+      heartbeats
+    })
+  })
+
+  app.post("/api/monitors/import", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = MonitorsExportSchema.parse(await c.req.json())
+    const records: MonitorRecord[] = body.monitors.map((m) => ({
+      ...m,
+      expectedBody: m.expectedBody ?? null,
+      jobId: m.jobId ?? null
+    }))
+    const heartbeats = (body.heartbeats ?? []).map((h) => ({
+      ...h,
+      status: h.status,
+      responseTimeMs: h.responseTimeMs ?? null,
+      message: h.message ?? null
+    }))
+    const result = deps.storage.importMonitors(records, heartbeats)
+    // Restart the scheduler for any freshly enabled monitors so checks resume.
+    for (const m of deps.storage.listMonitors()) {
+      if (m.enabled) deps.monitorScheduler.startMonitor(m.id)
+    }
+    if (globalThis.gc) globalThis.gc()
+    return c.json(result)
   })
 
   app.post("/api/monitors/bulk", async (c) => {
@@ -213,6 +249,26 @@ export function monitorsRoutes(app: Hono, deps: RouteDeps): void {
     }
     deps.storage.createMaintenanceWindow(window)
     return c.json(window)
+  })
+
+  app.get("/api/maintenance-windows/export", async (c) => {
+    const session = await requireAuth(c, deps.auth)
+    if (!session) return c.json({ error: "Unauthorized" }, 401)
+    const windows = deps.storage.exportMaintenanceWindows()
+    return c.json({
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      windows
+    })
+  })
+
+  app.post("/api/maintenance-windows/import", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = MaintenanceWindowsExportSchema.parse(await c.req.json())
+    const result = deps.storage.importMaintenanceWindows(body.windows)
+    if (globalThis.gc) globalThis.gc()
+    return c.json(result)
   })
 
   app.delete("/api/maintenance-windows/:id", async (c) => {

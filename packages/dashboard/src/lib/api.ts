@@ -450,6 +450,64 @@ export const api = {
   importCrawlJobs: (data: { version: 1; exportedAt: string; jobs: CrawlJob[] }) =>
     request<{ imported: number }>("/api/crawl-jobs/import", { method: "POST", body: JSON.stringify(data) }),
 
+  exportMonitors: () =>
+    request<{ version: 1; exportedAt: string; monitors: (Monitor & { id: string; createdAt: string; updatedAt: string })[]; heartbeats: Heartbeat[] }>("/api/monitors/export"),
+
+  importMonitors: (data: { version: 1; exportedAt: string; monitors: (Monitor & { id: string; createdAt: string; updatedAt: string })[]; heartbeats?: Heartbeat[] }) =>
+    request<{ imported: number; skippedDuplicates: number; mergedIntoExisting: number; heartbeatsAdded: number }>(
+      "/api/monitors/import",
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+
+  exportMaintenanceWindows: () =>
+    request<{ version: 1; exportedAt: string; windows: MaintenanceWindow[] }>("/api/maintenance-windows/export"),
+
+  importMaintenanceWindows: (data: { version: 1; exportedAt: string; windows: MaintenanceWindow[] }) =>
+    request<{ imported: number; skippedUnknownMonitor: number }>("/api/maintenance-windows/import", {
+      method: "POST",
+      body: JSON.stringify(data)
+    }),
+
+  exportStatusPages: () =>
+    request<{
+      version: 1
+      exportedAt: string
+      pages: (StatusPageRecord & { monitors: { monitorId: string; sortOrder: number; groupName: string }[] })[]
+    }>("/api/status-pages/export"),
+
+  importStatusPages: (data: {
+    version: 1
+    exportedAt: string
+    pages: (StatusPageRecord & { monitors: { monitorId: string; sortOrder: number; groupName?: string }[] })[]
+  }) =>
+    request<{ imported: number; updated: number; linked: number; droppedLinks: number }>("/api/status-pages/import", {
+      method: "POST",
+      body: JSON.stringify(data)
+    }),
+
+  backupAll: async () => {
+    const res = await fetch("/api/settings/backup", { credentials: "include" })
+    if (!res.ok) {
+      let body: unknown
+      try { body = await res.json() } catch { body = await res.text() }
+      throw new ApiError(res.status, body)
+    }
+    const blob = await res.blob()
+    const filename = res.headers.get("content-disposition")?.match(/filename="(.+)"/)?.[1] ?? `supacrawl-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  restoreAll: (data: unknown) =>
+    request<{ ok: boolean; restored: Record<string, number>; skippedRows: Record<string, number>; errors: string[] }>(
+      "/api/settings/restore",
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+
   getUserNotifications: () =>
     request<UserNotificationSettings>("/api/user/notifications"),
 

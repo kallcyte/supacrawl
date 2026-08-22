@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { usePageTitle } from "@/lib/usePageTitle"
+import { useSession } from "@/lib/auth-client"
 import { api, type StatusPageRecord, type MonitorWithStatus } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -7,13 +8,16 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { formatDate } from "@/lib/utils"
-import { Plus, Pencil, Trash2, ExternalLink, Copy, Check } from "lucide-react"
+import { Plus, Pencil, Trash2, ExternalLink, Copy, Check, Download, Upload } from "lucide-react"
 import StatusPageDialog from "@/components/StatusPageDialog"
 import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
 
 export default function StatusPagesPage() {
   usePageTitle("Status Pages")
+  const { data: sessionData } = useSession()
+  const role = (sessionData?.user as { role?: string } | undefined)?.role
+  const isAdmin = role === "admin"
   const [pages, setPages] = useState<(StatusPageRecord & { monitorCount: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +79,42 @@ export default function StatusPagesPage() {
     }
   }
 
+  const spFileRef = useRef<HTMLInputElement>(null)
+
+  async function handleExport() {
+    try {
+      const data = await api.exportStatusPages()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `supacrawl-status-pages-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: "Status pages exported", variant: "success" })
+    } catch (err) {
+      toast({ title: "Export failed", description: (err as Error).message, variant: "destructive" })
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const parsed = JSON.parse(await file.text())
+      const result = await api.importStatusPages(parsed)
+      await load()
+      toast({
+        title: `${result.imported} imported, ${result.updated} updated`,
+        description: result.droppedLinks > 0 ? `${result.droppedLinks} link(s) dropped (unknown monitor)` : undefined,
+        variant: "success"
+      })
+    } catch (err) {
+      toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" })
+    }
+    e.target.value = ""
+  }
+
   if (loading && pages.length === 0) {
     return (
       <div className="space-y-4">
@@ -93,9 +133,22 @@ export default function StatusPagesPage() {
             Create public status pages to share live monitoring status
           </p>
         </div>
-        <Button onClick={() => { setEditPage(null); setDialogOpen(true) }}>
-          <Plus className="mr-1 h-4 w-4" /> Create Status Page
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="mr-1 h-4 w-4" /> Export
+          </Button>
+          {isAdmin && (
+            <>
+              <Button variant="outline" onClick={() => spFileRef.current?.click()}>
+                <Upload className="mr-1 h-4 w-4" /> Import
+              </Button>
+              <input ref={spFileRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+              <Button onClick={() => { setEditPage(null); setDialogOpen(true) }}>
+                <Plus className="mr-1 h-4 w-4" /> Create Status Page
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { Hono } from "hono"
 import { z } from "zod"
-import { StatusPageSchema } from "@supacrawl/core"
+import { StatusPageSchema, StatusPagesExportSchema } from "@supacrawl/core"
 import type { StatusPageRecord } from "@supacrawl/core"
 import type { RouteDeps } from "./index.js"
 import { requireAdmin } from "../auth-helpers.js"
@@ -26,6 +26,26 @@ export function statusPagesRoutes(app: Hono, deps: RouteDeps): void {
       monitorCount: deps.storage.getStatusPageMonitors(p.id).length
     }))
     return c.json({ pages: pagesWithCount })
+  })
+
+  app.get("/api/status-pages/export", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const pages = deps.storage.exportStatusPages()
+    return c.json({
+      version: 1 as const,
+      exportedAt: new Date().toISOString(),
+      pages
+    })
+  })
+
+  app.post("/api/status-pages/import", async (c) => {
+    const session = await requireAdmin(c, deps.auth)
+    if (!session) return c.json({ error: "Forbidden" }, 403)
+    const body = StatusPagesExportSchema.parse(await c.req.json())
+    const result = deps.storage.importStatusPages(body.pages)
+    if (globalThis.gc) globalThis.gc()
+    return c.json(result)
   })
 
   // Create status page (admin)

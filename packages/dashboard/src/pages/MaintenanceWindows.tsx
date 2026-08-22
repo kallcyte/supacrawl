@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { usePageTitle } from "@/lib/usePageTitle"
 import { api, type MaintenanceWindow, type Monitor } from "@/lib/api"
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { formatDate } from "@/lib/utils"
-import { CalendarClock, Plus, Trash2, Loader2 } from "lucide-react"
+import { CalendarClock, Plus, Trash2, Loader2, Download, Upload } from "lucide-react"
 import ConfirmDialog from "@/components/ConfirmDialog"
 import { toast } from "@/lib/use-toast"
 
@@ -57,6 +57,42 @@ export default function MaintenanceWindowsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const mwFileRef = useRef<HTMLInputElement>(null)
+
+  async function handleExport() {
+    try {
+      const data = await api.exportMaintenanceWindows()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `supacrawl-maintenance-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: "Maintenance windows exported", variant: "success" })
+    } catch (err) {
+      toast({ title: "Export failed", description: (err as Error).message, variant: "destructive" })
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const parsed = JSON.parse(await file.text())
+      const result = await api.importMaintenanceWindows(parsed)
+      await load()
+      toast({
+        title: `${result.imported} maintenance window(s) imported`,
+        description: result.skippedUnknownMonitor > 0 ? `${result.skippedUnknownMonitor} skipped (unknown monitor)` : undefined,
+        variant: "success"
+      })
+    } catch (err) {
+      toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" })
+    }
+    e.target.value = ""
   }
 
   useEffect(() => {
@@ -128,12 +164,25 @@ export default function MaintenanceWindowsPage() {
             Schedule downtime so monitors don't fire false alerts
           </p>
         </div>
-        {isAdmin && (
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            New Window
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="mr-1 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
-        )}
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => mwFileRef.current?.click()}>
+                <Upload className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <input ref={mwFileRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                New Window
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (

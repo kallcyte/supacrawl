@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePageTitle } from "@/lib/usePageTitle"
 import { Link } from "react-router-dom"
 import { api, type Monitor, type MonitorWithStatus } from "@/lib/api"
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { formatDate } from "@/lib/utils"
 import {
-  Plus, Pencil, Trash2, Activity, LayoutGrid, List
+  Plus, Pencil, Trash2, Activity, LayoutGrid, List, Download, Upload
 } from "lucide-react"
 import monitorExplainer from "@/content/monitor-explainer.md?raw"
 import PageInfo from "@/components/PageInfo"
@@ -95,6 +95,43 @@ export default function MonitorsPage() {
     const i = setInterval(load, 10000)
     return () => clearInterval(i)
   }, [])
+
+  const monitorFileRef = useRef<HTMLInputElement>(null)
+
+  async function handleExportMonitors() {
+    try {
+      const data = await api.exportMonitors()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `supacrawl-monitors-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: "Monitors exported", variant: "success" })
+    } catch (err) {
+      toast({ title: "Export failed", description: (err as Error).message, variant: "destructive" })
+    }
+  }
+
+  async function handleImportMonitorsFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const parsed = JSON.parse(await file.text())
+      const result = await api.importMonitors(parsed)
+      await load()
+      toast({
+        title: `${result.imported} monitor(s) imported`,
+        description:
+          `${result.skippedDuplicates} duplicate(s) skipped, ${result.heartbeatsAdded} heartbeat(s) added`,
+        variant: "success"
+      })
+    } catch (err) {
+      toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" })
+    }
+    e.target.value = ""
+  }
 
   async function handleCreate(data: Partial<Monitor>) {
     try {
@@ -185,11 +222,22 @@ export default function MonitorsPage() {
               <List className="h-4 w-4" />
             </button>
           </div>
+          <Button variant="outline" size="sm" onClick={handleExportMonitors}>
+            <Download className="mr-1 h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
           {isAdmin && (
-            <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Add Monitor</span>
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => monitorFileRef.current?.click()}>
+                <Upload className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              <input ref={monitorFileRef} type="file" accept=".json" className="hidden" onChange={handleImportMonitorsFile} />
+              <Button size="sm" onClick={() => { setEditing(null); setDialogOpen(true) }}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Add Monitor</span>
+              </Button>
+            </>
           )}
         </div>
       </div>

@@ -595,3 +595,78 @@ export interface ResourceSnapshot {
   diskUsedMb: number
   recordedAt: string
 }
+
+export const MonitorExportItemSchema = MonitorSchema.extend({
+  id: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+})
+
+export const HeartbeatExportSchema = z.object({
+  id: z.string(),
+  monitorId: z.string(),
+  status: HeartbeatStatusSchema,
+  responseTimeMs: z.number().nullable().optional(),
+  message: z.string().nullable().optional(),
+  checkedAt: z.string()
+})
+
+export const MonitorsExportSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  monitors: z.array(MonitorExportItemSchema),
+  heartbeats: z.array(HeartbeatExportSchema).default([])
+})
+export type MonitorsExport = z.infer<typeof MonitorsExportSchema>
+
+export const MaintenanceWindowExportItemSchema = z.object({
+  id: z.string(),
+  monitorId: z.string(),
+  title: z.string().min(1),
+  description: z.string().nullable().optional(),
+  startAt: z.string(),
+  endAt: z.string(),
+  createdAt: z.string()
+})
+
+export const MaintenanceWindowsExportSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  windows: z.array(MaintenanceWindowExportItemSchema)
+})
+export type MaintenanceWindowsExport = z.infer<typeof MaintenanceWindowsExportSchema>
+
+export const StatusPageMonitorLinkSchema = z.object({
+  monitorId: z.string(),
+  sortOrder: z.number().int().default(0),
+  groupName: z.string().optional()
+})
+
+export const StatusPageExportItemSchema = z.object({
+  id: z.string(),
+  slug: StatusPageSchema.shape.slug,
+  title: StatusPageSchema.shape.title,
+  description: z.string().nullable().optional(),
+  showResponseTimes: z.boolean().default(true),
+  public: z.boolean().default(true),
+  createdAt: z.string(),
+  monitors: z.array(StatusPageMonitorLinkSchema).default([])
+})
+
+export const StatusPagesExportSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string(),
+  pages: z.array(StatusPageExportItemSchema)
+})
+export type StatusPagesExport = z.infer<typeof StatusPagesExportSchema>
+
+// Full backup payload. Rows are validated loosely on purpose: they mirror the
+// SQLite tables verbatim, and strict per-column schemas would break forward
+// compatibility with older exports. Storage filters rows to known columns.
+export const FullBackupSchema = z.object({
+  version: z.literal(1),
+  exportedAt: z.string().optional(),
+  app: z.string().optional(),
+  tables: z.record(z.string(), z.array(z.record(z.string(), z.any())))
+})
+export type FullBackup = z.infer<typeof FullBackupSchema>

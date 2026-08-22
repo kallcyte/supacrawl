@@ -56,6 +56,60 @@ Environment variables:
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Optional GitHub social login |
 | `PORT` / `HOST` | Server bind settings (default `3456` / `0.0.0.0`) |
 
+## Tech stack
+
+```mermaid
+flowchart TB
+    subgraph dash["🖥 Dashboard — packages/dashboard"]
+        UI["React 18 · react-router 6"]
+        RADIX["Radix UI · lucide icons"]
+        TW["Tailwind CSS 4 · CVA"]
+        CHARTS["Recharts 2"]
+        EXPORT["ExcelJS · JSZip"]
+    end
+
+    subgraph srv["🔌 API — packages/server"]
+        HONO["Hono 4 · @hono/node-server"]
+        AUTH["better-auth"]
+        WS["ws · live updates"]
+    end
+
+    subgraph core["⚙️ Engine — @supacrawl/core"]
+        CRAWL["Crawler — undici fetch · p-limit"]
+        SM["Sitemaps — fast-xml-parser · zlib"]
+        RB["robots.txt — robots-parser"]
+        QC["Checks — chardet · tls · net"]
+        SEO["SEO scoring · reports"]
+        NOTIF["Slack · Telegram · Webhook · SMTP"]
+    end
+
+    DB[("better-sqlite3 · WAL")]
+    WEB["Crawled targets"]
+    EXT["External services"]
+
+    UI -->|"REST + ws"| HONO
+    RADIX -.-> UI
+    TW -.-> UI
+    CHARTS -.-> UI
+    EXPORT -.-> UI
+    AUTH -.-> HONO
+    WS -.-> UI
+    HONO --> CRAWL
+    HONO --> DB
+    CRAWL --> SM
+    CRAWL --> RB
+    CRAWL --> QC
+    QC --> SEO
+    CRAWL --> DB
+    CRAWL --> WEB
+    NOTIF --> EXT
+```
+
+A single SQLite database (WAL mode) is shared by the server and the crawl
+engine — no external services beyond the notification targets themselves.
+Shared foundation: TypeScript 5.6 (strict, ESM), Node >= 22, pnpm workspaces,
+tsup builds, Vitest.
+
 ## Development
 
 ```bash
@@ -80,6 +134,6 @@ start.
 ```
 packages/
   core/        Shared types, storage (SQLite), crawler, notifier, monitor scheduler
-  server/      Fastify HTTP server, auth, API routes, dashboard hosting
+  server/      Hono HTTP server, auth, API routes, dashboard hosting
   dashboard/   React + Vite web app
 ```

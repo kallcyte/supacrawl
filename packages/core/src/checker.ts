@@ -29,6 +29,9 @@ async function readBodyCapped(
   let total = 0
   let truncated = false
 
+  // Hashes every chunk as it arrives, BEFORE the maxBytes cap applies:
+  // contentHash always covers the FULL response body (stable change detection),
+  // while only the retained bytes handed to SEO/mojibake analysis are capped.
   const pushChunk = (value: Uint8Array): void => {
     hash.update(value)
     const remaining = maxBytes - total
@@ -131,13 +134,27 @@ export async function checkUrl(
       let currentUrl = url
       const chain: string[] = []
       let res: Response
+      // Some servers reject HEAD probes with 405/501; fall back to GET once so
+      // those URLs still get hashed and analyzed.
+      let requestMethod = method
+      let headFallbackUsed = false
       for (let i = 0; i < MAX_REDIRECTS; i++) {
         res = await fetchImpl(currentUrl, {
-          method,
+          method: requestMethod,
           redirect: "manual",
           headers: { "User-Agent": ctx.config.userAgent },
           signal: AbortSignal.timeout(ctx.config.timeoutMs)
         })
+        if (
+          method === "HEAD" &&
+          !headFallbackUsed &&
+          (res.status === 405 || res.status === 501)
+        ) {
+          headFallbackUsed = true
+          requestMethod = "GET"
+          res.body?.cancel().catch(() => {})
+          continue
+        }
         if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
           const next = new URL(res.headers.get("location")!, currentUrl).toString()
           if (chain.includes(next)) {
@@ -159,7 +176,9 @@ export async function checkUrl(
       result.responseTimeMs = Math.round(performance.now() - start)
       result.redirectChain = chain
       result.finalUrl = currentUrl
-      if (finalRes.status >= 200 && finalRes.status < 300 && method === "GET") {
+      // The body/seo/hash data came from the fallback GET, not the HEAD probe
+      if (headFallbackUsed) result.checkMethod = "GET"
+      if (finalRes.status >= 200 && finalRes.status < 300 && requestMethod === "GET") {
         const { body, hash, truncated } = await readBodyCapped(
           finalRes,
           ctx.config.maxBodyBytes

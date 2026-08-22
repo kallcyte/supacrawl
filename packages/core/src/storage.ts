@@ -1123,6 +1123,338 @@ export class Storage {
     this.db.prepare(`DELETE FROM maintenance_windows WHERE id = ?`).run(id)
   }
 
+  // ─── Import / export ───
+
+  exportMonitors(): { monitors: MonitorRecord[]; heartbeats: Heartbeat[] } {
+    const monitorRows = this.db
+      .prepare(`SELECT * FROM monitors ORDER BY created_at ASC`)
+      .all() as Record<string, unknown>[]
+    const heartbeatRows = this.db
+      .prepare(`SELECT * FROM heartbeats ORDER BY checked_at ASC`)
+      .all() as Record<string, unknown>[]
+    return {
+      monitors: monitorRows.map(mapMonitor),
+      heartbeats: heartbeatRows.map(mapHeartbeat)
+    }
+  }
+
+  /**
+   * Imports monitors plus their heartbeat history. Monitors are deduped by
+   * (type, url, method): a duplicate maps onto the existing monitor so its
+   * heartbeats merge in instead of doubling the fleet. Original ids and
+   * timestamps are preserved; heartbeats use INSERT OR IGNORE so re-importing
+   * the same file is a no-op.
+   */
+  importMonitors(
+    monitors: MonitorRecord[],
+    heartbeats: Heartbeat[]
+  ): { imported: number; skippedDuplicates: number; mergedIntoExisting: number; heartbeatsAdded: number } {
+    const byKey = new Map<string, string>()
+    const knownIds = new Set<string>()
+    for (const row of this.db.prepare(`SELECT id, type, url, method FROM monitors`).all() as Record<string, unknown>[]) {
+      const id = row.id as string
+      knownIds.add(id)
+      byKey.set(`${row.type}|${row.url}|${row.method}`, id)
+    }
+    const idRemap = new Map<string, string>()
+    let imported = 0
+    let skippedDuplicates = 0
+    let mergedIntoExisting = 0
+
+    const insertHeartbeat = this.db.prepare(
+      `INSERT OR IGNORE INTO heartbeats (id, monitor_id, status, response_time_ms, message, checked_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+
+    const tx = this.db.transaction(() => {
+      for (const m of monitors) {
+        const key = `${m.type}|${m.url}|${m.method}`
+        const existingId = byKey.get(key)
+        if (existingId) {
+          idRemap.set(m.id, existingId)
+          skippedDuplicates++
+          mergedIntoExisting++
+          continue
+        }
+        let newId = m.id
+        if (knownIds.has(newId)) newId = randomUUID()
+        this.createMonitor({ ...m, id: newId })
+        knownIds.add(newId)
+        byKey.set(key, newId)
+        idRemap.set(m.id, newId)
+        imported++
+      }
+
+      let heartbeatsAdded = 0
+      for (const h of heartbeats) {
+        const monitorId = idRemap.get(h.monitorId) ?? h.monitorId
+        if (!knownIds.has(monitorId)) continue // dangling heartbeat from an unknown monitor
+        const info = insertHeartbeat.run(h.id, monitorId, h.status, h.responseTimeMs, h.message, h.checkedAt)
+        heartbeatsAdded += info.changes
+      }
+      return heartbeatsAdded
+    })
+
+    const heartbeatsAdded = tx()
+    return { imported, skippedDuplicates, mergedIntoExisting, heartbeatsAdded }
+  }
+
+  exportMaintenanceWindows(): MaintenanceWindowRecord[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM maintenance_windows ORDER BY start_at DESC`)
+      .all() as Record<string, unknown>[]
+    return rows.map(mapMaintenanceWindow)
+  }
+
+  /** Imports windows against the current monitors; unknown monitorIds are skipped. Idempotent via INSERT OR IGNORE. */
+  importMaintenanceWindows(windows: MaintenanceWindowRecord[]): { imported: number; skippedUnknownMonitor: number } {
+    const knownMonitors = new Set(
+      (this.db.prepare(`SELECT id FROM monitors`).all() as Record<string, unknown>[]).map((r) => r.id as string)
+    )
+    let imported = 0
+    let skippedUnknownMonitor = 0
+    const insert = this.db.prepare(
+      `INSERT OR IGNORE INTO maintenance_windows (id, monitor_id, title, description, start_at, end_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    const tx = this.db.transaction(() => {
+      for (const w of windows) {
+        if (!knownMonitors.has(w.monitorId)) {
+          skippedUnknownMonitor++
+          continue
+        }
+        imported += insert.run(w.id, w.monitorId, w.title, w.description ?? null, w.startAt, w.endAt, w.createdAt).changes
+      }
+    })
+    tx()
+    return { imported, skippedUnknownMonitor }
+  }
+
+  exportStatusPages(): (StatusPageRecord & { monitors: { monitorId: string; sortOrder: number; groupName: string }[] })[] {
+    const pages = this.listStatusPages()
+    const linksByPage = new Map<string, { monitorId: string; sortOrder: number; groupName: string }[]>()
+    const rows = this.db
+      .prepare(`SELECT status_page_id, monitor_id, sort_order, group_name FROM status_page_monitors ORDER BY sort_order ASC`)
+      .all() as Record<string, unknown>[]
+    for (const row of rows) {
+      const pageId = row.status_page_id as string
+      if (!linksByPage.has(pageId)) linksByPage.set(pageId, [])
+      linksByPage.get(pageId)!.push({
+        monitorId: row.monitor_id as string,
+        sortOrder: (row.sort_order as number) ?? 0,
+        groupName: (row.group_name as string) ?? ""
+      })
+    }
+    return pages.map((p) => ({ ...p, monitors: linksByPage.get(p.id) ?? [] }))
+  }
+
+  /**
+   * Upserts status pages by slug (existing slugs are updated in place), then
+   * replaces their monitor links. Links pointing at unknown monitors are
+   * dropped so a fresh instance only links what it actually has.
+   */
+  importStatusPages(
+    pages: (StatusPageRecord & { monitors: { monitorId: string; sortOrder: number; groupName?: string }[] })[]
+  ): {
+    imported: number
+    updated: number
+    linked: number
+    droppedLinks: number
+  } {
+    const knownMonitorIds = new Set<string>()
+    for (const row of this.db.prepare(`SELECT id FROM monitors`).all() as Record<string, unknown>[]) {
+      knownMonitorIds.add(row.id as string)
+    }
+    let imported = 0
+    let updated = 0
+    let linked = 0
+    let droppedLinks = 0
+
+    const tx = this.db.transaction(() => {
+      for (const page of pages) {
+        const existing = this.getStatusPageBySlug(page.slug)
+        let pageId: string
+        if (existing) {
+          pageId = existing.id
+          this.updateStatusPage(existing.id, {
+            title: page.title,
+            description: page.description ?? null,
+            showResponseTimes: page.showResponseTimes,
+            public: page.public
+          })
+          updated++
+        } else {
+          pageId = page.id
+          if (this.getStatusPage(pageId)) pageId = randomUUID() // id collision with a different slug
+          this.createStatusPage({
+            id: pageId,
+            slug: page.slug,
+            title: page.title,
+            description: page.description ?? null,
+            showResponseTimes: page.showResponseTimes,
+            public: page.public,
+            createdAt: page.createdAt
+          })
+          imported++
+        }
+        const links = [...page.monitors]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .filter((l) => {
+            if (knownMonitorIds.has(l.monitorId)) return true
+            droppedLinks++
+            return false
+          })
+        linked += links.length
+        this.setStatusPageMonitors(pageId, links.map((l) => ({ monitorId: l.monitorId, groupName: l.groupName ?? "" })))
+      }
+    })
+    tx()
+    return { imported, updated, linked, droppedLinks }
+  }
+
+  // ─── Full backup / restore ───
+
+  /** Tables included in full backups. resource_snapshots/session/verification are ephemeral and excluded. */
+  getBackupTableNames(): string[] {
+    return [
+      "crawl_jobs",
+      "crawls",
+      "crawl_results",
+      "url_state",
+      "settings",
+      "monitors",
+      "heartbeats",
+      "status_pages",
+      "status_page_monitors",
+      "maintenance_windows",
+      "user_notification_settings",
+      "user",
+      "account"
+    ]
+  }
+
+  iterateBackupTable(table: string): IterableIterator<Record<string, unknown>> {
+    if (!this.getBackupTableNames().includes(table)) {
+      throw new Error(`Unknown backup table: ${table}`)
+    }
+    return this.db.prepare(`SELECT * FROM "${table}"`).iterate() as IterableIterator<Record<string, unknown>>
+  }
+
+  /**
+   * Wipes all backupable tables and repopulates them from a parsed backup
+   * payload inside one transaction. Rows are filtered to columns that exist in
+   * the live schema (older/newer exports degrade gracefully); rows missing a
+   * required column are skipped. Orphaned login sessions are pruned afterwards,
+   * so admins whose user record survives the restore stay logged in. Returns
+   * restored row counts per table plus skipped/error counts.
+   */
+  restoreFromBackup(
+    tables: Record<string, Record<string, unknown>[]>
+  ): { restored: Record<string, number>; skippedRows: Record<string, number>; errors: string[] } {
+    const whitelist = this.getBackupTableNames()
+    const errors: string[] = []
+    const restored: Record<string, number> = {}
+    const skippedRows: Record<string, number> = {}
+
+    // Children before parents keeps deletes FK-clean even with pragma on.
+    // NOTE: sessions must be pruned only AFTER the user table is repopulated —
+    // better-sqlite3 enforces FKs immediately, so deleting users while live
+    // sessions still reference them would fail the whole transaction.
+    const wipeOrder = [
+      "crawl_results",
+      "crawls",
+      "heartbeats",
+      "status_page_monitors",
+      "status_pages",
+      "maintenance_windows",
+      "monitors",
+      "crawl_jobs",
+      "url_state",
+      "user_notification_settings",
+      "account",
+      "user",
+      "settings"
+    ]
+
+    // FK enforcement must be suspended around the wipe: live login sessions
+    // reference users being replaced, and the pragma cannot be toggled from
+    // inside a transaction. Restored afterwards to better-sqlite3's default.
+    const fkWasOff = (this.db.pragma("foreign_keys", { simple: true }) as number) === 0
+    if (!fkWasOff) this.db.pragma("foreign_keys = OFF")
+
+    const tx = this.db.transaction(() => {
+      for (const table of wipeOrder) {
+        this.db.prepare(`DELETE FROM "${table}"`).run()
+      }
+
+      for (const table of whitelist) {
+        const rows = tables[table]
+        if (!Array.isArray(rows)) continue
+        const cols = this.db.prepare(`PRAGMA table_info("${table}")`).all() as {
+          name: string
+          notnull: number
+          dflt_value: unknown
+          pk: number
+        }[]
+        const colByName = new Map(cols.map((c) => [c.name, c]))
+        // Columns the row MUST provide. NOT NULL without a default, plus any PK
+        // (TEXT PKs are not reported as NOT NULL but cannot be null anyway).
+        const requiredCols = new Set<string>()
+        for (const c of cols) {
+          if (c.notnull === 1 && c.dflt_value === null) requiredCols.add(c.name)
+          if (c.pk > 0) requiredCols.add(c.name)
+        }
+        // One prepared INSERT per distinct set of present columns, so missing
+        // (undefined) columns fall back to their DB defaults instead of NULL.
+        const statements = new Map<string, ReturnType<typeof this.db.prepare>>()
+        let ok = 0
+        let skipped = 0
+        for (const raw of rows) {
+          if (!raw || typeof raw !== "object") { skipped++; continue }
+          const missing = [...requiredCols].filter((name) => raw[name] === undefined || raw[name] === null)
+          if (missing.length > 0) {
+            skipped++
+            errors.push(`${table}: missing ${missing.join(", ")}`)
+            continue
+          }
+          const keys = Object.keys(raw).filter((k) => colByName.has(k) && raw[k] !== undefined)
+          if (keys.length === 0) { skipped++; continue }
+          const shapeKey = keys.join(",")
+          let stmt = statements.get(shapeKey)
+          if (!stmt) {
+            const colNames = keys.map((k) => `"${k}"`).join(", ")
+            const placeholders = keys.map(() => "?").join(", ")
+            stmt = this.db.prepare(`INSERT INTO "${table}" (${colNames}) VALUES (${placeholders})`)
+            statements.set(shapeKey, stmt)
+          }
+          try {
+            // .apply keeps the native statement bound as `this` (extracting
+            // .run alone throws "Illegal invocation"), and sidesteps the
+            // variadic tuple typing of better-sqlite3's run().
+            const runFn = stmt.run as (...v: unknown[]) => { changes: number }
+            ok += runFn.apply(stmt, keys.map((k) => raw[k])).changes
+          } catch (err) {
+            skipped++
+            errors.push(`${table}[${String(raw.id ?? "?")}]: ${(err as Error).message}`)
+          }
+        }
+        restored[table] = ok
+        skippedRows[table] = skipped
+      }
+
+      // Prune sessions whose user no longer exists (kept sessions survive if
+      // the user record was part of the restored backup).
+      this.db.prepare(`DELETE FROM session WHERE userId NOT IN (SELECT id FROM "user")`).run()
+    })
+
+    try {
+      tx()
+    } finally {
+      if (!fkWasOff) this.db.pragma("foreign_keys = ON")
+    }
+    return { restored, skippedRows, errors }
+  }
+
   // Stats
   getOverviewStats(): {
     totalUrls: number
