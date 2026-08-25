@@ -1,7 +1,29 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* Mono fonts — selectable at runtime via [data-font] */
+/* Scandinavian sans fonts — selectable at runtime via [data-sans-font] */
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/source-sans-3/400.css";
+@import "@fontsource/source-sans-3/500.css";
+@import "@fontsource/source-sans-3/600.css";
+@import "@fontsource/source-sans-3/700.css";
+@import "@fontsource/work-sans/400.css";
+@import "@fontsource/work-sans/500.css";
+@import "@fontsource/work-sans/600.css";
+@import "@fontsource/work-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+
+/* Mono fonts — selectable at runtime via [data-mono-font] */
 @import "@fontsource/space-mono/400.css";
 @import "@fontsource/space-mono/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
@@ -24,7 +46,7 @@
 @import "@fontsource/source-code-pro/600.css";
 @import "@fontsource/source-code-pro/700.css";
 
-@custom-variant dark (&:where([data-theme="tokyo-night"], [data-theme="tokyo-night"] *, [data-theme="mocha"], [data-theme="mocha"] *, [data-theme="macchiato"], [data-theme="macchiato"] *, [data-theme="frappe"], [data-theme="frappe"] *, [data-theme="nord"], [data-theme="nord"] *));
+@custom-variant dark (&:where([data-theme="tokyo-night"], [data-theme="tokyo-night"] *, [data-theme="mocha"], [data-theme="mocha"] *, [data-theme="macchiato"], [data-theme="macchiato"] *, [data-theme="frappe"], [data-theme="frappe"] *, [data-theme="nord"], [data-theme="nord"] *, [data-theme="scandinavian-dusk"], [data-theme="scandinavian-dusk"] *));
 
 /* ============================================================
    Theme palette blocks — each theme sets the full token set.
@@ -256,9 +278,88 @@
   --chart-6: 354 42% 56%;
 }
 
+[data-theme="scandinavian"] {
+  color-scheme: light;
+  --radius: 0.625rem;
+  --background: 42 27% 94%;          /* #f4f1e9 */
+  --foreground: 165 15% 20%;         /* #2b3834 */
+  --card: 42 33% 98%;                 /* #fbfaf6 */
+  --card-foreground: 165 15% 20%;
+  --primary: 171 23% 35%;             /* #456d68 */
+  --primary-foreground: 42 33% 98%;
+  --secondary: 84 17% 88%;            /* #e4e9df */
+  --secondary-foreground: 165 15% 20%;
+  --muted: 42 20% 90%;                /* #e9e6dc */
+  --muted-foreground: 160 8% 39%;     /* #626c67 */
+  --accent: 166 24% 90%;              /* #dfece7 */
+  --accent-foreground: 171 23% 27%;   /* #345450 */
+  --destructive: 5 44% 47%;            /* #ad5347 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 42 13% 82%;               /* #d4d1c8 */
+  --input: 42 13% 82%;
+  --ring: 171 23% 35%;
+  --popover: 42 33% 99%;              /* #fdfcf9 */
+  --popover-foreground: 165 15% 20%;
+  --success: 145 26% 38%;             /* #487a5c */
+  --warning: 31 50% 44%;              /* #a66c39 */
+  --info: 200 29% 43%;                /* #4e7890 */
+  --chart-1: 171 23% 35%;
+  --chart-2: 200 29% 43%;
+  --chart-3: 15 47% 50%;
+  --chart-4: 145 26% 38%;
+  --chart-5: 41 52% 48%;
+  --chart-6: 5 44% 47%;
+}
+
+[data-theme="scandinavian-dusk"] {
+  color-scheme: dark;
+  --radius: 0.625rem;
+  --background: 164 12% 14%;          /* #202826 */
+  --foreground: 43 28% 90%;           /* #e8e4d9 */
+  --card: 163 11% 19%;                /* #2b3532 */
+  --card-foreground: 43 28% 90%;
+  --primary: 161 29% 63%;             /* #7dbca9 */
+  --primary-foreground: 164 12% 14%;
+  --secondary: 159 13% 25%;           /* #364640 */
+  --secondary-foreground: 43 28% 90%;
+  --muted: 164 10% 22%;               /* #33403d */
+  --muted-foreground: 150 8% 68%;     /* #a5afa9 */
+  --accent: 161 19% 26%;              /* #364f49 */
+  --accent-foreground: 43 28% 90%;
+  --destructive: 8 58% 66%;            /* #dc8274 */
+  --destructive-foreground: 164 12% 14%;
+  --border: 160 10% 31%;              /* #4b5753 */
+  --input: 160 10% 31%;
+  --ring: 161 29% 63%;
+  --popover: 164 13% 11%;              /* #19201e */
+  --popover-foreground: 43 28% 90%;
+  --success: 141 31% 63%;             /* #7eb894 */
+  --warning: 36 64% 70%;              /* #e4be7e */
+  --info: 195 45% 69%;                /* #86bdce */
+  --chart-1: 161 29% 63%;
+  --chart-2: 195 45% 69%;
+  --chart-3: 19 57% 67%;
+  --chart-4: 141 31% 63%;
+  --chart-5: 38 65% 68%;
+  --chart-6: 8 58% 66%;
+}
+
+/* Scandinavian surfaces stay soft and tactile without adding visual noise. */
+[data-theme="scandinavian"] .bg-card,
+[data-theme="scandinavian-dusk"] .bg-card {
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04), 0 8px 24px hsl(var(--foreground) / 0.035);
+}
+
+/* Keep dense code/data regions monospace while the surrounding UI uses a humanist sans. */
+[data-theme="scandinavian"] .font-mono,
+[data-theme="scandinavian-dusk"] .font-mono {
+  font-family: var(--mono-font-stack);
+}
+
+
 @theme inline {
-  --font-sans: var(--ui-font-stack);
-  --font-mono: var(--ui-font-stack);
+  --font-sans: var(--body-font-stack, var(--sans-font-stack));
+  --font-mono: var(--mono-font-stack);
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -326,27 +427,60 @@
   --text-label--text-transform: uppercase;
 }
 
-/* Runtime font selection — set on <html> via [data-font] */
+/* Runtime font selection — set on <html> via [data-sans-font] and [data-mono-font] */
 :root {
-  --ui-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans-font-stack: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-:root[data-font="space-mono"] {
-  --ui-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+:root[data-sans-font="manrope"] {
+  --sans-font-stack: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-:root[data-font="jetbrains-mono"] {
-  --ui-font-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+:root[data-sans-font="dm-sans"] {
+  --sans-font-stack: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-:root[data-font="fira-code"] {
-  --ui-font-stack: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+:root[data-sans-font="source-sans-3"] {
+  --sans-font-stack: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-:root[data-font="roboto-mono"] {
-  --ui-font-stack: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+:root[data-sans-font="work-sans"] {
+  --sans-font-stack: "Work Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-:root[data-font="ibm-plex-mono"] {
-  --ui-font-stack: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+:root[data-sans-font="plus-jakarta-sans"] {
+  --sans-font-stack: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-:root[data-font="source-code-pro"] {
-  --ui-font-stack: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+:root[data-mono-font="space-mono"] {
+  --mono-font-stack: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-mono-font="jetbrains-mono"] {
+  --mono-font-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-mono-font="fira-code"] {
+  --mono-font-stack: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-mono-font="roboto-mono"] {
+  --mono-font-stack: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-mono-font="ibm-plex-mono"] {
+  --mono-font-stack: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-mono-font="source-code-pro"] {
+  --mono-font-stack: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+[data-theme="scandinavian"],
+[data-theme="scandinavian-dusk"] {
+  --body-font-stack: var(--sans-font-stack);
+}
+
+[data-theme="tokyo-night"],
+[data-theme="tokyo-day"],
+[data-theme="mocha"],
+[data-theme="macchiato"],
+[data-theme="frappe"],
+[data-theme="latte"],
+[data-theme="nord"] {
+  --body-font-stack: var(--mono-font-stack);
 }
 
 @layer base {

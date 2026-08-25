@@ -6,10 +6,13 @@ import {
   applyTheme,
   themeCounterpart,
   THEMES,
-  getInitialFont,
-  applyFont,
+  getInitialSansFont,
+  applySansFont,
+  getInitialMonoFont,
+  applyMonoFont,
   type Theme,
-  type UiFont
+  type SansFont,
+  type MonoFont
 } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -68,7 +71,8 @@ export default function Layout({ onSignOut }: LayoutProps) {
     return window.innerWidth >= 768
   })
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
-  const [font, setFont] = useState<UiFont>(() => getInitialFont())
+  const [sansFont, setSansFont] = useState<SansFont>(() => getInitialSansFont())
+  const [monoFont, setMonoFont] = useState<MonoFont>(() => getInitialMonoFont())
   const [appearanceOpen, setAppearanceOpen] = useState(false)
 
   useEffect(() => {
@@ -76,8 +80,12 @@ export default function Layout({ onSignOut }: LayoutProps) {
   }, [theme])
 
   useEffect(() => {
-    applyFont(font)
-  }, [font])
+    applySansFont(sansFont)
+  }, [sansFont])
+
+  useEffect(() => {
+    applyMonoFont(monoFont)
+  }, [monoFont])
 
   // Remember the sidebar open/close state across sessions. Only persist on
   // desktop so the mobile drawer's auto-close doesn't overwrite the preference.
@@ -276,9 +284,11 @@ export default function Layout({ onSignOut }: LayoutProps) {
         open={appearanceOpen}
         onOpenChange={setAppearanceOpen}
         theme={theme}
-        font={font}
+        sansFont={sansFont}
+        monoFont={monoFont}
         onTheme={setTheme}
-        onFont={setFont}
+        onSansFont={setSansFont}
+        onMonoFont={setMonoFont}
       />
     </div>
   )
