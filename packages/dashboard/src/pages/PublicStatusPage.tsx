@@ -5,7 +5,7 @@ import { api, type PublicStatusPageData, type PublicStatusMonitor } from "@/lib/
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import HeartbeatBar from "@/components/HeartbeatBar"
-import { getInitialTheme, applyTheme, themeCounterpart, type Theme } from "@/lib/theme"
+import { getInitialTheme, applyTheme, themeCounterpart, THEMES, type Theme } from "@/lib/theme"
 import { Moon, Sun } from "lucide-react"
 
 function formatRt(ms: number | null): string {
@@ -175,6 +175,7 @@ export default function PublicStatusPage() {
   }
 
   if (!data) return null
+  const isDark = THEMES.find((t) => t.id === theme)?.dark ?? true
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,9 +186,9 @@ export default function PublicStatusPage() {
           size="icon"
           className="h-9 w-9 rounded-sm"
           onClick={() => setTheme(themeCounterpart(theme))}
-          title={themeCounterpart(theme).includes("day") || themeCounterpart(theme) === "latte" ? "Dark mode" : "Light mode"}
+          title={isDark ? "Light mode" : "Dark mode"}
         >
-          {theme === "tokyo-day" || theme === "latte" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       </div>
 
